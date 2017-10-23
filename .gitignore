@@ -14,4 +14,4 @@ cocoa.egg-info
 cl*.sh
 aws_config.json
 *.DS_Store
-data
+datasets
