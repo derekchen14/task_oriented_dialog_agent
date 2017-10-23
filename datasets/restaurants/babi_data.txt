@@ -1,0 +1,4 @@
+Find the babi dataset here:
+  https://fb-public.app.box.com/s/chnq60iivzv5uckpvj2n2vijlyepze6w
+
+Once you have unzipped, there should be 29+1 = 30 text files

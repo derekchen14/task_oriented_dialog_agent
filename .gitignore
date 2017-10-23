@@ -1,0 +1,17 @@
+bin
+scr
+log
+.ipynb_checkpoints
+Makefile
+aws_config.json
+cocoa.egg-info
+*.pyc
+*.log
+*.pkl
+*.json
+*.png
+*.pdf
+cl*.sh
+aws_config.json
+*.DS_Store
+data
