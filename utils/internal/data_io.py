@@ -23,11 +23,18 @@ def parse_dialogue(lines, only_supporting=False):
     '''
     data = []
     dialogue = []
+    kb_dialogue = []
+    kb = []
     for line in lines:
         if line != '\n' and line != lines[-1]:
             nid, line = line.split(' ', 1)
             nid = int(nid)
             line = line.decode('utf-8').strip()
+
+            if len(line.split('\t')) == 1:
+                kb_dialogue.append(line.split('\t'))
+                continue
+
             q, a = line.split('\t')
             q = tokenize(q)
             a = tokenize(a)
@@ -35,12 +42,15 @@ def parse_dialogue(lines, only_supporting=False):
         else:
             data.append(dialogue)
             dialogue = []
-    return data
+            kb.append(kb_dialogue)
+            dialogue = []
+            kb_dialogue = []
+    return data, kb
 
 
 def word_to_glove_vector(glove, word):
     '''
-    :param embeddinds: Glove object from pytorchtext
+    :param glove: Glove object from pytorchtext
     :param word: str
     :return: the embedding vector of the word
     '''
@@ -63,11 +73,18 @@ def read_restuarant_data(filename):
         each token is usually a word or punctuation
     if the customer said nothing during their turn,
         special token of <SILENCE> is used
+
+    kb: the knowledge base in the format of
+    [u'saint_johns_chop_house R_post_code saint_johns_chop_house_post_code',
+    u'saint_johns_chop_house R_cuisine british', u'saint_johns_chop_house R_location west',
+    u'saint_johns_chop_house R_phone saint_johns_chop_house_phone',
+    u'saint_johns_chop_house R_address saint_johns_chop_house_address',
+    u'saint_johns_chop_house R_price moderate']
     '''
     with open(filename) as f:
         # max_length = None
-        data = parse_dialogue(f.readlines(), only_supporting=False)
-    return data
+        data, kb = parse_dialogue(f.readlines(), only_supporting=False)
+    return data, kb
 
 def read_car_data(filename):
     pass
@@ -92,8 +109,5 @@ def init_normal_words(vocab_size=1229, dim=100):
     # each word embedding is a column vector
     word_embeddings = truncnorm.rvs(a=mean, b=stddev, size=[dim, vocab_size])
     return word_embeddings
-
-
-
 
 
