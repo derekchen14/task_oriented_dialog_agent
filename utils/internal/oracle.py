@@ -41,14 +41,17 @@ def get_oracle_dialogs(lines, n=20):
     return data, kb
 
 
-def oracleExperiment(files, num_dialog_each_file, directory='datasets/restaurants/'):
+def oracleExperiment(files, num_dialog_each_file, directory='datasets/restaurants/', randomize=False):
     '''
     :param files: list of files you want to read from
     :param num_dialog_each_file: int
     :param directory: data directory
     :return:
     '''
-    order = np.random.permutation(num_dialog_each_file * len(files))
+    if randomize is True:
+        order = np.random.permutation(num_dialog_each_file * len(files))
+    else:
+        order = range(num_dialog_each_file * len(files))
     data = []
     kbs = []
     for file in files:
@@ -69,7 +72,7 @@ directory = 'datasets/restaurants/'
 files = ['dialog-babi-task5-full-dialogs-trn.txt', 'dialog-babi-task6-dstc2-trn.txt']
 num_dialog_each_file = 2
 
-oracleExperiment(files, num_dialog_each_file)
+oracleExperiment(files, num_dialog_each_file, randomize=True)
 
 
 
