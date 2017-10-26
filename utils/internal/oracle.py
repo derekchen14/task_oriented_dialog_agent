@@ -59,6 +59,7 @@ def oracleExperiment(files, num_dialog_each_file, directory='datasets/restaurant
             kbs += kb
 
     for i in order:
+        print "--------NEW CUSTOMER--------"
         for turn in data[i]:
             print turn[0]
             pause()
