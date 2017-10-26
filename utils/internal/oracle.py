@@ -41,7 +41,7 @@ def get_oracle_dialogs(lines, n=20):
     return data, kb
 
 
-def oracleExperiment(files, num_dialog_each_file, directory='../../datasets/restaurants/'):
+def oracleExperiment(files, num_dialog_each_file, directory='datasets/restaurants/'):
     '''
     :param files: list of files you want to read from
     :param num_dialog_each_file: int
@@ -64,7 +64,7 @@ def oracleExperiment(files, num_dialog_each_file, directory='../../datasets/rest
             pause()
 
 
-directory = '../../datasets/restaurants/'
+directory = 'datasets/restaurants/'
 files = ['dialog-babi-task5-full-dialogs-trn.txt', 'dialog-babi-task6-dstc2-trn.txt']
 num_dialog_each_file = 2
 
