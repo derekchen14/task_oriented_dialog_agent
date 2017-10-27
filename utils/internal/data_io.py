@@ -16,7 +16,7 @@ def tokenize(sent):
     return sent.split()
 
 
-def parse_dialogue(lines, only_supporting=False):
+def parse_dialogue(lines, tokenizer=True):
     '''
     lines: f.readline(), which is actually a list of lines in txt
     Return [[(u1, r1), (u2, r2)...], [(u1, r1), (u2, r2)...], ...]
@@ -36,15 +36,69 @@ def parse_dialogue(lines, only_supporting=False):
                 continue
 
             q, a = line.split('\t')
-            q = tokenize(q)
-            a = tokenize(a)
+            if tokenizer is True:
+                q = tokenize(q)
+                a = tokenize(a)
             dialogue.append((q, a))
         else:
             data.append(dialogue)
-            dialogue = []
             kb.append(kb_dialogue)
             dialogue = []
             kb_dialogue = []
+    return data, kb
+
+
+def parse_candidates(lines):
+    '''
+    :param lines: f.readlines()
+    :return: list of all candidates ["hello", "A is a good restaurant"]
+    '''
+    candidates = []
+    for line in lines:
+        nid, line = line.split(' ', 1)
+        line = line.decode('utf-8').strip()
+        candidates.append(line.split('\t'))
+    return candidates
+
+
+def parse_dialogue_QA(lines, tokenizer=True):
+    '''
+    lines: f.readline(), which is actually a list of lines in txt
+    Return [[(u1, u2, u3), (c1, c2, c3)], [(u1, u2, u3), (c1, c2, c3)], ...]
+    '''
+    data = []
+    dialogue = []
+    kb_dialogue = []
+    kb = []
+    u = []
+    c = []
+    for line in lines:
+        if line != '\n' and line != lines[-1]:
+            nid, line = line.split(' ', 1)
+            nid = int(nid)
+            line = line.decode('utf-8').strip()
+
+            if len(line.split('\t')) == 1:
+                kb_dialogue.append(line.split('\t'))
+                continue
+
+            q, a = line.split('\t')
+            if tokenizer is True:
+                q = tokenize(q)
+                a = tokenize(a)
+            u.append(q)
+            c.append(a)
+        else:
+            dialogue.append(tuple(u))
+            dialogue.append(tuple(c))
+            data.append(dialogue)
+
+            kb.append(kb_dialogue)
+            dialogue = []
+            u = []
+            c = []
+            kb_dialogue = []
+
     return data, kb
 
 
