@@ -5,6 +5,8 @@ Test data loaded from 'dialog-babi-task6-dstc2-tst.txt'
 
 '''
 import os
+import sys
+sys.path.append('.')
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.internal.data_io import parse_dialogue_QA, parse_candidates
