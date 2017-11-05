@@ -8,6 +8,9 @@ import numpy as np
 from scipy.stats import truncnorm
 import math
 
+def test_import():
+    print "The import for data io worked correctly"
+
 def tokenize(sent):
     '''Return the tokens of a sentence including punctuation.
     >>> tokenize('Bob dropped the apple. Where is the apple?')
