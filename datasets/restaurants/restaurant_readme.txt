@@ -23,3 +23,25 @@ Each restaurant is defined by (FB: 2400, DTSC: 1365)
   Additional - phone number + address, used for Task 4
 KB Queries (4)
   a location, a type of cuisine, a price range and a party size 
+
+
+Match Feature = Slot Filling = Entity Type
+1) cuisine (10 choices, e.g., French, Thai)
+2) location (10 choices, e.g., London, Tokyo)
+3) price range (3 choices, cheap, moderate or expensive)
+4) rating (8 choices, from 1 to 8)
+5) party size (1 choice, 2, 4, 6 or 8 people)
+6) phone number
+7) address
+8) <none>
+
+
+
+1-14: turns one to fourteen
+15: UNK
+16: SOS
+17: EOS
+18: api_call
+19: <SILENCE>
+20: Reserved for later
+21+: vocabulary of 828 tokens
