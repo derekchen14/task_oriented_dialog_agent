@@ -10,6 +10,11 @@ import numpy as np
 from scipy.stats import truncnorm
 import math
 
+import utils.internal.vocabulary as vocab
+
+def load_dataset(task):
+  print task
+
 def tokenize(sent):
   '''Return the tokens of a sentence including punctuation.
   >>> tokenize('Bob dropped the apple. Where is the apple?')
@@ -17,6 +22,32 @@ def tokenize(sent):
   '''
   return sent.split()
 
+def match_feature_augmentation(dialog):
+  pass
+
+def dialog_to_vec(dialog):
+  # Dialog: list of tuples, where each tuple is utterance and response
+  # [(u1, r1), (u2, r2)...]
+  dialog_pairs = []
+  for t_idx, turn in dialog:
+    utterance = turn[0]
+    response = turn[1]
+    utt_encoding = [t_idx+1] + [vocab.word_to_index(w) for w in utterance]
+    res_encoding = [vocab.word_to_index(w) for w in response] + [EOS_token]
+
+    utt_vector = [token_to_vec(t) for t in utt_encoding]
+    res_vector = [token_to_vec(t) for t in res_encoding]
+    dialog_pairs.append((utt_vector, res_vector))
+  return dialog_pairs
+
+def token_to_vec(location):
+  # 8 = match features, 1 = position
+  token_vector = np.zeros(vocab_size + 8 + 1)
+  token_vector[location] = 1
+  return token_vector
+  # sentence_length = len(encoding)
+  # sentence_matrix = np.zeros((sentence_length, vector_size))
+  # sentence_matrix[token_location, np.array(encoding)] = 1
 
 def parse_dialogue(lines, tokenizer=True):
   '''

@@ -5,6 +5,8 @@ import unicodedata
 import string
 import re
 import random
+import json
+import argparse
 
 import torch
 import torch.nn as nn
@@ -12,32 +14,23 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
-from utils.internal.data_io import read_restuarant_data
+import utils.internal.data_io as data_io
 from utils.external.clock import *
+from utils.external.preprocessers import *
 
-from model.encoders.base_encoder import *
-from model.decoders.base_decoder import *
+from model.encoders import RNN_Encoder # LSTM_Encoder, GRU_Encoder
+from model.decoders import RNN_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
-SOS_token = 0
-EOS_token = 1
-
-teacher_forcing_ratio = 0.5
 MAX_LENGTH = 8
 
-# Training process:
-# -  Start a timer
-# -  Initialize optimizers and criterion
-# -  Create set of training pairs
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length):
   encoder_hidden = encoder.initHidden()
 
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
-
   input_length = input_variable.size()[0]
   target_length = target_variable.size()[0]
-
   encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
   encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
@@ -52,28 +45,16 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
   decoder_input = decoder_input.cuda() if use_cuda else decoder_input
   decoder_hidden = encoder_hidden
 
-  use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-  if use_teacher_forcing:
-    # Teacher forcing: Feed the target as the next input
-    for di in range(target_length):
-      decoder_output, decoder_hidden, decoder_attention = decoder(
-        decoder_input, decoder_hidden, encoder_output, encoder_outputs)
-      loss += criterion(decoder_output, target_variable[di])
-      decoder_input = target_variable[di]  # Teacher forcing
-
-  else:
-    # Without teacher forcing: use its own predictions as the next input
-    for di in range(target_length):
-      decoder_output, decoder_hidden, decoder_attention = decoder(
-        decoder_input, decoder_hidden, encoder_output, encoder_outputs)
-      topv, topi = decoder_output.data.topk(1)
-      ni = topi[0][0]
-      decoder_input = Variable(torch.LongTensor([[ni]]))
-      decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-      loss += criterion(decoder_output, target_variable[di])
-      if ni == EOS_token:
-        break
+  for di in range(target_length):
+    decoder_output, decoder_hidden, decoder_attention = decoder(
+      decoder_input, decoder_hidden, encoder_output, encoder_outputs)
+    topv, topi = decoder_output.data.topk(1)
+    ni = topi[0][0]
+    decoder_input = Variable(torch.LongTensor([[ni]]))
+    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+    loss += criterion(decoder_output, target_variable[di])
+    if ni == EOS_token:
+      break
 
   loss.backward()
 
@@ -82,6 +63,63 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
   return loss.data[0] / target_length
 
+def track_progress(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+  start = time.time()
+  # plot_losses = []
+  print_loss_total = 0  # Reset every print_every
+  plot_loss_total = 0  # Reset every plot_every
+
+  encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
+  decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+  training_pairs = [variablesFromPair(random.choice(pairs))
+            for i in range(n_iters)]
+  criterion = nn.NLLLoss()
+
+  for iter in range(1, n_iters + 1):
+    training_pair = training_pairs[iter - 1]
+    input_variable = training_pair[0]
+    target_variable = training_pair[1]
+
+    loss = train(input_variable, target_variable, encoder,
+           decoder, encoder_optimizer, decoder_optimizer, criterion)
+    print_loss_total += loss
+    plot_loss_total += loss
+
+    if iter % print_every == 0:
+      print_loss_avg = print_loss_total / print_every
+      print_loss_total = 0
+      print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
+                     iter, iter / n_iters * 100, print_loss_avg))
+    # if iter % plot_every == 0:
+    #   plot_loss_avg = plot_loss_total / plot_every
+    #   plot_losses.append(plot_loss_avg)
+    #   plot_loss_total = 0
+
+  return plot_losses
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--random-seed', help='Random seed', type=int, default=1)
+  parser.add_argument('-t', '--task-name', help='Choose the task to train on', \
+    choices=['one','two','three','four','five','dstc','concierge','schedule','navigate','weather'])
+  parser.add_argument('--hidden-size', default=256, type=int, help='Number of hidden units in each LSTM')
+  parser.add_argument('-v', '--verbose', default=False, action='store_true', help='whether or not to have verbose prints')
+  args = parser.parse_args()
+  # ----- LOAD DATA -----
+  trial = data_io.dialog_to_vec("tasty")
+  # dataset = data_io.load_dataset(args.task_name)
+  # ---- BUILD MODEL ----
+  # encoder = EncoderRNN(10, args.hidden_size)
+  # decoder = DecoderRNN(args.hidden_size, 10, 1, dropout_p=0.1)
+  # if use_cuda:
+  #   encoder = encoder.cuda()
+  #   decoder = decoder.cuda()
+  # ---- TRAIN MODEL ----
+  # losses = track_progress(encoder, decoder, 75000, print_every=5000)
+  # --- MANAGE RESULTS ---
+  # showPlot(losses)
+
+'''
 def forward(self, input, hidden, encoder_outputs):
   embedded = self.embedding(input).view(1, 1, -1)
   embedded = self.dropout(embedded)
@@ -115,53 +153,4 @@ def forward(self, input, hidden, encoder_outputs):
   # self.out is a Linear to reshape to the number of classes to predict
   output = self.log_softmax(self.out(output[0]))
   return output, hidden, attn_weights
-
-
-def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
-  start = time.time()
-  plot_losses = []
-  print_loss_total = 0  # Reset every print_every
-  plot_loss_total = 0  # Reset every plot_every
-
-  encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-  decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-  training_pairs = [variablesFromPair(random.choice(pairs))
-            for i in range(n_iters)]
-  criterion = nn.NLLLoss()
-
-  for iter in range(1, n_iters + 1):
-    training_pair = training_pairs[iter - 1]
-    input_variable = training_pair[0]
-    target_variable = training_pair[1]
-
-    loss = train(input_variable, target_variable, encoder,
-           decoder, encoder_optimizer, decoder_optimizer, criterion)
-    print_loss_total += loss
-    plot_loss_total += loss
-
-    if iter % print_every == 0:
-      print_loss_avg = print_loss_total / print_every
-      print_loss_total = 0
-      print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                     iter, iter / n_iters * 100, print_loss_avg))
-
-    if iter % plot_every == 0:
-      plot_loss_avg = plot_loss_total / plot_every
-      plot_losses.append(plot_loss_avg)
-      plot_loss_total = 0
-
-  showPlot(plot_losses)
-
-
-if __name__ == "__main__":
-  hidden_size = 256
-  encoder = EncoderRNN(input_lang.n_words, hidden_size)
-  decoder = AttnDecoderRNN(hidden_size, output_lang.n_words,
-                   1, dropout_p=0.1)
-
-  if use_cuda:
-    encoder = encoder.cuda()
-    decoder = decoder.cuda()
-
-  trainIters(encoder, decoder, 75000, print_every=5000)
-
+'''
