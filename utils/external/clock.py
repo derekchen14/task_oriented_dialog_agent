@@ -7,11 +7,10 @@ def asMinutes(s):
   s -= m * 60
   return '%dm %ds' % (m, s)
 
-
 def timeSince(since, percent):
   now = time.time()
-  s = now - since
-  es = s / (percent)
-  rs = es - s
-  return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
+  seconds_passed = now - since
+  estimated_seconds = seconds_passed / (percent)
+  remaining_seconds = estimated_seconds - seconds_passed
+  return '%s (est remaining: %s)' % (asMinutes(seconds_passed), asMinutes(remaining_seconds))
 

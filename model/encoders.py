@@ -23,7 +23,7 @@ EOS_token = 1
 # outputs a vector and a hidden state, and uses the hidden state for the
 # next input word.
 
-class EncoderRNN(nn.Module):
+class RNN_Encoder(nn.Module):
   def __init__(self, input_size, hidden_size, n_layers=1):
     super(EncoderRNN, self).__init__()
     self.n_layers = n_layers
