@@ -12,7 +12,7 @@ def timeSince(since, percent):
   seconds_passed = now - since
   estimated_seconds = seconds_passed / (percent)
   remaining_seconds = estimated_seconds - seconds_passed
-  return '%s (est remaining: %s)' % (asMinutes(seconds_passed), asMinutes(remaining_seconds))
+  return '(%s remaining)' % (asMinutes(remaining_seconds))
 
 def time_past(since):
   now = tm.time()

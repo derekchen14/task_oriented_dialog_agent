@@ -1,31 +1,19 @@
+# -*- coding: utf-8 -*-
 import torch
 import torch.nn as nn
-import utils.internal.vocabulary as vocab
+from torch.autograd import Variable
+import torch.nn.functional as F
 
-######################################################################
-# Simple Decoder
-# ^^^^^^^^^^^^^^
-#
-# In the simplest seq2seq decoder we use only last output of the encoder.
-# This last output is sometimes called the *context vector* as it encodes
-# context from the entire sequence. This context vector is used as the
-# initial hidden state of the decoder.
-#
-# At every step of decoding, the decoder is given an input token and
-# hidden state. The initial input token is the start-of-string ``<SOS>``
-# token, and the first hidden state is the context vector (the encoder's
-# last hidden state).
-#
-# .. figure:: /_static/img/seq-seq-images/decoder-network.png
-#    :alt:
-#
-#
-
+# ------- Decoders ----------
+# Decoder is given an input token and hidden state. The initial input token is
+# the start-of-string <SOS> token, and the first hidden state is the context
+# vector (the encoder's last hidden state).
 class GRU_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
     super(GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
+    self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(hidden_size, hidden_size)
@@ -42,16 +30,17 @@ class GRU_Decoder(nn.Module):
 
   def initHidden(self):
     result = Variable(torch.zeros(1, 1, self.hidden_size))
-    if use_cuda:
+    if self.use_cuda:
       return result.cuda()
     else:
       return result
 
 class RNN_Attn_Decoder(nn.Module):
-  def __init__(self, hidden_size, vocab_size, n_layers=1, dropout_p=0.1, max_length=8):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1, dropout_p=0.1, max_length=8):
     super(RNN_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
+    self.use_cuda = use_cuda
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
@@ -84,7 +73,7 @@ class RNN_Attn_Decoder(nn.Module):
 
   def initHidden(self):
     result = Variable(torch.zeros(1, 1, self.hidden_size))
-    if use_cuda:
+    if self.use_cuda:
       return result.cuda()
     else:
       return result

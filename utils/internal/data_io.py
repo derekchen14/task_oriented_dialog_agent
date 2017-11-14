@@ -13,14 +13,17 @@ def load_dataset(task, split):
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
     restaurants, kb = read_restuarant_data(dataset_name)
     candidates = read_restuarant_data("dialog-babi-candidates.txt")
-    return (restaurants, candidates)
-  elif task == 'dtsc':
+    max_length = 22
+    return (restaurants, candidates, max_length)
+  elif task == 'dstc':
     dataset_name = "dialog-babi-task6-{0}2-{1}.txt".format(task, split)
     restaurants, kb = read_restuarant_data(dataset_name)
     candidates = read_restuarant_data("dialog-dstc-candidates.txt")
-    return (restaurants, candidates)
+    max_length = 30
+    return (restaurants, candidates, max_length)
   elif task in ['schedule','navigate','weather']:
     dataset_name = "kvret_{1}_public.txt".format(split)
+    max_length = None  #TODO
     return read_car_data(dataset_name, task)
   elif task == 'concierge':
     raise ValueError("Sorry, concierge task not supported at this time")
