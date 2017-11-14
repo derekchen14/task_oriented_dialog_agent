@@ -23,7 +23,7 @@ EOS_token = 1
 # outputs a vector and a hidden state, and uses the hidden state for the
 # next input word.
 
-class RNN_Encoder(nn.Module):
+class GRU_Encoder(nn.Module):
   def __init__(self, input_size, hidden_size, n_layers=1):
     super(EncoderRNN, self).__init__()
     self.n_layers = n_layers
@@ -33,11 +33,40 @@ class RNN_Encoder(nn.Module):
     self.gru = nn.GRU(hidden_size, hidden_size)
 
   def forward(self, input, hidden):
+    # matched_input = add_match_features(input)
     embedded = self.embedding(input).view(1, 1, -1)
+    # https://lirnli.wordpress.com/2017/09/03/one-hot-encoding-in-pytorch/
+    # if we want to change into one-hot vectors
     output = embedded
     for i in range(self.n_layers):
       output, hidden = self.gru(output, hidden)
     return output, hidden
+
+  def initHidden(self):
+    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    if use_cuda:
+      return result.cuda()
+    else:
+      return result
+
+class RNN_Encoder(nn.Module):
+  def __init__(self, input_size, hidden_size, n_layers=1):
+    super(EncoderRNN, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+
+    self.embedding = nn.Embedding(input_size, hidden_size)
+    self.rnn = nn.RNN(hidden_size)
+
+  def forward(self, input, hidden):
+    # matched_input = add_match_features(input)
+    embedded = self.embedding(input).view(1, 1, -1)
+    # https://lirnli.wordpress.com/2017/09/03/one-hot-encoding-in-pytorch/
+    # if we want to change into one-hot vectors
+    output = embedded
+    for i in range(self.n_layers):
+      output = self.rnn(output)
+    return output
 
   def initHidden(self):
     result = Variable(torch.zeros(1, 1, self.hidden_size))

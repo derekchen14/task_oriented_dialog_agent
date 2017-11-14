@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import utils.internal.vocabulary as vocab
 
 ######################################################################
 # Simple Decoder
@@ -20,7 +21,7 @@ import torch.nn as nn
 #
 #
 
-class RNN_Decoder(nn.Module):
+class GRU_Decoder(nn.Module):
   def __init__(self, hidden_size, output_size, n_layers=1):
     super(DecoderRNN, self).__init__()
     self.n_layers = n_layers

@@ -5,12 +5,12 @@ vocab = set([])
 fnames = [  "dialog-babi-task6-dstc2-dev.txt",
             "dialog-babi-task6-dstc2-tst.txt",
             "dialog-babi-task6-dstc2-trn.txt",
-            "dialog-babi-task6-dstc2-candidates.txt",
-            "dialog-babi-task5-full-dialogs-dev.txt",
-            "dialog-babi-task5-full-dialogs-tst-OOV.txt",
-            "dialog-babi-task4-phone-address-tst-OOV.txt",
-            "dialog-babi-task3-options-tst-OOV.txt",
-            "dialog-babi-task2-API-refine-tst-OOV.txt",
+            "dialog-babi-dstc-candidates.txt",
+            "dialog-babi-task5-dev.txt",
+            "dialog-babi-task5-tst-OOV.txt",
+            "dialog-babi-task4-tst-OOV.txt",
+            "dialog-babi-task3-tst-OOV.txt",
+            "dialog-babi-task2-tst-OOV.txt",
           ]
 
 def valid(token):
@@ -30,10 +30,14 @@ def pull_vocab(filename, vocab):
       if len(line.split('\t')) == 1:
         continue
       u, r = line.split('\t')
-      for token in word_tokenize(u):
+      # for token in word_tokenize(u):
+      #   if valid(token):
+      #     vocab.add(token)
+      # for token in word_tokenize(r):
+      for token in u.split():
         if valid(token):
           vocab.add(token)
-      for token in word_tokenize(r):
+      for token in r.split():
         if valid(token):
           vocab.add(token)
   print("Done with {0} now have {1} words".format(filename, len(vocab)) )
@@ -52,7 +56,7 @@ all_tokens = special_tokens + vocab
 
 print len(all_tokens)
 
-json.dump(all_tokens, open("vocab.json", "w"))
+json.dump(all_tokens, open("vocab_split.json", "w"))
 
 
 

@@ -1,53 +1,31 @@
 # -*- coding: utf-8 -*-
-
-'''
-Ref: https://github.com/llSourcell/How_to_make_a_chatbot/blob/master/memorynetwork.py
-Most of them are helper functions. You may only read and use get_word(), read_from_file(), and
-load_glove()
-'''
 import random
 import numpy as np
 from scipy.stats import truncnorm
 import math
+import json
 
+from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
-def load_dataset(task):
-  print task
-
-def tokenize(sent):
-  '''Return the tokens of a sentence including punctuation.
-  >>> tokenize('Bob dropped the apple. Where is the apple?')
-  ['Bob', 'dropped', 'the', 'apple', '.', 'Where', 'is', 'the', 'apple', '?']
-  '''
-  return sent.split()
-
-def match_feature_augmentation(dialog):
-  pass
-
-def dialog_to_vec(dialog):
-  # Dialog: list of tuples, where each tuple is utterance and response
-  # [(u1, r1), (u2, r2)...]
-  dialog_pairs = []
-  for t_idx, turn in dialog:
-    utterance = turn[0]
-    response = turn[1]
-    utt_encoding = [t_idx+1] + [vocab.word_to_index(w) for w in utterance]
-    res_encoding = [vocab.word_to_index(w) for w in response] + [EOS_token]
-
-    utt_vector = [token_to_vec(t) for t in utt_encoding]
-    res_vector = [token_to_vec(t) for t in res_encoding]
-    dialog_pairs.append((utt_vector, res_vector))
-  return dialog_pairs
-
-def token_to_vec(location):
-  # 8 = match features, 1 = position
-  token_vector = np.zeros(vocab_size + 8 + 1)
-  token_vector[location] = 1
-  return token_vector
-  # sentence_length = len(encoding)
-  # sentence_matrix = np.zeros((sentence_length, vector_size))
-  # sentence_matrix[token_location, np.array(encoding)] = 1
+def load_dataset(task, split):
+  if task in ['1', '2', '3', '4', '5']:
+    dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
+    restaurants, kb = read_restuarant_data(dataset_name)
+    candidates = read_restuarant_data("dialog-babi-candidates.txt")
+    return (restaurants, candidates)
+  elif task == 'dtsc':
+    dataset_name = "dialog-babi-task6-{0}2-{1}.txt".format(task, split)
+    restaurants, kb = read_restuarant_data(dataset_name)
+    candidates = read_restuarant_data("dialog-dstc-candidates.txt")
+    return (restaurants, candidates)
+  elif task in ['schedule','navigate','weather']:
+    dataset_name = "kvret_{1}_public.txt".format(split)
+    return read_car_data(dataset_name, task)
+  elif task == 'concierge':
+    raise ValueError("Sorry, concierge task not supported at this time")
+  else:
+    raise ValueError("Not a valid task")
 
 def parse_dialogue(lines, tokenizer=True):
   '''
@@ -68,11 +46,11 @@ def parse_dialogue(lines, tokenizer=True):
         kb_dialogue.append(line.split('\t'))
         continue
 
-      q, a = line.split('\t')
+      u, r = line.split('\t')
       if tokenizer is True:
-        q = tokenize(q)
-        a = tokenize(a)
-      dialogue.append((q, a))
+        u = word_tokenize(u)
+        r = word_tokenize(r)
+      dialogue.append((u, r))
     else:
       data.append(dialogue)
       kb.append(kb_dialogue)
@@ -143,7 +121,6 @@ def word_to_glove_vector(glove, word):
   '''
   return glove.vectors[glove.stoi[word]]
 
-
 def read_restuarant_data(filename):
   '''
   :param filename: 'directory/file.txt'
@@ -168,14 +145,25 @@ def read_restuarant_data(filename):
   u'saint_johns_chop_house R_address saint_johns_chop_house_address',
   u'saint_johns_chop_house R_price moderate']
   '''
-  with open(filename) as f:
+  restaraunt_prefix = "datasets/restaurants/"
+  restaurant_path = restaraunt_prefix + filename
+  with open(restaurant_path) as f:
     # max_length = None
-    data, kb = parse_dialogue(f.readlines(), only_supporting=False)
+    data, kb = parse_dialogue(f.readlines())
   return data, kb
 
-def read_car_data(filename):
-  pass
+def read_car_data(filename, task):
+  car_prefix = "datasets/in_car/"
+  car_path = car_prefix + filename
+  ent_path = car_prefix + "kvret_entities.json"
+  raw_data = json.load(open(car_path, "r") )
+  entities = json.load(open(ent_path, "r") )
 
+  car_data = []
+  for dialog in car_data:
+    parse_it_todo(task)
+    car_data.append(parsed_dialog)
+  return car_data, entities
 
 def init_glove_words(name='6B', dim=100):
   '''
@@ -196,7 +184,6 @@ def init_normal_words(vocab_size=1229, dim=100):
   # each word embedding is a column vector
   word_embeddings = truncnorm.rvs(a=mean, b=stddev, size=[dim, vocab_size])
   return word_embeddings
-
 
 
 
