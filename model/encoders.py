@@ -24,12 +24,12 @@ EOS_token = 1
 # next input word.
 
 class GRU_Encoder(nn.Module):
-  def __init__(self, input_size, hidden_size, n_layers=1):
-    super(EncoderRNN, self).__init__()
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
+    super(GRU_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
 
-    self.embedding = nn.Embedding(input_size, hidden_size)
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(hidden_size, hidden_size)
 
   def forward(self, input, hidden):
@@ -50,12 +50,12 @@ class GRU_Encoder(nn.Module):
       return result
 
 class RNN_Encoder(nn.Module):
-  def __init__(self, input_size, hidden_size, n_layers=1):
-    super(EncoderRNN, self).__init__()
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
+    super(RNN_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
 
-    self.embedding = nn.Embedding(input_size, hidden_size)
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.rnn = nn.RNN(hidden_size)
 
   def forward(self, input, hidden):

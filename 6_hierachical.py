@@ -506,18 +506,6 @@ def timeSince(since, percent):
   return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-######################################################################
-# The whole training process looks like this:
-#
-# -  Start a timer
-# -  Initialize optimizers and criterion
-# -  Create set of training pairs
-# -  Start empty losses array for plotting
-#
-# Then we call ``train`` many times and occasionally print the progress (%
-# of examples, time so far, estimated time) and average loss.
-#
-
 def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
   start = time.time()
   plot_losses = []
@@ -552,28 +540,6 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
       plot_loss_total = 0
 
   showPlot(plot_losses)
-
-
-######################################################################
-# Plotting results
-# ----------------
-#
-# Plotting is done with matplotlib, using the array of loss values
-# ``plot_losses`` saved while training.
-#
-
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import numpy as np
-
-
-def showPlot(points):
-  plt.figure()
-  fig, ax = plt.subplots()
-  # this locator puts ticks at regular intervals
-  loc = ticker.MultipleLocator(base=0.2)
-  ax.yaxis.set_major_locator(loc)
-  plt.plot(points)
 
 
 ######################################################################

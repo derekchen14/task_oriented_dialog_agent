@@ -18,6 +18,7 @@ import torch.nn.functional as F
 
 import utils.internal.data_io as data_io
 import utils.internal.vocabulary as vocab
+import utils.internal.display as display
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
@@ -26,6 +27,7 @@ from model.decoders import GRU_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
+num_layers = 1
 
 def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length):
   encoder_hidden = encoder.initHidden()
@@ -105,6 +107,10 @@ def track_progress(encoder, decoder, dialogs, n_iters, print_every=1000, \
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
 
+  if use_cuda:
+    encoder = encoder.cuda()
+    decoder = decoder.cuda()
+
   encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
   decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
   # pairs = [[normalizeString(s) for s in l.split('\t')] for l in lines]
@@ -150,21 +156,16 @@ if __name__ == "__main__":
   # -- PARSE ARGUMENTS --
   args = solicit_args()
   # ----- LOAD DATA -----
-  now = tm.time()
   train, candidates = data_io.load_dataset(args.task_name, "trn")
   development, candidates = data_io.load_dataset(args.task_name, "dev")
   train_variables = collect_dialogues(train)
   development_variables = collect_dialogues(development)
-  time_past(now)
-  sys.exit()
   # ---- BUILD MODEL ----
-  # encoder = EncoderRNN(10, args.hidden_size)
-  # decoder = DecoderRNN(args.hidden_size, 10, 1, dropout_p=0.1)
-  # if use_cuda:
-  #   encoder = encoder.cuda()
-  #   decoder = decoder.cuda()
+  encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size)
+  decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, num_layers)
   # ---- TRAIN MODEL ----
-  losses = track_progress(encoder, decoder, train_variables, \
-         n_iters=75000, print_every=5000)
+  # losses = track_progress(encoder, decoder, train_variables, \
+  #        n_iters=75000, print_every=5000)
   # --- MANAGE RESULTS ---
-  # showPlot(losses)
+  # display.plot_results(losses)
+  # save_results(losses)

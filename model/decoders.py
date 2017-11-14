@@ -22,14 +22,14 @@ import utils.internal.vocabulary as vocab
 #
 
 class GRU_Decoder(nn.Module):
-  def __init__(self, hidden_size, output_size, n_layers=1):
-    super(DecoderRNN, self).__init__()
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
+    super(GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
 
-    self.embedding = nn.Embedding(output_size, hidden_size)
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(hidden_size, hidden_size)
-    self.out = nn.Linear(hidden_size, output_size)
+    self.out = nn.Linear(hidden_size, vocab_size)
     self.softmax = nn.LogSoftmax()
 
   def forward(self, input, hidden):
@@ -48,20 +48,20 @@ class GRU_Decoder(nn.Module):
       return result
 
 class RNN_Attn_Decoder(nn.Module):
-  def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=8):
-    super(AttnDecoderRNN, self).__init__()
+  def __init__(self, hidden_size, vocab_size, n_layers=1, dropout_p=0.1, max_length=8):
+    super(RNN_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
-    self.output_size = output_size
+    self.vocab_size = vocab_size
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
 
-    self.embedding = nn.Embedding(self.output_size, self.hidden_size)
+    self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
     self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
     self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
     self.dropout = nn.Dropout(self.dropout_p)
     self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-    self.out = nn.Linear(self.hidden_size, self.output_size)
+    self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
   def forward(self, input, hidden, encoder_output, encoder_outputs):
     embedded = self.embedding(input).view(1, 1, -1)
