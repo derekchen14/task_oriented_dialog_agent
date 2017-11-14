@@ -139,7 +139,7 @@ if __name__ == "__main__":
   # -- PARSE ARGUMENTS --
   args = solicit_args()
   # ----- LOAD DATA -----
-  train_data, candidates, m = data_io.load_dataset(args.task_name, "trn")
+  train_data, candidates, m = data_io.load_dataset(args.task_name, "tst")
   # val_data, candidates, _ = data_io.load_dataset(args.task_name, "dev")
   train_variables = collect_dialogues(train_data)
   val_variables = [] # collect_dialogues(val_data)
