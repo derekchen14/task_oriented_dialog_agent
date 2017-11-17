@@ -19,6 +19,7 @@ def match_feature_augmentation(dialog):
   pass
 
 def variable_from_sentence(sentence, indexes):
+
   indexes.extend([vocab.word_to_index(w) for w in sentence])
   indexes.append(vocab.EOS_token)
   # view.(-1,1) reshapes from vector into nx1 matrix

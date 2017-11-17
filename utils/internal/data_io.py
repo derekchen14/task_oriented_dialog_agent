@@ -124,7 +124,7 @@ def word_to_glove_vector(glove, word):
   '''
   return glove.vectors[glove.stoi[word]]
 
-def read_restuarant_data(filename):
+def read_restuarant_data(filename, restaraunt_prefix = "datasets/restaurants/"):
   '''
   :param filename: 'directory/file.txt'
   :return:[
@@ -148,7 +148,6 @@ def read_restuarant_data(filename):
   u'saint_johns_chop_house R_address saint_johns_chop_house_address',
   u'saint_johns_chop_house R_price moderate']
   '''
-  restaraunt_prefix = "datasets/restaurants/"
   restaurant_path = restaraunt_prefix + filename
   with open(restaurant_path) as f:
     # max_length = None

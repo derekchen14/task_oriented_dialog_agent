@@ -18,6 +18,7 @@ from torch import optim
 import utils.internal.data_io as data_io
 import utils.internal.vocabulary as vocab
 import utils.internal.display as display
+from utils.internal.plotting import *
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
@@ -77,6 +78,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion):
   decoder.eval()
 
   encoder_hidden = encoder.initHidden()
+
   input_length = input_variable.size()[0]
   target_length = target_variable.size()[0]
   encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
@@ -106,10 +108,15 @@ def validate(input_variable, target_variable, encoder, decoder, criterion):
   return loss.data[0] / target_length
 
 def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
-      n_iters=75000, print_every=5000, plot_every=100, val_every=50, \
+      n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
       learning_rate=0.01):
   start = tm.time()
-  # plot_losses = []
+
+  plot_losses_train = []
+  plot_losses_validation = []
+  plot_steps_train = []
+  plot_steps_validation = []
+
   v_iters = int(len(val_data)/500) - 1
 
   print_loss_total = 0  # Reset every print_every
@@ -128,6 +135,7 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
   for iter in range(1, n_iters + 1):
     training_pair = training_pairs[iter - 1]
     input_variable = training_pair[0]
+
     output_variable = training_pair[1]
 
     loss = train(input_variable, output_variable, encoder, decoder, \
@@ -140,15 +148,24 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
       print_loss_total = 0
       print('%d%% complete %s, Train Loss: %.4f' % ((iter / n_iters * 100),
           timeSince(start, iter / n_iters), print_loss_avg))
+      plot_losses_train.append(print_loss_avg)
+      plot_steps_train.append(iter)
 
     if iter % val_every == 0:
-        # for iter in range(1, v_iters + 1):
-        validation_pair = validation_pairs
-        val_loss = validate(input_variable, output_variable, encoder, decoder, criterion)
-        print('Validation loss = ', val_loss)
+        plot_steps_validation.append(iter)
+        validation_losses = []
+        for iter in range(1, v_iters + 1):
+          validation_pair = validation_pairs[iter - 1]
+          validation_input = validation_pair[0]
+          validation_output = validation_pair[1]
+          val_loss = validate(validation_input, validation_output, encoder, decoder, criterion)
+          validation_losses.append(val_loss)
+        print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
+        plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
 
 
-    # if iter % val_every == 0:
+
+        # if iter % val_every == 0:
     #   for iter in range(1, v_iters + 1):
     #     training_pair = training_pairs[iter - 1]
     #     input_variable = training_pair[0]
@@ -160,7 +177,7 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
     #   plot_losses.append(plot_loss_avg)
     #   plot_loss_total = 0
 
-  return plot_losses
+  return plot_losses_train, plot_losses_validation, plot_steps_train, plot_steps_validation
 
 def solicit_args():
   parser = argparse.ArgumentParser()
@@ -168,6 +185,8 @@ def solicit_args():
   parser.add_argument('-t', '--task-name', help='Choose the task to train on', \
     choices=['1','2','3','4','5','dstc','concierge','schedule','navigate','weather'])
   parser.add_argument('--hidden-size', default=256, type=int, help='Number of hidden units in each LSTM')
+  parser.add_argument('-enp', '--encoder-path', default='test_en.pt', type=str, help='where to save encoder')
+  parser.add_argument('-edp', '--decoder-path', default='test_de.pt', type=str, help='where to save decoder')
   parser.add_argument('-v', '--verbose', default=False, action='store_true', help='whether or not to have verbose prints')
   return parser.parse_args()
 
@@ -186,7 +205,14 @@ if __name__ == "__main__":
   decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
   max_length = m if m else MAX_LENGTH
-  losses = track_progress(encoder, decoder, train_variables, val_variables, max_length, n_iters=750, print_every=50)
+  ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables, val_variables, max_length,
+                                             n_iters=7500, print_every=150)
+
+  # ---- Save the model----
+  torch.save(encoder, args.encoder_path)
+  torch.save(decoder, args.decoder_path)
+  print('Model saved!')
   # --- MANAGE RESULTS ---
+  plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
   # display.plot_results(losses)
   # save_results(losses)

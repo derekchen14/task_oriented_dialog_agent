@@ -61,7 +61,7 @@ all_tokens = special_tokens + vocab
 
 print len(all_tokens)
 
-json.dump(all_tokens, open("vocab.json", "w"))
+json.dump(all_tokens, open("res_vocab.json", "w"))
 
 
 
