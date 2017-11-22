@@ -82,8 +82,8 @@ questions = q2idx(questions)
 # encoder = torch.load('encoder.pt')
 # decoder = torch.load('decoder.pt')
 
-encoder = torch.load('encoder_7500t1.pt')
-decoder = torch.load('decoder_7500t1.pt')
+encoder = torch.load('experiment_results/encoder_7500t3.pt')
+decoder = torch.load('experiment_results/decoder_7500t3.pt')
 
 encoder.eval()
 decoder.eval()
