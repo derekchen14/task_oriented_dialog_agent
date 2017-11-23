@@ -46,8 +46,9 @@ def train(input_variable, target_variable, encoder, decoder, \
   loss = 0
 
   for ei in range(input_length):
-    encoder_output, encoder_hidden = encoder(
-      input_variable[ei], encoder_hidden)
+    encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
+    print(encoder_outputs.data)
+    print(encoder_output[0][0])
     encoder_outputs[ei] = encoder_output[0][0]
 
   decoder_input = Variable(torch.LongTensor([[vocab.SOS_token]]))
@@ -186,34 +187,61 @@ def solicit_args():
   parser.add_argument('-t', '--task-name', help='Choose the task to train on', \
     choices=['1','2','3','4','5','dstc','concierge','schedule','navigate','weather'])
   parser.add_argument('--hidden-size', default=256, type=int, help='Number of hidden units in each LSTM')
-  parser.add_argument('-enp', '--encoder-path', default='test_en.pt', type=str, help='where to save encoder')
-  parser.add_argument('-edp', '--decoder-path', default='test_de.pt', type=str, help='where to save decoder')
+  parser.add_argument('-enp', '--encoder-path', default='car_en.pt', type=str, help='where to save encoder')
+  parser.add_argument('-edp', '--decoder-path', default='car_de.pt', type=str, help='where to save decoder')
   parser.add_argument('-v', '--verbose', default=False, action='store_true', help='whether or not to have verbose prints')
   return parser.parse_args()
 
-if __name__ == "__main__":
-  # -- PARSE ARGUMENTS --
-  args = solicit_args()
-  # ----- LOAD DATA -----
-  train_data, candidates, m = data_io.load_dataset(args.task_name, "trn")
-  val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
+def train_res():
+    # -- PARSE ARGUMENTS --
+    args = solicit_args()
+    # ----- LOAD DATA -----
+    train_data, candidates, m = data_io.load_dataset(args.task_name, "trn")
+    val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
 
-  train_variables = collect_dialogues(train_data)
-  val_variables = collect_dialogues(val_data)
+    train_variables = collect_dialogues(train_data)
+    val_variables = collect_dialogues(val_data)
 
-  # ---- BUILD MODEL ----
-  encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
-  decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
-  # ---- TRAIN MODEL ----
-  max_length = m if m else MAX_LENGTH
-  ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables, val_variables, max_length,
-                                             n_iters=7500, print_every=150)
+    # ---- BUILD MODEL ----
+    encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
+    decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
+    # ---- TRAIN MODEL ----
+    max_length = m if m else MAX_LENGTH
+    ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables, val_variables, max_length,
+                                               n_iters=7500, print_every=150)
 
-  # ---- Save the model----
-  torch.save(encoder, args.encoder_path)
-  torch.save(decoder, args.decoder_path)
-  print('Model saved!')
-  # --- MANAGE RESULTS ---
-  plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
-  # display.plot_results(losses)
-  # save_results(losses)
+    # ---- Save the model----
+    torch.save(encoder, args.encoder_path)
+    torch.save(decoder, args.decoder_path)
+    print('Model saved!')
+    # --- MANAGE RESULTS ---
+    plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
+    # display.plot_results(losses)
+    # save_results(losses)
+
+def train_car():
+    args = solicit_args()
+    train_data, candidates, m = data_io.load_car_dataset(args.task_name, "train")
+    val_data, val_candidates, _ = data_io.load_car_dataset(args.task_name, "dev")
+    train_variables = collect_dialogues(train_data)
+    val_variables = collect_dialogues(val_data)
+
+
+    # ---- BUILD MODEL ----
+    encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
+    decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
+    # ---- TRAIN MODEL ----
+    max_length = m if m else MAX_LENGTH
+    ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables, val_variables, max_length,
+                                                   n_iters=7500, print_every=150)
+
+    # ---- Save the model----
+    torch.save(encoder, args.encoder_path)
+    torch.save(decoder, args.decoder_path)
+    print('Model saved!')
+    # --- MANAGE RESULTS ---
+    plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
+
+
+# train_car()
+train_res()

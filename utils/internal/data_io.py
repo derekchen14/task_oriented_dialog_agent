@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import truncnorm
 import math
 import json
+import pandas as pd
 
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
@@ -11,6 +12,12 @@ import utils.internal.vocabulary as vocab
 def load_car_dataset(task, split):
     prefix = 'datasets/in_car/'
     paths = {'train': prefix+'train.json', 'dev':prefix+'dev.json', 'test':prefix+'test.json'}
+    data = load_json_dataset(paths[split])
+    navigations, weathers, schedules, kbs = load_incar_data(data)
+
+    tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
+    max_length = 25
+    return (tasks[task], kbs, max_length)
 
 
 def load_dataset(task, split):
@@ -173,6 +180,19 @@ def load_json_dataset(path):
     return data
 
 
+def look4str(u, df):
+    a = df['addrs'].apply(lambda x: x in u)
+    b = df['pois'].apply(lambda x: x in u)
+    a = df[a]['addrs'].as_matrix()
+    b = df[b]['pois'].as_matrix()
+
+    if len(a) != 0:
+        u = u.replace(a[0], 'addr')
+    if len(b) != 0:
+        u = u.replace(b[0], 'poi')
+    return u
+
+
 def load_incar_data(data_json):
     '''
     :param data_json: a json file loaded from .json
@@ -181,6 +201,7 @@ def load_incar_data(data_json):
     each list is a list of dialogues, and each dialogue is a list of turns [(u1, r1), (u2, r2)...]
     each utterance/response is a list of tokens
     '''
+    lookup = pd.read_csv('datasets/incar_addr_poi.csv')
     navigate_data = []
     schedule_data = []
     weather_data = []
@@ -193,14 +214,13 @@ def load_incar_data(data_json):
         for turn in dialogue['dialogue']:
             if turn['turn'] == 'driver':
                 u = turn['data']['utterance']
-                u = word_tokenize(u)
+                u = look4str(u, lookup)
+                u = word_tokenize(u.lower())
             if turn['turn'] == 'assistant':
                 r = turn['data']['utterance']
-                r = word_tokenize(r)
-
+                r = look4str(r, lookup)
+                r = word_tokenize(r.lower())
                 dia.append((u, r))
-                u = None
-                r = None
 
         if dialogue['scenario']['task']['intent'] == 'navigate':
             navigate_data.append(dia)
@@ -211,11 +231,10 @@ def load_incar_data(data_json):
         else:
             print dialogue['scenario']['task']['intent']
 
-        print 'Loaded %i navigate data!'%len(navigate_data)
-        print 'Loaded %i schedule data!'%len(schedule_data)
-        print 'Loaded %i weather data!'%len(weather_data)
-
         kbs.append(dialogue['scenario']['kb'])
+    print 'Loaded %i navigate data!'%len(navigate_data)
+    print 'Loaded %i schedule data!'%len(schedule_data)
+    print 'Loaded %i weather data!'%len(weather_data)
 
     return navigate_data, weather_data, schedule_data, kbs
 

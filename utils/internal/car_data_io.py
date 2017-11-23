@@ -48,11 +48,10 @@ def load_incar_data(data_json):
         else:
             print dialogue['scenario']['task']['intent']
 
-        print 'Loaded %i navigate data!'%len(navigate_data)
-        print 'Loaded %i schedule data!'%len(schedule_data)
-        print 'Loaded %i weather data!'%len(weather_data)
-
         kbs.append(dialogue['scenario']['kb'])
+    print 'Loaded %i navigate data!'%len(navigate_data)
+    print 'Loaded %i schedule data!'%len(schedule_data)
+    print 'Loaded %i weather data!'%len(weather_data)
 
     return navigate_data, weather_data, schedule_data, kbs
 
