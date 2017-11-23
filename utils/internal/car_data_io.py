@@ -1,5 +1,8 @@
+import json
+from nltk import word_tokenize
+import pandas as pd
 
-def load_dataset(path):
+def load_json_dataset(path):
     '''
     Load the in-car dataset as it is
     :param path: path to train/validation/test.json
@@ -10,6 +13,20 @@ def load_dataset(path):
     print path + ' file loaded!!'
     return data
 
+
+def look4str(u, df):
+    a = df['addrs'].apply(lambda x: x in u)
+    b = df['pois'].apply(lambda x: x in u)
+    a = df[a]['addrs'].as_matrix()
+    b = df[b]['pois'].as_matrix()
+
+    if len(a) != 0:
+        u = u.replace(a[0], 'addr')
+    if len(b) != 0:
+        u = u.replace(b[0], 'poi')
+    return u
+
+
 def load_incar_data(data_json):
     '''
     :param data_json: a json file loaded from .json
@@ -18,10 +35,14 @@ def load_incar_data(data_json):
     each list is a list of dialogues, and each dialogue is a list of turns [(u1, r1), (u2, r2)...]
     each utterance/response is a list of tokens
     '''
+    lookup = pd.read_csv('datasets/incar_addr_poi.csv')
     navigate_data = []
     schedule_data = []
     weather_data = []
     kbs = []
+
+    uu = []
+    rr = []
 
     for dialogue in data_json:
         dia = []
@@ -30,14 +51,19 @@ def load_incar_data(data_json):
         for turn in dialogue['dialogue']:
             if turn['turn'] == 'driver':
                 u = turn['data']['utterance']
-                u = word_tokenize(u)
+                u = look4str(u, lookup)
+                u = word_tokenize(u.lower())
+
+                uu.append(len(u))
             if turn['turn'] == 'assistant':
                 r = turn['data']['utterance']
-                r = word_tokenize(r)
+                r = look4str(r, lookup)
+                r = word_tokenize(r.lower())
 
+                rr.append(len(r))
+                if len(r) == 95:
+                    print r
                 dia.append((u, r))
-                u = None
-                r = None
 
         if dialogue['scenario']['task']['intent'] == 'navigate':
             navigate_data.append(dia)
@@ -48,13 +74,19 @@ def load_incar_data(data_json):
         else:
             print dialogue['scenario']['task']['intent']
 
-        print 'Loaded %i navigate data!'%len(navigate_data)
-        print 'Loaded %i schedule data!'%len(schedule_data)
-        print 'Loaded %i weather data!'%len(weather_data)
-
         kbs.append(dialogue['scenario']['kb'])
+    print 'Loaded %i navigate data!'%len(navigate_data)
+    print 'Loaded %i schedule data!'%len(schedule_data)
+    print 'Loaded %i weather data!'%len(weather_data)
+
+    print max(uu)
+    print max(rr)
 
     return navigate_data, weather_data, schedule_data, kbs
 
+files = ['datasets/in_car/train.json','datasets/in_car/dev.json',
+         'datasets/in_car/test.json']
 
-
+for file in files:
+    data = load_json_dataset(file)
+    navigates, weathers, schedules, _ = load_incar_data(data)
