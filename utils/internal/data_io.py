@@ -8,6 +8,11 @@ import json
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
+def load_car_dataset(task, split):
+    prefix = 'datasets/in_car/'
+    paths = {'train': prefix+'train.json', 'dev':prefix+'dev.json', 'test':prefix+'test.json'}
+
+
 def load_dataset(task, split):
   if task in ['1', '2', '3', '4', '5']:
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
