@@ -96,6 +96,10 @@ def dump_vocab():
     lookup = pd.read_csv('datasets/incar_addr_poi.csv')
 
     vocab = set()
+    specials = ['100.', '20.']
+    for key in specials:
+        vocab.add(key)
+
     for file in files:
         print 'Now processing ' + file
         data = load_json_dataset(file)

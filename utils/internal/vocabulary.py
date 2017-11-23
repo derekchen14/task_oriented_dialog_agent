@@ -1,8 +1,8 @@
 import json
 
 #TODO: turn into a class
-vocab = json.load( open("datasets/res_vocab.json", "r") )
-# vocab = json.load(open("datasets/car_vocab.json", "r") )
+# vocab = json.load( open("datasets/res_vocab.json", "r") )
+vocab = json.load(open("datasets/car_vocab.json", "r") )
 
 UNK_token = 15
 SOS_token = 16

@@ -16,7 +16,7 @@ def load_car_dataset(task, split):
     navigations, weathers, schedules, kbs = load_incar_data(data)
 
     tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
-    max_length = 25
+    max_length = 42
     return (tasks[task], kbs, max_length)
 
 

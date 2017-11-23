@@ -45,10 +45,8 @@ def train(input_variable, target_variable, encoder, decoder, \
 
   loss = 0
 
-  for ei in range(input_length):
+  for ei in range(min(max_length, input_length)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
-    print(encoder_outputs.data)
-    print(encoder_output[0][0])
     encoder_outputs[ei] = encoder_output[0][0]
 
   decoder_input = Variable(torch.LongTensor([[vocab.SOS_token]]))
@@ -74,7 +72,7 @@ def train(input_variable, target_variable, encoder, decoder, \
 
   return loss.data[0] / target_length
 
-def validate(input_variable, target_variable, encoder, decoder, criterion):
+def validate(input_variable, target_variable, encoder, decoder, criterion, max_length):
   encoder.eval()
   decoder.eval()
 
@@ -86,7 +84,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion):
   encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
   loss = 0
 
-  for ei in range(input_length):
+  for ei in range(min(max_length, input_length)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
@@ -113,13 +111,18 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
       n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
       learning_rate=0.01):
   start = tm.time()
+  args = solicit_args()
 
   plot_losses_train = []
   plot_losses_validation = []
   plot_steps_train = []
   plot_steps_validation = []
 
-  v_iters = int(len(val_data)/500) - 1
+  if args.task_name == 'navigate' or 'schedule' or 'weather':
+    v_iters = len(val_data)
+  else:
+    v_iters = int(len(val_data)/500) - 1
+
 
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
@@ -160,7 +163,7 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
           validation_pair = validation_pairs[iter - 1]
           validation_input = validation_pair[0]
           validation_output = validation_pair[1]
-          val_loss = validate(validation_input, validation_output, encoder, decoder, criterion)
+          val_loss = validate(validation_input, validation_output, encoder, decoder, criterion, max_length)
           validation_losses.append(val_loss)
         print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
         plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
@@ -223,6 +226,7 @@ def train_car():
     args = solicit_args()
     train_data, candidates, m = data_io.load_car_dataset(args.task_name, "train")
     val_data, val_candidates, _ = data_io.load_car_dataset(args.task_name, "dev")
+
     train_variables = collect_dialogues(train_data)
     val_variables = collect_dialogues(val_data)
 
@@ -243,5 +247,5 @@ def train_car():
     plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
 
 
-# train_car()
-train_res()
+train_car()
+# train_res()
