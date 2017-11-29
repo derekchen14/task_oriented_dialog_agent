@@ -35,6 +35,28 @@ class GRU_Encoder(nn.Module):
     else:
       return result
 
+class LSTM_Encoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+    super(LSTM_Encoder, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+    self.use_cuda = use_cuda
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.lstm = nn.LSTM(hidden_size, hidden_size)
+
+  # Written different from GRU on purpose, http://pytorch.org/docs/master/nn.html
+  def forward(self, input, hidden):
+    embedded = self.embedding(input).view(1, 1, -1)
+    return self.lstm(embedded, hidden, n_layers)
+
+  def initHidden(self):
+    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    if self.use_cuda:
+      return result.cuda()
+    else:
+      return result
+
+
 class RNN_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
     super(RNN_Encoder, self).__init__()

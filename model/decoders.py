@@ -13,10 +13,11 @@ class GRU_Decoder(nn.Module):
     super(GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
+    self.input_size = hidden_size #serves double duty
     self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.gru = nn.GRU(hidden_size, hidden_size)
+    self.gru = nn.GRU(self.input_size, self.hidden_size)
     self.out = nn.Linear(hidden_size, vocab_size)
     self.softmax = nn.LogSoftmax()
 
@@ -35,8 +36,63 @@ class GRU_Decoder(nn.Module):
     else:
       return result
 
-class RNN_Attn_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1, dropout_p=0.1, max_length=8):
+class RNN_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+    super(RNN_Decoder, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+    self.use_cuda = use_cuda
+
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.rnn = nn.RNN(hidden_size, hidden_size)
+    self.out = nn.Linear(hidden_size, vocab_size)
+    self.softmax = nn.LogSoftmax()
+
+  def forward(self, input, hidden):
+    output = self.embedding(input).view(1, 1, -1)
+    for i in range(self.n_layers):
+      output = F.relu(output)
+      output, hidden = self.rnn(output, hidden)
+    output = self.softmax(self.out(output[0]))
+    return output, hidden
+
+  def initHidden(self):
+    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    if self.use_cuda:
+      return result.cuda()
+    else:
+      return result
+
+class LSTM_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+    super(LSTM_Decoder, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+    self.use_cuda = use_cuda
+
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.lstm = nn.LSTM(hidden_size, hidden_size)
+    self.out = nn.Linear(hidden_size, vocab_size)
+    self.softmax = nn.LogSoftmax()
+
+  def forward(self, input, hidden):
+    output = self.embedding(input).view(1, 1, -1)
+    for i in range(self.n_layers):
+      output = F.relu(output)
+      output, hidden = self.lstm(output, hidden)
+    output = self.softmax(self.out(output[0]))
+    return output, hidden
+
+  def initHidden(self):
+    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    if self.use_cuda:
+      return result.cuda()
+    else:
+      return result
+
+class GRU_Attn_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
+        dropout_p=0.1, max_length=8):
     super(RNN_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
