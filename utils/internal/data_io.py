@@ -9,17 +9,6 @@ import pandas as pd
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
-def load_car_dataset(task, split):
-    prefix = 'datasets/in_car/'
-    paths = {'train': prefix+'train.json', 'dev':prefix+'dev.json', 'test':prefix+'test.json'}
-    data = load_json_dataset(paths[split])
-    navigations, weathers, schedules, kbs = load_incar_data(data)
-
-    tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
-    max_length = 42
-    return (tasks[task], kbs, max_length)
-
-
 def load_dataset(task, split):
   if task in ['1', '2', '3', '4', '5']:
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
@@ -34,14 +23,18 @@ def load_dataset(task, split):
     max_length = 30
     return (restaurants, candidates, max_length)
   elif task in ['schedule','navigate','weather']:
-    dataset_name = "kvret_{1}_public.txt".format(split)
-    max_length = None  #TODO
-    return read_car_data(dataset_name, task)
+    prefix = 'datasets/in_car/'
+    paths = {'train': prefix+'train.json', 'dev':prefix+'dev.json', 'test':prefix+'test.json'}
+    data = load_json_dataset(paths[split])
+    navigations, weathers, schedules, kbs = load_incar_data(data)
+    tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
+    max_length = 42
+    return (tasks[task], kbs, max_length)
   elif task == 'concierge':
     raise ValueError("Sorry, concierge task not supported at this time")
   else:
     raise ValueError("Not a valid task")
-  
+
 
 def parse_dialogue(lines, tokenizer=True):
   '''
@@ -238,19 +231,6 @@ def load_incar_data(data_json):
 
     return navigate_data, weather_data, schedule_data, kbs
 
-
-def read_car_data(filename, task):
-  car_prefix = "datasets/in_car/"
-  car_path = car_prefix + filename
-  ent_path = car_prefix + "kvret_entities.json"
-  raw_data = json.load(open(car_path, "r") )
-  entities = json.load(open(ent_path, "r") )
-
-  car_data = []
-  for dialog in car_data:
-    parse_it_todo(task)
-    car_data.append(parsed_dialog)
-  return car_data, entities
 
 def init_glove_words(name='6B', dim=100):
   '''
