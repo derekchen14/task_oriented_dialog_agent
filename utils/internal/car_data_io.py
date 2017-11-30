@@ -51,13 +51,13 @@ def load_incar_data(data_json):
         for turn in dialogue['dialogue']:
             if turn['turn'] == 'driver':
                 u = turn['data']['utterance']
-                u = look4str(u, lookup)
+                u = look4str(u, lookup) # Comment out this line to get raw dataset without replacement
                 u = word_tokenize(u.lower())
 
                 uu.append(len(u))
             if turn['turn'] == 'assistant':
                 r = turn['data']['utterance']
-                r = look4str(r, lookup)
+                r = look4str(r, lookup) # Comment out this line to get raw dataset without replacement
                 r = word_tokenize(r.lower())
 
                 rr.append(len(r))

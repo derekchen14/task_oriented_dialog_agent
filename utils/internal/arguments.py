@@ -9,10 +9,14 @@ def solicit_args():
     help='Number of hidden units in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
-  parser.add_argument('-enp', '--encoder-path', default='car_en.pt', type=str,
+  parser.add_argument('-enp', '--encoder-path', default='results/schedule_en.pt', type=str,
     help='where to save encoder')
-  parser.add_argument('-edp', '--decoder-path', default='car_de.pt', type=str,
+  parser.add_argument('-edp', '--decoder-path', default='results/schedule_de.pt', type=str,
     help='where to save decoder')
+  parser.add_argument('-ep', '--error-path', default='results/schedule_error.csv', type=str,
+                      help='where to save error')
+  parser.add_argument('--n_iters', default=7500, type=int,
+                      help='iterations to train')
   parser.add_argument('--debug', default=False, action='store_true',
     help='whether or not to go into debug mode, which is faster')
   parser.add_argument('-v', '--verbose', default=False, action='store_true',
@@ -21,4 +25,5 @@ def solicit_args():
     help='whether or not we save model weights')
   parser.add_argument('-p', '--plot-results', default=False, action='store_true',
     help='when true, we save results awhether or not to have verbose prints')
+
   return parser.parse_args()
