@@ -1,8 +1,14 @@
 import json
+from utils.internal.arguments import solicit_args
 
-#TODO: turn into a class
-# vocab = json.load( open("datasets/res_vocab.json", "r") )
-vocab = json.load(open("datasets/car_vocab.json", "r") )
+v_args = solicit_args()
+v_task = 'car' if v_args.task_name in ['navigate','schedule','weather'] else 'res'
+
+#TODO: turn into a class, also this include args because no time to code nicely
+if v_task == 'car':
+  vocab = json.load(open("datasets/car_vocab.json", "r") )
+else:
+  vocab = json.load( open("datasets/res_vocab.json", "r") )
 
 UNK_token = 15
 SOS_token = 16

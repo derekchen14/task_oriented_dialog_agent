@@ -93,7 +93,7 @@ class LSTM_Decoder(nn.Module):
 class GRU_Attn_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
         dropout_p=0.1, max_length=8):
-    super(RNN_Attn_Decoder, self).__init__()
+    super(GRU_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
     self.use_cuda = use_cuda

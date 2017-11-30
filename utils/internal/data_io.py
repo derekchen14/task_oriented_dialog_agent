@@ -9,7 +9,7 @@ import pandas as pd
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
-def load_dataset(task, split):
+def load_dataset(task, split, debug=False):
   if task in ['1', '2', '3', '4', '5']:
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
     restaurants, kb = read_restuarant_data(dataset_name)
@@ -24,8 +24,10 @@ def load_dataset(task, split):
     return (restaurants, candidates, max_length)
   elif task in ['schedule','navigate','weather']:
     prefix = 'datasets/in_car/'
-    paths = {'train': prefix+'train.json', 'dev':prefix+'dev.json', 'test':prefix+'test.json'}
+    paths = {'trn': prefix+'train.json', 'dev':prefix+'dev.json', 'tst':prefix+'test.json'}
     data = load_json_dataset(paths[split])
+    if debug:
+      data = data[0:20]
     navigations, weathers, schedules, kbs = load_incar_data(data)
     tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
     max_length = 42
@@ -194,7 +196,7 @@ def load_incar_data(data_json):
     each list is a list of dialogues, and each dialogue is a list of turns [(u1, r1), (u2, r2)...]
     each utterance/response is a list of tokens
     '''
-    lookup = pd.read_csv('datasets/incar_addr_poi.csv')
+    lookup = pd.read_csv('datasets/in_car/incar_addr_poi.csv')
     navigate_data = []
     schedule_data = []
     weather_data = []

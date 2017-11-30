@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, print_function, division
+from __future__ import unicode_literals, division
 from io import open
 import unicodedata
 import string
@@ -17,8 +17,6 @@ from torch import optim
 import utils.internal.data_io as data_io
 import utils.internal.vocabulary as vocab
 import utils.internal.display as display
-from utils.internal.arguments import solicit_args
-from utils.internal.plotting import *
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
@@ -56,7 +54,6 @@ def train(input_variable, target_variable, encoder, decoder, \
 
   for di in range(target_length):
     decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-    # decoder_input, decoder_hidden, last_enc_hidden_state, encoder_outputs)  To be used later for attention
     topv, topi = decoder_output.data.topk(1)
     ni = topi[0][0]
     decoder_input = Variable(torch.LongTensor([[ni]]))
@@ -107,23 +104,16 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
 
   return loss.data[0] / target_length
 
-def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
+def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
-      learning_rate=0.01):
+      learning_rate=0.01, ):
   start = tm.time()
-  args = solicit_args()
-
   plot_losses_train = []
   plot_losses_validation = []
   plot_steps_train = []
   plot_steps_validation = []
 
-  if args.task_name == 'navigate' or 'schedule' or 'weather':
-    v_iters = len(val_data)
-  else:
-    v_iters = int(len(val_data)/500) - 1
-
-
+  v_iters = len(val_data) if task == 'car' else int(len(val_data)/500) - 1
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
 
@@ -171,27 +161,27 @@ def track_progress(encoder, decoder, train_data, val_data, max_length=8, \
   return plot_losses_train, plot_losses_validation, plot_steps_train, plot_steps_validation
 
 if __name__ == "__main__":
-  # -- PARSE ARGUMENTS --
-  args = solicit_args()
+  # ---- PARSE ARGS -----
+  args = vocab.v_args
+  task = vocab.v_task
   # ----- LOAD DATA -----
-  train_data, candidates, m = data_io.load_dataset(args.task_name, "trn")
-  val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
+  train_data, candidates, max_length = data_io.load_dataset(args.task_name, \
+    "trn", args.debug)
   train_variables = collect_dialogues(train_data)
+  val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
   val_variables = collect_dialogues(val_data)
   # ---- BUILD MODEL ----
   encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
   decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
-  max_length = m if m else MAX_LENGTH
-  ltrain, lval, strain, sval = track_progress(encoder, decoder,
-      train_variables, val_variables, max_length, n_iters=7500, print_every=150)
+  ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
+      val_variables, task, max_length, n_iters=7500, print_every=150)
   # --- MANAGE RESULTS ---
   if args.save_results:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
   if args.plot_results:
-    plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
-    # display.plot_results(losses)
+    display.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
 
 
