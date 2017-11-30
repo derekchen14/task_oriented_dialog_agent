@@ -16,3 +16,6 @@ aws_config.json
 *.DS_Store
 datasets
 *.pem
+results
+*.pt
+*.csv
