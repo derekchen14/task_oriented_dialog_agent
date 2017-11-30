@@ -18,8 +18,8 @@ def token_to_vec(location):
 def match_feature_augmentation(dialog):
   pass
 
-def variable_from_sentence(sentence, indexes):
-  indexes.extend([vocab.word_to_index(w) for w in sentence])
+def variable_from_sentence(sentence, indexes, task):
+  indexes.extend([vocab.word_to_index(w, task) for w in sentence])
   indexes.append(vocab.EOS_token)
   # view.(-1,1) reshapes from vector into nx1 matrix
   result = Variable(torch.LongTensor(indexes).view(-1, 1))
@@ -32,22 +32,22 @@ def variable_from_sentence(sentence, indexes):
   # return result.cuda() if use_cuda else result
   return result, len(indexes)
 
-def dialog_to_variable(dialog, maxish):
+def dialog_to_variable(dialog, task, maxish):
   # Dialog: list of tuples, where each tuple is utterance and response
   # [(u1, r1), (u2, r2)...]
   dialog_pairs = []
   for t_idx, turn in enumerate(dialog):
-    utterance, wop = variable_from_sentence(turn[0], [t_idx+1])
-    response, dop = variable_from_sentence(turn[1], [])
+    utterance, wop = variable_from_sentence(turn[0], [t_idx+1], task)
+    response, dop = variable_from_sentence(turn[1], [], task)
     # utt_vector = [token_to_vec(t) for t in utt_encoding]
     # res_vector = [token_to_vec(t) for t in res_encoding]
     dialog_pairs.append((utterance, response))
   return dialog_pairs, maxish
 
-def collect_dialogues(dataset):
+def collect_dialogues(dataset, task):
   maxish = 0
   variables = []
   for dialog in dataset:
-    dialog_vars, maxish = dialog_to_variable(dialog, maxish)
+    dialog_vars, maxish = dialog_to_variable(dialog, task, maxish)
     variables.extend(dialog_vars)
   return variables

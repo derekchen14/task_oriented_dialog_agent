@@ -8,6 +8,7 @@ from torch.autograd import Variable
 
 sys.path.append('.')
 
+task = "car" <-- or "res"
 PATH = 'scripts/seq2seq_ex.txt'
 
 def read_questions(path):
@@ -95,7 +96,7 @@ for q in questions:
     a = answers(q, encoder, decoder)
     answer = []
     for i in a:
-        answer.append(vocab.index_to_word(i))
+        answer.append(vocab.index_to_word(i, task))
     aSen = ' '.join(answer)
     print aSen
 

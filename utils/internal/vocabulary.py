@@ -1,14 +1,7 @@
 import json
-from utils.internal.arguments import solicit_args
 
-v_args = solicit_args()
-v_task = 'car' if v_args.task_name in ['navigate','schedule','weather'] else 'res'
-
-#TODO: turn into a class, also this include args because no time to code nicely
-if v_task == 'car':
-  vocab = json.load(open("datasets/car_vocab.json", "r") )
-else:
-  vocab = json.load( open("datasets/res_vocab.json", "r") )
+car_vocab = json.load(open("datasets/car_vocab.json", "r") )
+res_vocab = json.load( open("datasets/res_vocab.json", "r") )
 
 UNK_token = 15
 SOS_token = 16
@@ -17,23 +10,33 @@ PHONE_token = 19
 POI_token = 19
 ADDR_token = 20
 
-def word_to_index(token):
-  if token.startswith("resto"):
-    if "phone" in token:
-      return PHONE_token
-    elif "address" in token:
-      return ADDR_token
-    else:
-      return vocab.index(token)
+# Task independent since car dataset special tokens already replaced
+def word_to_index(token, task):
+  if task == "car":
+    return car_vocab.index(token)
   else:
-    return vocab.index(token)
+    if token.startswith("resto"):
+      if "phone" in token:
+        return PHONE_token
+      elif "address" in token:
+        return ADDR_token
+      else:
+        return res_vocab.index(token)
+    else:
+      return res_vocab.index(token)
 
-def index_to_word(idx):
-  return vocab[idx]
+def index_to_word(idx, task):
+  if task == "car":
+    return car_vocab[idx]
+  else:
+    return res_vocab[idx]
 
 # @staticmethod
-def ulary_size():
-  return len(vocab)
+def ulary_size(task):
+  if task == "car":
+    return len(car_vocab)
+  elif task == "res":
+    return len(res_vocab)
 
 # @classmethod
 # def load_vocab(cls, path)

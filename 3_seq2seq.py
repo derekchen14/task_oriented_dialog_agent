@@ -17,6 +17,7 @@ from torch import optim
 import utils.internal.data_io as data_io
 import utils.internal.vocabulary as vocab
 import utils.internal.display as display
+from utils.internal.arguments import solicit_args
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
@@ -162,17 +163,17 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
 
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
-  args = vocab.v_args
-  task = vocab.v_task
+  args = solicit_args()
+  task = 'car' if args.task_name in ['navigate','schedule','weather'] else 'res'
   # ----- LOAD DATA -----
   train_data, candidates, max_length = data_io.load_dataset(args.task_name, \
     "trn", args.debug)
-  train_variables = collect_dialogues(train_data)
+  train_variables = collect_dialogues(train_data, task)
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
-  val_variables = collect_dialogues(val_data)
+  val_variables = collect_dialogues(val_data, task)
   # ---- BUILD MODEL ----
-  encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
-  decoder = GRU_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda, n_layers)
+  encoder = GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
+  decoder = GRU_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=7500, print_every=150)
