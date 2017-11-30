@@ -16,6 +16,8 @@ def token_to_vec(location):
   # sentence_matrix[token_location, np.array(encoding)] = 1
 
 def match_feature_augmentation(dialog):
+  # 1 cuisine type, 2 location, 3 price range, 4 party size,
+  # 5 rating, 6 phone number, 7 address, 8 none )
   pass
 
 def variable_from_sentence(sentence, indexes, task):
