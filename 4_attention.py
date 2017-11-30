@@ -133,10 +133,12 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
   criterion = nn.NLLLoss()
   scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
+  scheduler2 = StepLR(decoder_optimizer, step_size=n_iters / (args.decay_times+1), gamma=0.2)
 
   for iter in range(1, n_iters + 1):
     scheduler.step()
-    
+    scheduler2.step()
+
     training_pair = training_pairs[iter - 1]
     input_variable = training_pair[0]
 
