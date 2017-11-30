@@ -9,14 +9,15 @@ def solicit_args():
     help='Number of hidden units in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
-  parser.add_argument('-enp', '--encoder-path', default='results/schedule_en.pt', type=str,
+  parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,
     help='where to save encoder')
-  parser.add_argument('-edp', '--decoder-path', default='results/schedule_de.pt', type=str,
+  parser.add_argument('-edp', '--decoder-path', default='results/1_de.pt', type=str,
     help='where to save decoder')
-  parser.add_argument('-ep', '--error-path', default='results/schedule_error.csv', type=str,
+  parser.add_argument('-ep', '--error-path', default='results/1_error.csv', type=str,
                       help='where to save error')
-  parser.add_argument('--n_iters', default=7500, type=int,
+  parser.add_argument('--n_iters', default=30000, type=int,
                       help='iterations to train')
+  parser.add_argument('--decay_times', default=2, type=int, help='total lr decay times')
   parser.add_argument('--debug', default=False, action='store_true',
     help='whether or not to go into debug mode, which is faster')
   parser.add_argument('-v', '--verbose', default=False, action='store_true',

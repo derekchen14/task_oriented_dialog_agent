@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division
+from utils.internal.arguments import solicit_args
 from io import open
 import unicodedata
 import string
@@ -14,9 +15,9 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
+from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
-import utils.internal.vocabulary as vocab
 import utils.internal.display as display
 from utils.external.clock import *
 from utils.external.preprocessers import *
@@ -131,8 +132,11 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
   training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
   criterion = nn.NLLLoss()
+  scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for iter in range(1, n_iters + 1):
+    scheduler.step()
+    
     training_pair = training_pairs[iter - 1]
     input_variable = training_pair[0]
 
@@ -167,17 +171,17 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
 
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
-  args = vocab.v_args
-  task = vocab.v_task
+  args = solicit_args()
+  task = 'car' if args.task_name in ['navigate', 'schedule', 'weather'] else 'res'
   # ----- LOAD DATA -----
   train_data, candidates, max_length = data_io.load_dataset(args.task_name, \
     "trn", args.debug)
-  train_variables = collect_dialogues(train_data)
+  train_variables = collect_dialogues(train_data, task=task)
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
-  val_variables = collect_dialogues(val_data)
+  val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  encoder = GRU_Encoder(vocab.ulary_size(), args.hidden_size, use_cuda)
-  decoder = GRU_Attn_Decoder(vocab.ulary_size(), args.hidden_size, use_cuda,
+  encoder = GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
+  decoder = GRU_Attn_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
     n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
