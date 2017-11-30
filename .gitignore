@@ -19,3 +19,4 @@ datasets
 results
 *.pt
 *.csv
+.idea
