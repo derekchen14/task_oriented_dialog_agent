@@ -28,6 +28,7 @@ from model.decoders import GRU_Attn_Decoder # RNN_Attn_Decoder
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
 n_layers = 1
+teacher_forcing_ratio = 0.5
 
 def train(input_variable, target_variable, encoder, decoder, \
         encoder_optimizer, decoder_optimizer, criterion, max_length):
@@ -55,16 +56,27 @@ def train(input_variable, target_variable, encoder, decoder, \
   last_enc_hidden_state = encoder_hidden[-1]
   decoder_hidden = encoder_hidden
 
-  for di in range(target_length):
-    decoder_output, decoder_hidden, attn_weights = decoder(decoder_input, decoder_hidden,
-        last_enc_hidden_state, encoder_outputs)
-    topv, topi = decoder_output.data.topk(1)
-    ni = topi[0][0]
-    decoder_input = Variable(torch.LongTensor([[ni]]))
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-    loss += criterion(decoder_output, target_variable[di])
-    if ni == vocab.EOS_token:
-      break
+  use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+
+  if use_teacher_forcing:
+    # Teacher forcing: Feed the target as the next input
+    for di in range(target_length):
+      decoder_output, decoder_hidden, decoder_attention = decoder(
+        decoder_input, decoder_hidden, encoder_output, encoder_outputs)
+      loss += criterion(decoder_output, target_variable[di])
+      decoder_input = target_variable[di]  # Teacher forcing
+  else:
+
+    for di in range(target_length):
+      decoder_output, decoder_hidden, attn_weights = decoder(decoder_input, decoder_hidden,
+          last_enc_hidden_state, encoder_outputs)
+      topv, topi = decoder_output.data.topk(1)
+      ni = topi[0][0]
+      decoder_input = Variable(torch.LongTensor([[ni]]))
+      decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+      loss += criterion(decoder_output, target_variable[di])
+      if ni == vocab.EOS_token:
+        break
 
   loss.backward()
 
@@ -109,6 +121,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
       break
 
   return loss.data[0] / target_length
+
 
 def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       n_iters=75000, print_every=5000, plot_every=100, val_every=150, \

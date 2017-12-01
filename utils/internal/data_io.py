@@ -28,6 +28,7 @@ def load_dataset(task, split, debug=False):
     data = load_json_dataset(paths[split])
     if debug:
       data = data[0:20]
+      print ('Debug mode!')
     navigations, weathers, schedules, kbs = load_incar_data(data)
     tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
     max_length = 42
