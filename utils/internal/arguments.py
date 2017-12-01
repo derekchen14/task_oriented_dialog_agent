@@ -4,7 +4,7 @@ def solicit_args():
   parser = argparse.ArgumentParser()
   parser.add_argument('--random-seed', help='Random seed', type=int, default=1)
   parser.add_argument('-t', '--task-name', help='Choose the task to train on',
-    choices=['1','2','3','4','5','dstc','concierge','schedule','navigate','weather'] )
+    choices=['1','2','3','4','5','challenge','concierge','schedule','navigate','weather'] )
   parser.add_argument('--hidden-size', default=256, type=int,
     help='Number of hidden units in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
