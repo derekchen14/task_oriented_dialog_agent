@@ -7,6 +7,8 @@ def solicit_args():
     choices=['1','2','3','4','5','dstc','concierge','schedule','navigate','weather'] )
   parser.add_argument('--hidden-size', default=256, type=int,
     help='Number of hidden units in each LSTM')
+  parser.add_argument('--n-layers', default=1, type=int,
+                      help='Number of layers in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
   parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,

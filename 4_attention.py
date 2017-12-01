@@ -27,7 +27,6 @@ from model.decoders import GRU_Attn_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
-n_layers = 1
 teacher_forcing_ratio = 0.5
 
 def train(input_variable, target_variable, encoder, decoder, \
@@ -197,7 +196,7 @@ if __name__ == "__main__":
   # ---- BUILD MODEL ----
   encoder = GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
   decoder = GRU_Attn_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
-    n_layers, args.drop_prob, max_length)
+    args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=args.n_iters, print_every=150)
