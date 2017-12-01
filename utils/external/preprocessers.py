@@ -1,10 +1,20 @@
 import numpy as np
-import torch
-from torch.autograd import Variable
 import utils.internal.vocabulary as vocab
-import sys
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 
 use_cuda = torch.cuda.is_available()
+
+def match_embedding(vocab_size, hidden_size):
+  match_tensor = torch.load('datasets/restaurants/match_features.pt')
+  embed = nn.Embedding(vocab_size, hidden_size)
+  # Extract just the tensor inside the Embedding
+  embed_tensor = embed.weight.data
+  extended_tensor = torch.cat([embed_tensor, match_tensor], dim=1)
+  # Set the weight of original embedding matrix with the new Parameter
+  embed.weight = nn.parameter.Parameter(extended_tensor)
+  return embed
 
 def token_to_vec(location):
   # 8 = match features, 1 = position
@@ -15,10 +25,17 @@ def token_to_vec(location):
   # sentence_matrix = np.zeros((sentence_length, vector_size))
   # sentence_matrix[token_location, np.array(encoding)] = 1
 
-def match_feature_augmentation(dialog):
-  # 1 cuisine type, 2 location, 3 price range, 4 party size,
-  # 5 rating, 6 phone number, 7 address, 8 none )
-  pass
+def task_simplification(task):
+  if task in ['schedule','navigate','weather']:
+    return 'car'
+  elif task in ['1', '2', '3', '4', '5']:
+    return 'res'
+  elif task == 'challenge':
+    return task
+  elif task == 'concierge':
+    raise ValueError("Sorry, concierge task not supported at this time")
+  else:
+    raise ValueError("Not a valid task")
 
 def variable_from_sentence(sentence, indexes, task):
   indexes.extend([vocab.word_to_index(w, task) for w in sentence])

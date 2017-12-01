@@ -1,7 +1,10 @@
 import json
+from torch import eye
+from torch.autograd import Variable
 
 car_vocab = json.load(open("datasets/car_vocab.json", "r") )
 res_vocab = json.load( open("datasets/res_vocab.json", "r") )
+match_embeddings = Variable(eye(8))
 
 UNK_token = 15
 SOS_token = 16
@@ -20,10 +23,10 @@ def word_to_index(token, task):
         return PHONE_token
       elif "address" in token:
         return ADDR_token
-      else:
-        return res_vocab.index(token)
-    else:
-      return res_vocab.index(token)
+    if task == "res" and token == 'cantonese':
+      return 259 # CHINESE_token
+  # if none of the special events occur ...
+  return res_vocab.index(token)
 
 def index_to_word(idx, task):
   if task == "car":
@@ -31,13 +34,8 @@ def index_to_word(idx, task):
   else:
     return res_vocab[idx]
 
-# @staticmethod
 def ulary_size(task):
   if task == "car":
     return len(car_vocab)
-  elif task == "res":
+  else:
     return len(res_vocab)
-
-# @classmethod
-# def load_vocab(cls, path)
-#   cls(path)

@@ -164,7 +164,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
   args = solicit_args()
-  task = 'car' if args.task_name in ['navigate','schedule','weather'] else 'res'
+  task = task_simplification(args.task_name)
   # ----- LOAD DATA -----
   train_data, candidates, max_length = data_io.load_dataset(args.task_name, \
     "trn", args.debug)
