@@ -27,10 +27,9 @@ from model.decoders import GRU_Attn_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
-teacher_forcing_ratio = 0.5
 
 def train(input_variable, target_variable, encoder, decoder, \
-        encoder_optimizer, decoder_optimizer, criterion, max_length):
+        encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
   encoder.train()
   decoder.train()
 
@@ -124,7 +123,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
 
 def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
-      learning_rate=0.01, ):
+      learning_rate=0.01, teacher_forcing_ratio=0.0):
   start = tm.time()
   plot_losses_train = []
   plot_losses_validation = []
@@ -157,7 +156,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
     output_variable = training_pair[1]
 
     loss = train(input_variable, output_variable, encoder, decoder, \
-           encoder_optimizer, decoder_optimizer, criterion, max_length)
+           encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio=teacher_forcing_ratio)
     print_loss_total += loss
     plot_loss_total += loss
 
@@ -199,7 +198,8 @@ if __name__ == "__main__":
     args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
-      val_variables, task, max_length, n_iters=args.n_iters, print_every=150)
+      val_variables, task, max_length, n_iters=args.n_iters, print_every=150,
+                                              teacher_forcing_ratio=args.teacher_forcing)
 
   # --- MANAGE RESULTS ---
   if args.save_results:

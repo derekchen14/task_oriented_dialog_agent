@@ -11,6 +11,10 @@ def solicit_args():
                       help='Number of layers in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
+  parser.add_argument('-teach', '--teacher-forcing', default=0.5, type=float, help='teacher forcing ratio')
+  # 0 means no teacher forcing
+
+
   parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,
     help='where to save encoder')
   parser.add_argument('-edp', '--decoder-path', default='results/1_de.pt', type=str,
