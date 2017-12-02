@@ -2,4 +2,4 @@
 #     --debug True --verbose False
 
 # python 4_attention.py --task-name 1 --save-results
-python 4_attention.py --task-name schedule --debug --verbose
+python 4_attention.py --task-name dstc --debug --verbose

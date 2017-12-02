@@ -178,7 +178,7 @@ if __name__ == "__main__":
   decoder = GRU_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
-      val_variables, task, max_length, n_iters=7500, print_every=150)
+      val_variables, task, max_length, n_iters=args.n_iters, print_every=150)
   # --- MANAGE RESULTS ---
   if args.save_results:
     torch.save(encoder, args.encoder_path)
