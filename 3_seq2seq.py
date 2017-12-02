@@ -145,7 +145,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       print_loss_total = 0
       print('%d%% complete %s, Train Loss: %.4f' % ((iter / n_iters * 100),
           timeSince(start, iter / n_iters), print_loss_avg))
-      plot_losses_train.append(print_loss_avg)
+      # plot_losses_train.append(print_loss_avg)
+      plot_losses_train.append(loss)
       plot_steps_train.append(iter)
 
     if iter % val_every == 0:
