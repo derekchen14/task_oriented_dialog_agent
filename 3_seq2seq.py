@@ -8,6 +8,7 @@ import random
 import json
 import sys
 import time as tm
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -182,6 +183,9 @@ if __name__ == "__main__":
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
+    errors = pd.DataFrame(data={'train_steps':strain, 'valid_steps':sval, 'train_error': ltrain, 'validation_error':lval})
+    errors.to_csv(args.error_path, index=False)
+    print('Error saved!')
   if args.plot_results:
     display.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
 
