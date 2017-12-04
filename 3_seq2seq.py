@@ -21,8 +21,8 @@ from utils.internal.arguments import solicit_args
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
-from model.encoders import GRU_Encoder # LSTM_Encoder, RNN_Encoder
-from model.decoders import GRU_Decoder # RNN_Attn_Decoder
+from model.encoders import Bid_GRU_Encoder, GRU_Encoder # LSTM_Encoder, RNN_Encoder
+from model.decoders import Bid_GRU_Decoder, GRU_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
@@ -172,8 +172,8 @@ if __name__ == "__main__":
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev")
   val_variables = collect_dialogues(val_data, task)
   # ---- BUILD MODEL ----
-  encoder = GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
-  decoder = GRU_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda, n_layers)
+  encoder = Bid_GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
+  decoder = Bid_GRU_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=7500, print_every=150)

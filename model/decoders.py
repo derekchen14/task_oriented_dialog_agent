@@ -3,11 +3,12 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import sys
 
 # ------- Decoders ----------
 # Decoder is given an input token and hidden state. The initial input token is
 # the start-of-string <SOS> token, and the first hidden state is the context
-# vector (the encoder's last hidden state).
+# vector (the encoder's last hidden state, not the last output!).
 class GRU_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
     super(GRU_Decoder, self).__init__()
@@ -22,6 +23,45 @@ class GRU_Decoder(nn.Module):
     self.softmax = nn.LogSoftmax()
 
   def forward(self, input, hidden):
+    output = self.embedding(input).view(1, 1, -1)
+    # input: scalar, hidden: [1, 1, 256], output:[1, 1, 256]
+    for i in range(self.n_layers):
+      output = F.relu(output)
+      output, hidden = self.gru(output, hidden)
+    output = self.softmax(self.out(output[0]))
+    return output, hidden
+
+  def initHidden(self):
+    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    if self.use_cuda:
+      return result.cuda()
+    else:
+      return result
+
+class Bid_GRU_Decoder(nn.Module):
+  '''
+  During bi-directional encoding, we split up the word embedding in half
+  and use then perform a forward pass into two directions.  In code,
+  this is interpreted as 2 layers at half the size. Based on the way we
+  produce the encodings, we need to merge the context vectors together in
+  order properly init the hidden state, but then everything else is the same
+  '''
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+    super(Bid_GRU_Decoder, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+    self.input_size = hidden_size #serves double duty
+    self.use_cuda = use_cuda
+
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.gru = nn.GRU(self.input_size, self.hidden_size)
+    self.out = nn.Linear(hidden_size, vocab_size)
+    self.softmax = nn.LogSoftmax()
+
+  def forward(self, input, hidden):
+    # if we are processing initial time step
+    if (hidden.size()[0] == (2 * input.size()[0])):
+      hidden = hidden.view(1, 1, -1)
     output = self.embedding(input).view(1, 1, -1)
     for i in range(self.n_layers):
       output = F.relu(output)
