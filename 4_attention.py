@@ -123,7 +123,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
 
 def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
-      learning_rate=0.01, teacher_forcing_ratio=0.0):
+      learning_rate=0.01, teacher_forcing_ratio=0.0, weight_decay=0.0):
   start = tm.time()
   plot_losses_train = []
   plot_losses_validation = []
@@ -138,8 +138,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
     encoder = encoder.cuda()
     decoder = decoder.cuda()
 
-  encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-  decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+  encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+  decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
   training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
   criterion = nn.NLLLoss()
@@ -200,7 +200,7 @@ if __name__ == "__main__":
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=args.n_iters, print_every=150,
-                                              teacher_forcing_ratio=args.teacher_forcing)
+                                              teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
 
   # --- MANAGE RESULTS ---
   if args.save_results:

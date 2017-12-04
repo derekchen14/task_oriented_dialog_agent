@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # python 4_attention.py --task-name dstc --hidden-size 256 --n-layers 2 --drop-prob 0.0 -enp 'results/2layer_en.pt'
-# -edp 'results/2layer_de.pt' -ep 'results/2layer_error.csv' -s
+# -edp 'results/2layer_de.pt' -ep 'results/2layer_error.csv' -s -teach 0.5
 
 # python 4_attention.py --task-name dstc --hidden-size 512 --n-layers 1 --drop-prob 0.0 -enp 'results/1layer_en.pt'
 # -edp 'results/1layer_de.pt' -ep 'results/1layer_error.csv' -s
@@ -24,5 +24,6 @@ python 4_attention.py --task-name dstc --hidden-size 256 --n-layers 1 --drop-pro
 python 4_attention.py --task-name dstc --hidden-size 256 --n-layers 1 --drop-prob 0.0 -enp 'results/t075_en.pt' -edp 'results/t075_de.pt' -ep 'results/t075_error.csv' -s -teach 0.75
 
 python 4_attention.py --task-name dstc --hidden-size 256 --n-layers 1 --drop-prob 0.0 -enp 'results/t1_en.pt' -edp 'results/t1_de.pt' -ep 'results/t1_error.csv' -s -teach 1.0
+
 
 
