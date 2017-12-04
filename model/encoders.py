@@ -42,7 +42,7 @@ class GRU_Encoder(nn.Module):
     self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.gru = nn.GRU(hidden_size, hidden_size)
+    self.gru = nn.GRU(hidden_size, hidden_size, bidirectional=True)
 
   def forward(self, input, hidden):
     # matched_input = add_match_features(input)
