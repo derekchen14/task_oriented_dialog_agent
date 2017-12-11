@@ -8,6 +8,7 @@ import random
 import json
 import sys
 import time as tm
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -144,6 +145,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       print_loss_total = 0
       print('%d%% complete %s, Train Loss: %.4f' % ((iter / n_iters * 100),
           timeSince(start, iter / n_iters), print_loss_avg))
+      # plot_losses_train.append(print_loss_avg)
       plot_losses_train.append(print_loss_avg)
       plot_steps_train.append(iter)
 
@@ -176,12 +178,15 @@ if __name__ == "__main__":
   decoder = Bid_GRU_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda, n_layers)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
-      val_variables, task, max_length, n_iters=7500, print_every=150)
+      val_variables, task, max_length, n_iters=args.n_iters, print_every=150)
   # --- MANAGE RESULTS ---
   if args.save_results:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
+    errors = pd.DataFrame(data={'train_steps':strain, 'valid_steps':sval, 'train_error': ltrain, 'validation_error':lval})
+    errors.to_csv(args.error_path, index=False)
+    print('Error saved!')
   if args.plot_results:
     display.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
 
