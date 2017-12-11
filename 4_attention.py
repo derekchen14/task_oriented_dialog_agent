@@ -22,8 +22,8 @@ import utils.internal.display as display
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
-from model.encoders import GRU_Encoder # LSTM_Encoder, RNN_Encoder
-from model.decoders import GRU_Attn_Decoder # RNN_Attn_Decoder
+from model.encoders import Bid_GRU_Encoder #GRU_Encoder # LSTM_Encoder, RNN_Encoder
+from model.decoders import Bid_GRU_Attn_Decoder # GRU_Attn_Decoder # RNN_Attn_Decoder
 
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
@@ -194,8 +194,8 @@ if __name__ == "__main__":
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  encoder = GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
-  decoder = GRU_Attn_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
+  encoder = Bid_GRU_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
+  decoder = Bid_GRU_Attn_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
     args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
@@ -203,6 +203,10 @@ if __name__ == "__main__":
                                               teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
 
   # --- MANAGE RESULTS ---
+  errors = pd.DataFrame(data={'train_steps': strain, 'valid_steps': sval, 'train_error': ltrain, 'validation_error': lval})
+  errors.to_csv(args.error_path, index=False)
+  print('Error saved!')
+
   if args.save_results:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)

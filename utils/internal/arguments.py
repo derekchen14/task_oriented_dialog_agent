@@ -22,7 +22,7 @@ def solicit_args():
     help='where to save decoder')
   parser.add_argument('-ep', '--error-path', default='results/1_error.csv', type=str,
                       help='where to save error')
-  parser.add_argument('--n_iters', default=30000, type=int,
+  parser.add_argument('--n_iters', default=25000, type=int,
                       help='iterations to train')
   parser.add_argument('--decay_times', default=2, type=int, help='total lr decay times')
   parser.add_argument('--debug', default=False, action='store_true',
