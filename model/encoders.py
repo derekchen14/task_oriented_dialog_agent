@@ -105,10 +105,14 @@ class LSTM_Encoder(nn.Module):
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)
 
-  # Written different from GRU on purpose, http://pytorch.org/docs/master/nn.html
   def forward(self, input, hidden):
     embedded = self.embedding(input).view(1, 1, -1)
-    return self.lstm(embedded, hidden, n_layers)
+    output = embedded
+    for i in range(self.n_layers):
+      output, hidden = self.lstm(output, hidden)
+      #  output (1, 1, 256),  hidden  (1, 1, 256)
+    return output, hidden
+    # return self.lstm(embedded, hidden, n_layers)
 
   def initHidden(self):
     # you need two variables since LSTMs have
@@ -125,11 +129,12 @@ class RNN_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
     super(RNN_Encoder, self).__init__()
     self.n_layers = n_layers
+    self.input_size = hidden_size
     self.hidden_size = hidden_size
     self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.rnn = nn.RNN(hidden_size)
+    self.rnn = nn.RNN(self.input_size, self.hidden_size)
 
   def forward(self, input, hidden):
     # matched_input = add_match_features(input)
