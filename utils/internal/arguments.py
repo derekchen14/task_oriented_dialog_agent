@@ -8,7 +8,7 @@ def solicit_args():
   parser.add_argument('--hidden-size', default=256, type=int,
     help='Number of hidden units in each LSTM')
 
-  parser.add_argument('-op', '--optimzier', default='SGD', type=str, help='Optimizer we want to use')
+  parser.add_argument('-op', '--optimizer', default='SGD', type=str, help='Optimizer we want to use')
 
   parser.add_argument('--n-layers', default=1, type=int,
                       help='Number of layers in each LSTM')
