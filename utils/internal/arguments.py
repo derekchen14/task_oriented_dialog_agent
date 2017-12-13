@@ -16,7 +16,7 @@ def solicit_args():
     help='probability of dropping a node')
   parser.add_argument('-teach', '--teacher-forcing', default=0.5, type=float, help='teacher forcing ratio')
   # 0 means no teacher forcing
-  parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help='weight_decay')
+  parser.add_argument('-wd', '--weight_decay', default=0.0001, type=float, help='weight_decay')
 
 
   parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,
