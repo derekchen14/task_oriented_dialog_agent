@@ -138,8 +138,17 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
     encoder = encoder.cuda()
     decoder = decoder.cuda()
 
-  encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-  decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+  if args.optimizer == 'SGD':
+    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+  elif args.optimizer == 'Adam':
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate * 0.01, weight_decay=weight_decay)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * 0.01, weight_decay=weight_decay)
+  else:
+    encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
   training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
   criterion = nn.NLLLoss()

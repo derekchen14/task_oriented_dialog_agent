@@ -7,13 +7,16 @@ def solicit_args():
     choices=['1','2','3','4','5','challenge','concierge','schedule','navigate','weather'] )
   parser.add_argument('--hidden-size', default=256, type=int,
     help='Number of hidden units in each LSTM')
+
+  parser.add_argument('-op', '--optimizer', default='SGD', type=str, help='Optimizer we want to use')
+
   parser.add_argument('--n-layers', default=1, type=int,
                       help='Number of layers in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
   parser.add_argument('-teach', '--teacher-forcing', default=0.5, type=float, help='teacher forcing ratio')
   # 0 means no teacher forcing
-  parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help='weight_decay')
+  parser.add_argument('-wd', '--weight_decay', default=0.001, type=float, help='weight_decay')
 
 
   parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,
@@ -33,5 +36,6 @@ def solicit_args():
     help='whether or not we save model weights')
   parser.add_argument('-p', '--plot-results', default=False, action='store_true',
     help='when true, we save results awhether or not to have verbose prints')
+
 
   return parser.parse_args()
