@@ -21,7 +21,8 @@ from utils.external.preprocessers import *
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
 
-def evaluate(input_variable, target_variable, encoder, decoder, max_length):
+def evaluate(input_variable, target_variable, encoder, decoder, max_length,
+        task, show_results):
   encoder_hidden = encoder.initHidden()
 
   input_length = input_variable.size()[0]
@@ -38,7 +39,6 @@ def evaluate(input_variable, target_variable, encoder, decoder, max_length):
   decoder_hidden = encoder_hidden
 
   predicts = []
-  print("target: {}".format(target_length) )
   for di in range(target_length):
     decoder_output, decoder_hidden, attn_weights = decoder(decoder_input, decoder_hidden, \
       encoder_output, encoder_outputs)
@@ -50,17 +50,27 @@ def evaluate(input_variable, target_variable, encoder, decoder, max_length):
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
     predicts.append(ni)
 
+  queries = input_variable.data.tolist()
   targets = target_variable.data.tolist()
-  turn_success = [pred == tar for pred, tar in zip(predicts, targets)]
+  if show_results:
+    qry_words = " ".join([vocab.index_to_word(z[0], task) for z in queries])
+    print("user query: {}".format(qry_words) )
+    pred_words = " ".join([vocab.index_to_word(x, task) for x in predicts])
+    print("predic: {}".format(pred_words) )
+    tar_words = " ".join([vocab.index_to_word(y[0], task) for y in targets])
+    print("target: {}".format(tar_words) )
+
+  turn_success = [pred == tar[0] for pred, tar in zip(predicts, targets)]
   return all(turn_success)
 
 if __name__ == "__main__":
   args = solicit_args()
   task = 'car' if args.task_name in ['navigate', 'schedule', 'weather'] else 'res'
-  val_data, val_candidates, max_length = data_io.load_dataset(args.task_name, "dev", False)
-  val_variables = collect_dialogues(val_data, task=task)[0:10]
-  encoder = torch.load('datasets/old_encoder.pt')
-  decoder = torch.load('datasets/old_decoder.pt')
+  val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", False)
+  max_length = 30
+  val_variables = collect_dialogues(val_data, task=task)[0:1000]
+  encoder = torch.load('results/bid_best_en.pt')
+  decoder = torch.load('results/bid_best_de.pt')
 
   # single_dialog_success and single_turn_success are scalars with values 0 or 1
   # dialog_success and turn_success are lists that hold "single success"
@@ -68,21 +78,28 @@ if __name__ == "__main__":
   # per_dialog_accuracy and per_turn_accuracy are floats between 0% to 100%
   overall_dialog = []
   overall_turn = []
-  dialog_success = None
+  dialog_success = []
 
+  show_results = False
   for input_var, output_var in val_variables:
     first_token = input_var[0].data[0]
     # first token is a turn counter, so when it equals 1, that means we are in a new dialogue
-    if first_token == 1 and dialog_success:
+    if first_token == 1 and len(dialog_success) > 1:
       single_dialog_success = all(dialog_success)
       overall_dialog.append(single_dialog_success)
       dialog_success = []
+      if random.random() < 0.3:
+        show_results = True
+        print "New Dialogue ------------------"
+      else:
+        show_results = False
 
-    single_turn_success = evaluate(input_var, output_var, encoder, decoder, max_length)
+    single_turn_success = evaluate(input_var, output_var, encoder, decoder,
+        max_length, task, show_results)
     dialog_success.append(single_turn_success)
     overall_turn.append(single_turn_success)
 
-  per_turn_accuracy = float(sum(overall_turn)) / len(overall_turn)
-  print("per_turn_accuracy: {}".format(round(per_turn_accuracy, 3)) )
-  per_dialog_accuracy = float(sum(overall_dialog)) / len(overall_dialog)
-  print("per_dialog_accuracy: {}".format(round(per_dialog_accuracy, 3)) )
+  per_turn_accuracy = 100 * float(sum(overall_turn)) / len(overall_turn)
+  print("per_turn_accuracy: {:.2f}%".format(per_turn_accuracy) )
+  per_dialog_accuracy = 100 * float(sum(overall_dialog)) / len(overall_dialog)
+  print("per_dialog_accuracy: {:.2f}%".format(per_dialog_accuracy) )
