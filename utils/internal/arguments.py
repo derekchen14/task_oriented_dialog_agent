@@ -14,16 +14,16 @@ def solicit_args():
                       help='Number of layers in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
     help='probability of dropping a node')
-  parser.add_argument('-teach', '--teacher-forcing', default=0.5, type=float, help='teacher forcing ratio')
+  parser.add_argument('--teacher-forcing', default=0.5, type=float, help='teacher forcing ratio')
   # 0 means no teacher forcing
-  parser.add_argument('-wd', '--weight_decay', default=0.001, type=float, help='weight_decay')
+  parser.add_argument('-w', '--weight_decay', default=0.001, type=float, help='weight_decay')
 
 
-  parser.add_argument('-enp', '--encoder-path', default='results/1_en.pt', type=str,
+  parser.add_argument('--encoder-path', default='results/1_en.pt', type=str,
     help='where to save encoder')
-  parser.add_argument('-edp', '--decoder-path', default='results/1_de.pt', type=str,
+  parser.add_argument('--decoder-path', default='results/1_de.pt', type=str,
     help='where to save decoder')
-  parser.add_argument('-ep', '--error-path', default='results/1_error.csv', type=str,
+  parser.add_argument('--error-path', default='results/1_error.csv', type=str,
                       help='where to save error')
   parser.add_argument('--n_iters', default=25000, type=int,
                       help='iterations to train')

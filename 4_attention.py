@@ -114,7 +114,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
     decoder_input = Variable(torch.LongTensor([[ni]]))
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-    loss += criterion(decoder_output, target_variable[di]) #############????
+    loss += criterion(decoder_output, target_variable[di])
     if ni == vocab.EOS_token:
       break
 
