@@ -126,7 +126,7 @@ class BLEU(object):
     """
 
     @staticmethod
-    def compute(candidate, references, weights):
+    def compute(candidate, references, weights=[0.2, 0.2, 0.2, 0.2, 0.2]):
         candidate = [c.lower() for c in candidate]
         references = [[r.lower() for r in reference] for reference in references]
 
