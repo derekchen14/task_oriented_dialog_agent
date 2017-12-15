@@ -79,7 +79,7 @@ class Match_Encoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size + 8  # extended dim for the match features
     self.use_cuda = use_cuda
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, bidirectional = True)
     self.embedding = match_embedding(vocab_size, hidden_size)
 
   def forward(self, input, hidden):
@@ -90,7 +90,7 @@ class Match_Encoder(nn.Module):
     return output, hidden
 
   def initHidden(self):
-    result = Variable(torch.zeros(1, 1, self.hidden_size))
+    result = Variable(torch.zeros(2, 1, self.hidden_size // 2))
     if self.use_cuda:
       return result.cuda()
     else:
