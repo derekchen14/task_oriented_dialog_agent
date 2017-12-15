@@ -17,6 +17,6 @@
 
 # python 4_attention.py -t schedule --hidden-size 256 --n-layers 2 --drop-prob 0.3 -enp 'results/sch1_wd2_en.pt' -edp 'results/sch1_wd2_de.pt' -ep 'results/sch1_wd2_error.csv' -s -teach 0.60
 
-python 4_attention.py -t schedule --hidden-size 256 --n-layers 1 --drop-prob 0.1 -enp 'results/sch1_dp1_en.pt' -edp 'results/sch1_dp1_de.pt' -ep 'results/sch1_dp1_error.csv' -s -teach 0.60
+# python 4_attention.py -t schedule --hidden-size 256 --n-layers 1 --drop-prob 0.1 -enp 'results/sch1_dp1_en.pt' -edp 'results/sch1_dp1_de.pt' -ep 'results/sch1_dp1_error.csv' -s -teach 0.60
 
-python 4_attention.py -t schedule --hidden-size 256 --n-layers 1 --drop-prob 0.5 -enp 'results/sch1_dp2_en.pt' -edp 'results/sch1_dp2_de.pt' -ep 'results/sch1_dp2_error.csv' -s -teach 0.60
+# python 4_attention.py -t schedule --hidden-size 256 --n-layers 1 --drop-prob 0.5 -enp 'results/sch1_dp2_en.pt' -edp 'results/sch1_dp2_de.pt' -ep 'results/sch1_dp2_error.csv' -s -teach 0.60#
