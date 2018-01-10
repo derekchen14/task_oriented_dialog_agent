@@ -177,9 +177,9 @@ if __name__ == "__main__":
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  encoder = Copy_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
-  decoder = Copy_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
-  args.n_layers, args.drop_prob, max_length)
+  encoder = Copy_Encoder(vocab.ulary_size(task), args.hidden_size)
+  decoder = Copy_Decoder(vocab.ulary_size(task), args.hidden_size, args.n_layers,
+          args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=args.n_iters, print_every=150,
