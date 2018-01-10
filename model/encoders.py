@@ -119,6 +119,35 @@ class GRU_Encoder(nn.Module):
     else:
       return result
 
+class LSTM_Encoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+    super(LSTM_Encoder, self).__init__()
+    self.n_layers = n_layers
+    self.hidden_size = hidden_size
+    self.use_cuda = use_cuda
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.lstm = nn.LSTM(hidden_size, hidden_size)
+
+  def forward(self, input, hidden):
+    embedded = self.embedding(input).view(1, 1, -1)
+    output = embedded
+    for i in range(self.n_layers):
+      output, hidden = self.lstm(output, hidden)
+      #  output (1, 1, 256),  hidden  (1, 1, 256)
+    return output, hidden
+    # return self.lstm(embedded, hidden, n_layers)
+
+  def initHidden(self):
+    # you need two variables since LSTMs have
+    # (1) hidden state and (2) candidate cell state
+    # whereas GRU have only the hidden state which does both
+    hidden = Variable(torch.zeros(1, 1, self.hidden_size))
+    cell = Variable(torch.zeros(1, 1, self.hidden_size))
+    if self.use_cuda:
+      return (hidden.cuda(), cell.cuda())
+    else:
+      return (hidden, cell)
+
 class RNN_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
     super(RNN_Encoder, self).__init__()
@@ -151,32 +180,3 @@ class RNN_Encoder(nn.Module):
     # timesteps = sequence_length, number of words in your sentence
     # batch_size = mini-batch size Ex. 1 means we are doing SGD
     # input_size = feature_dim  Ex. 256 means your word embedding is 256 dim
-
-class LSTM_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
-    super(LSTM_Encoder, self).__init__()
-    self.n_layers = n_layers
-    self.hidden_size = hidden_size
-    self.use_cuda = use_cuda
-    self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.lstm = nn.LSTM(hidden_size, hidden_size)
-
-  def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output, hidden = self.lstm(output, hidden)
-      #  output (1, 1, 256),  hidden  (1, 1, 256)
-    return output, hidden
-    # return self.lstm(embedded, hidden, n_layers)
-
-  def initHidden(self):
-    # you need two variables since LSTMs have
-    # (1) hidden state and (2) candidate cell state
-    # whereas GRU have only the hidden state which does both
-    hidden = Variable(torch.zeros(1, 1, self.hidden_size))
-    cell = Variable(torch.zeros(1, 1, self.hidden_size))
-    if self.use_cuda:
-      return (hidden.cuda(), cell.cuda())
-    else:
-      return (hidden, cell)
