@@ -179,16 +179,16 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       plot_steps_train.append(iter)
 
     if iter % val_every == 0:
-        plot_steps_validation.append(iter)
-        validation_losses = []
-        for iter in range(1, v_iters + 1):
-          validation_pair = validation_pairs[iter - 1]
-          validation_input = validation_pair[0]
-          validation_output = validation_pair[1]
-          val_loss = validate(validation_input, validation_output, encoder, decoder, criterion, max_length)
-          validation_losses.append(val_loss)
-        print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
-        plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
+      plot_steps_validation.append(iter)
+      validation_losses = []
+      for iter in range(1, v_iters + 1):
+        validation_pair = validation_pairs[iter - 1]
+        validation_input = validation_pair[0]
+        validation_output = validation_pair[1]
+        val_loss = validate(validation_input, validation_output, encoder, decoder, criterion, max_length)
+        validation_losses.append(val_loss)
+      print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
+      plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
 
   return plot_losses_train, plot_losses_validation, plot_steps_train, plot_steps_validation
 

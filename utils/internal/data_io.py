@@ -6,6 +6,7 @@ import math
 import json
 import pandas as pd
 
+from torch.autograd import Variable
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
@@ -249,3 +250,12 @@ def init_normal_words(vocab_size=1229, dim=100):
   # each word embedding is a column vector
   word_embeddings = truncnorm.rvs(a=mean, b=stddev, size=[dim, vocab_size])
   return word_embeddings
+
+def smart_variable(tensor):
+  result = Variable(tensor)
+  if use_cuda:
+    return result.cuda()
+  else:
+    return result
+
+
