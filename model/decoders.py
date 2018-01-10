@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
+
+from components import *
 import sys
 
 # ------- Decoders ----------
@@ -23,12 +24,11 @@ import sys
 #         for images this might be 784 for a 28x28 pixel image
 
 class Copy_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
+  def __init__(self, vocab_size, hidden_size, n_layers=1,
         dropout_p=0.1, max_length=8):
     super(Copy_Decoder, self).__init__()
     self.vocab_size = vocab_size  # check extend_vocab method below
     self.hidden_size = hidden_size + 8
-    self.use_cuda = use_cuda
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
@@ -43,13 +43,17 @@ class Copy_Decoder(nn.Module):
     self.copy_mode = nn.Linear(self.hidden_size * 2, self.hidden_size)
     self.generate_mode = nn.Linear(self.hidden_size, self.vocab_size)
 
-  def extend_vocab(input_sentence):
+  def extend_vocab(self, input_sentence):
     num_words_to_be_copied = len(input_sentence)
     self.vocab_size += num_words_to_be_copied
     self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
-  def forward(self, input, hidden, encoder_output, encoder_outputs):
-    input_sentence_length = encoder_outputs.size()[2]
+  def forward(self, input, hidden, encoder_outputs):
+    # encoder_outputs     (input_max_length x hidden_size + 8) (30, 264)
+    input_sentence_length = encoder_outputs.size()[0]
+    print input_sentence_length
+    sys.exit()
+
     if (hidden.size()[0] == (2 * input.size()[0])):
       hidden = hidden.view(1, 1, -1)
 
@@ -111,12 +115,11 @@ class Copy_Decoder(nn.Module):
     return output, hidden #, attn_weights
 
 class Match_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
+  def __init__(self, vocab_size, hidden_size, n_layers=1,
         dropout_p=0.1, max_length=8):
     super(Match_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8
     self.vocab_size = vocab_size
-    self.use_cuda = use_cuda
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
@@ -128,7 +131,7 @@ class Match_Decoder(nn.Module):
     self.gru = nn.GRU(self.hidden_size, self.hidden_size)
     self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
-  def forward(self, input, hidden, encoder_output, encoder_outputs):
+  def forward(self, input, hidden, encoder_outputs):
     if (hidden.size()[0] == (2 * input.size()[0])):
       hidden = hidden.view(1, 1, -1)
 
@@ -151,12 +154,11 @@ class Match_Decoder(nn.Module):
     return output, hidden, attn_weights
 
 class Bid_GRU_Attn_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
+  def __init__(self, vocab_size, hidden_size, n_layers=1,
         dropout_p=0.1, max_length=8):
     super(Bid_GRU_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
-    self.use_cuda = use_cuda
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
@@ -198,7 +200,7 @@ class Bid_GRU_Decoder(nn.Module):
   produce the encodings, we need to merge the context vectors together in
   order properly init the hidden state, but then everything else is the same
   '''
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
@@ -222,12 +224,11 @@ class Bid_GRU_Decoder(nn.Module):
     return output, hidden
 
 class GRU_Attn_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1,
+  def __init__(self, vocab_size, hidden_size, n_layers=1,
         dropout_p=0.1, max_length=8):
     super(GRU_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
-    self.use_cuda = use_cuda
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
@@ -258,12 +259,11 @@ class GRU_Attn_Decoder(nn.Module):
     return output, hidden, attn_weights
 
 class GRU_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size #serves double duty
-    self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(self.input_size, self.hidden_size)
@@ -280,11 +280,10 @@ class GRU_Decoder(nn.Module):
     return output, hidden
 
 class LSTM_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(LSTM_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-    self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)
@@ -303,12 +302,11 @@ class LSTM_Decoder(nn.Module):
     return smart_variable(torch.zeros(1, 1, self.hidden_size))
 
 class RNN_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, use_cuda, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(RNN_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size
-    self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.rnn = nn.RNN(self.input_size, self.hidden_size)
@@ -322,10 +320,3 @@ class RNN_Decoder(nn.Module):
       output, hidden = self.rnn(output, hidden)
     output = self.softmax(self.out(output[0]))
     return output, hidden
-
-  def initHidden(self):
-    result = Variable(torch.zeros(1, 1, self.hidden_size))
-    if self.use_cuda:
-      return result.cuda()
-    else:
-      return result

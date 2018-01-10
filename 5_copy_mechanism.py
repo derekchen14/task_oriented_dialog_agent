@@ -18,7 +18,6 @@ from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
 import utils.internal.display as display
-import utils.internal.display as smart_variable
 from utils.external.clock import *
 from utils.external.preprocessers import *
 
@@ -26,11 +25,10 @@ from model.encoders import Copy_Encoder, Match_Encoder
 from model.decoders import Copy_Decoder, Match_Decoder
 from model.components import *
 
-use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
 
-def train(input_variable, target_variable, encoder, decoder, \
-    encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, \
+    decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
   encoder.train()
   decoder.train()
   encoder_hidden = encoder.initHidden()
@@ -45,15 +43,15 @@ def train(input_variable, target_variable, encoder, decoder, \
   loss = 0
 
   # Encoding User Input
-  encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-  encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-  for ei in range(min(max_length, input_length)):
+  # encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
+  # for ei in range(min(max_length, input_length)):
+  encoder_outputs = smart_variable(torch.zeros(input_length, encoder.hidden_size))
+  for ei in range(input_length):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
   # Decoding to Generate Output
-  decoder_input = Variable(torch.LongTensor([[vocab.SOS_token]]))
-  decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
   for di in range(target_length):
     decoder_output, decoder_hidden, attn_weights = decoder(decoder_input,
@@ -68,8 +66,7 @@ def train(input_variable, target_variable, encoder, decoder, \
       # the [0][0] is simply to extract a scalar from a 1x1x1 3d tensor
       if ni == vocab.EOS_token:
         break
-      decoder_input = Variable(torch.LongTensor([[ni]]))
-      decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+      decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
   loss.backward()
 
@@ -87,14 +84,12 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
   target_length = target_variable.size()[0]
   loss = 0
 
-  encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-  encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
+  encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
   for ei in range(min(max_length, input_length)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
-  decoder_input = Variable(torch.LongTensor([[vocab.SOS_token]]))
-  decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
   for di in range(target_length):
     decoder_output, decoder_hidden, attn_weights = decoder(decoder_input,
@@ -105,8 +100,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
     ni = topi[0][0]
     if ni == vocab.EOS_token:
       break
-    decoder_input = Variable(torch.LongTensor([[ni]]))
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+    decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
   return loss.data[0] / target_length
 
@@ -123,7 +117,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
 
-  if use_cuda:
+  if torch.cuda.is_available():
     encoder = encoder.cuda()
     decoder = decoder.cuda()
 
@@ -183,8 +177,8 @@ if __name__ == "__main__":
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  encoder = Match_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
-  decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
+  encoder = Copy_Encoder(vocab.ulary_size(task), args.hidden_size, use_cuda)
+  decoder = Copy_Decoder(vocab.ulary_size(task), args.hidden_size, use_cuda,
   args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
