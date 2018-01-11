@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import sys
+from components import smart_variable
 
 # ------- Decoders ----------
 # Decoder is given an input token and hidden state. The initial input token is
@@ -23,13 +24,14 @@ import sys
 
 class Copy_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1,
-        dropout_p=0.1, max_length=8):
+        dropout_p=0.1, max_length=8, verbose=False):
     super(Copy_Decoder, self).__init__()
     self.vocab_size = vocab_size  # check extend_vocab method below
     self.hidden_size = hidden_size + 8
     self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
+    self.verbose = verbose
 
     self.attention_W = nn.Linear(self.hidden_size * 2, self.max_length)
     self.attention_U = nn.Linear(self.hidden_size * 2, self.hidden_size)
@@ -38,7 +40,7 @@ class Copy_Decoder(nn.Module):
     self.dropout = nn.Dropout(self.dropout_p)
     self.gru = nn.GRU(self.hidden_size, self.hidden_size)
 
-    self.copy_mode = nn.Linear(self.hidden_size * 2, self.hidden_size)
+    self.copy_mode = nn.Linear(self.hidden_size, self.hidden_size)
     self.generate_mode = nn.Linear(self.hidden_size, self.vocab_size)
 
   def extend_vocab(self, input_sentence):
@@ -46,71 +48,84 @@ class Copy_Decoder(nn.Module):
     self.vocab_size += num_words_to_be_copied
     self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
-  def forward(self, input, hidden, encoder_outputs):
-    # encoder_outputs     (input_max_length x hidden_size + 8) (30, 264)
-    input_sentence_length = encoder_outputs.size()[0]
-    print input_sentence_length
-    sys.exit()
+  def forward(self, decoder_input, hidden_state, encoder_outputs, input_variable):
+    if self.verbose:
+      print("decoder_input: {}".format(decoder_input.size()) )
+      print("hidden_state: {}".format(hidden_state.size()) )
+      print("encoder_outputs: {}".format(encoder_outputs.size()) )
+      print("input_variable: {}".format(input_variable.size()) )
 
-    if (hidden.size()[0] == (2 * input.size()[0])):
-      hidden = hidden.view(1, 1, -1)
+    input_length = input_variable.size()[0]
+    batch_size = 1
+    if (hidden_state.size()[0] == (2 * decoder_input.size()[0])):
+      hidden_state = hidden_state.view(batch_size, 1, -1)
 
-    embedded = self.embedding(input).view(1, 1, -1)
+    embedded = self.embedding(decoder_input).view(batch_size, 1, -1)
     embedded = self.dropout(embedded)
 
-    attn_input = torch.cat((embedded[0], hidden[0]), 1)
-    # context_vector = softmax(W(i+h))
-    attn_weights = F.softmax(self.attention_W(attn_input))
-    attn_applied = torch.bmm(attn_weights.unsqueeze(0),encoder_outputs.unsqueeze(0))
-    # attn = context_vector x encoder_outputs
-    joined_input = torch.cat((embedded[0], attn_applied[0]), 1)
-    # combine = U(i+attn)
-    rnn_input = self.attention_U(joined_input).unsqueeze(0)
+    attn_weights = F.softmax(                                         # (1x30)
+            self.attention_W(torch.cat((embedded[0], hidden_state[0]), 1)))
+    attn_applied = torch.bmm(                 # [b x 1 x 30] x [b x 30 x 264]
+            attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0)) # (1x1x264)
+    joined_input = torch.cat((embedded[0], attn_applied[0]), 1)      # (1x528)
+    rnn_input = self.attention_U(joined_input).unsqueeze(0)          # (1x1x264)
 
     rnn_input = F.relu(rnn_input)   # should order be switched? TODO: is this needed?
     # in a GRU and LSTM the encoder output is the same as encoder hidden state
     # you are confusing hidden state with the LSTM cell state which is different
-    output, hidden = self.gru(rnn_input, hidden)
-    # thus, the "output" here can be ignored
+    output, final_hidden = self.gru(rnn_input, hidden_state)         # (1x1x264)
 
-    '''
-    # score_g is unnormalized probability right before a softmax
-    score_g = self.generate_mode(hidden) # [b x vocab_size]
-    # contiguous operates on computer memory, it does not change the math
-    enc_outs = encoder_outputs.contiguous().view(-1,hidden_size*2)
+    # 2.1) score_g is unnormalized probability right before a softmax
+    score_g = self.generate_mode(final_hidden).squeeze(1)     # [b x vocab_size]
+    # enc_outs = encoder_outputs.contiguous().view(-1, self.hidden_size*2)
+    # before: torch.Size([30, 264])   after: torch.Size([15, 528])
     # basically, pass through affine transform and a non-linearity
-    score_c = F.tanh(self.copy_mode(enc_outs)) # [b*seq x hidden_size]
     # all the view and squeezing is just to line up the matrix multplication
-    score_c = score_c.view(b,-1,hidden_size) # [b x seq x hidden_size]
-    # reshaping doesn't change the math, so feel free to ignore its impact
-    score_c = torch.bmm(score_c, hidden.unsqueeze(2)).squeeze() # [b x seq]
 
-    # TODO: find out if we have padding, and if so, what is its index?
-    # below assumes padding_idx = 0
-    # encoded_mask = (np.array(encoded_idx==padding_idx, dtype=float)*(-1000)) # [b x seq]
-    # padded parts will get close to 0 when applying softmax
-    # score_c = score_c + smart_variable(encoded_mask)
-    # score_c = F.tanh(score_c)
+    # 2.2) score_c is the score for the copy mode
+    trimmed_outputs = encoder_outputs[:input_length, :]     # to remove padding
+    score_c = F.tanh(self.copy_mode(trimmed_outputs))               # (8x264)
+    score_c = score_c.view(batch_size, -1, self.hidden_size)        # (bx8x264)
+    hidden = hidden_state.view(batch_size, self.hidden_size, 1)     # (bx264x1)
+    score_c = torch.bmm(score_c, hidden).view(batch_size, -1)       # (bx8)
 
-    # 2-3) get softmax-ed probabilities
-    score = torch.cat([score_g,score_c],1) # [b x (vocab+seq)]
-    probs = F.softmax(score)
-    prob_g = probs[:,:vocab_size] # [b x vocab]
-    prob_c = probs[:,vocab_size:] # [b x seq]
+    # 2.3) get softmax-ed probabilities
+    probs = F.softmax(torch.cat([score_g,score_c],1))              # (1x 1000)
+    prob_g = probs[:,:self.vocab_size]                             # [b x vocab]
+    prob_c = probs[:,self.vocab_size:]                             # [b x 8]
 
-    # combined prob is size of the original_vocab + OOV
-    combined_prob = smart_variable(torch.zeros((b,vocab_size)) )
-    assume batch size of 1
-    for s in range(input_sentence_length):  # for each word in the input sentence
-      word_index = encoded_idx[s]
-      some_zero_vector = combined_prob[word_index]
-      combined_prob[word_index] += prob_c[s]
-    out = prob_g + combined_prob
-    out = out.unsqueeze(1) # [b x 1 x vocab]
+    # 2.4) append some OOV slots to the end pof prob_generate, i.e. 12 slots
+    # oovs = smart_variable(torch.zeros((batch_size, 12)) )+1e-4
+    # prob_g = torch.cat([prob_g,oovs], 1)                      # [b x vocab+12]
 
-    output = F.log_softmax(self.out(output[0]))
-    '''
-    return output, hidden #, attn_weights
+    # 2.5) add prob_c to prob_g
+    input_indexes = input_variable.data.long().t().unsqueeze_(2)    # (bx8x1)
+    one_hot = torch.zeros((batch_size, input_length, self.vocab_size))
+    one_hot.scatter_(2, input_indexes, 1)                    # (b x 8 x 1000)
+    # one_hot = one_hot.cuda()
+    prob_c_to_g = torch.bmm(prob_c.unsqueeze(1), smart_variable(one_hot)) # [b x 1 x vocab]
+    prob_c_to_g = prob_c_to_g.squeeze(1)                        # [b x vocab]
+    final_output = prob_g + prob_c_to_g                         # [1 x 2165]
+
+    # 3. get weighted attention to use for predicting next word
+    # 3.1) tensor indicating whether decoder input appeared anywhere in encoder
+    din = decoder_input.squeeze()                     # Variable scalar
+    matched = torch.cat([(word==din) for word in input_variable]).float()
+    # for i in range(batch_size):   not needed because we have batch_size 1
+    #   total = matched[i].sum().data[0]
+    #   matched[i] = matched[i]/total if total > 1 else matched[i]
+
+    # 3.2) multiply with prob_c to get final weighted representation
+    updated_attn = prob_c * matched                         # [b,8]x[8] = (bx8)
+    final_weights = torch.mm(updated_attn, trimmed_outputs)      # [b x hidden]
+    final_weights = final_weights.unsqueeze(1)                      # (bx1x264)
+
+    if self.verbose:
+      print("final_output: {}".format(final_output.size()) )
+      print("final_hidden: {}".format(final_hidden.size()) )
+      print("final_weights: {}".format(final_weights.size()) )
+
+    return final_output, final_hidden, final_weights
 
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1,
@@ -203,7 +218,6 @@ class Bid_GRU_Decoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size #serves double duty
-    self.use_cuda = use_cuda
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(self.input_size, self.hidden_size)

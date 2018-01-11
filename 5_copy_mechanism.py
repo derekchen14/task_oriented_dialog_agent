@@ -38,24 +38,24 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
-  input_length = input_variable.size()[0]
-  target_length = target_variable.size()[0]
+  encoder_len = input_variable.size()[0]
+  decoder_len = target_variable.size()[0]
   loss = 0
 
   # Encoding User Input
-  # encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-  # for ei in range(min(max_length, input_length)):
-  encoder_outputs = smart_variable(torch.zeros(input_length, encoder.hidden_size))
-  for ei in range(input_length):
+  # encoder_outputs = smart_variable(torch.zeros(encoder_len, encoder.hidden_size))
+  # for ei in range(encoder_len):
+  encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
+  for ei in range(min(max_length, encoder_len)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
   # Decoding to Generate Output
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
-  for di in range(target_length):
+  for di in range(decoder_len):
     decoder_output, decoder_hidden, attn_weights = decoder(decoder_input,
-        decoder_hidden, encoder_outputs)
+        decoder_hidden, encoder_outputs, input_variable)
     loss += criterion(decoder_output, target_variable[di])
 
     if random.random() < teacher_forcing_ratio:  # Use Teacher Forcing
@@ -73,27 +73,27 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
   encoder_optimizer.step()
   decoder_optimizer.step()
 
-  return loss.data[0] / target_length
+  return loss.data[0] / decoder_len
 
 def validate(input_variable, target_variable, encoder, decoder, criterion, max_length):
   encoder.eval()
   decoder.eval()
   encoder_hidden = encoder.initHidden()
 
-  input_length = input_variable.size()[0]
-  target_length = target_variable.size()[0]
+  encoder_len = input_variable.size()[0]
+  decoder_len = target_variable.size()[0]
   loss = 0
 
   encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
-  for ei in range(min(max_length, input_length)):
+  for ei in range(min(max_length, encoder_len)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
-  for di in range(target_length):
+  for di in range(decoder_len):
     decoder_output, decoder_hidden, attn_weights = decoder(decoder_input,
-        decoder_hidden, encoder_outputs)
+        decoder_hidden, encoder_outputs, input_variable)
     loss += criterion(decoder_output, target_variable[di])
 
     topv, topi = decoder_output.data.topk(1)
@@ -102,7 +102,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
       break
     decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
-  return loss.data[0] / target_length
+  return loss.data[0] / decoder_len
 
 def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
     n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
@@ -179,7 +179,7 @@ if __name__ == "__main__":
   # ---- BUILD MODEL ----
   encoder = Copy_Encoder(vocab.ulary_size(task), args.hidden_size)
   decoder = Copy_Decoder(vocab.ulary_size(task), args.hidden_size, args.n_layers,
-          args.drop_prob, max_length)
+          args.drop_prob, max_length, args.verbose)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, max_length, n_iters=args.n_iters, print_every=150,

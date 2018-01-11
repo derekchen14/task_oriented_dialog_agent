@@ -16,15 +16,15 @@ def solicit_args():
               help='Number of hidden units in each LSTM')
   parser.add_argument('--optimizer', default='SGD', type=str,
               help='Optimizer we want to use')
-  parser.add_argument('--num-layers', default=1, type=int,
-              help='Number of layers in each LSTM')
   parser.add_argument('--drop-prob', default=0.5, type=float,
               help='probability of dropping a node')
   parser.add_argument('--teacher-forcing', default=0.5, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
   parser.add_argument('-w', '--weight_decay', default=0.001, type=float,
               help='weight_decay with default 0.001')
-  parser.add_argument('--num_iters', default=25000, type=int,
+  parser.add_argument('--n-layers', default=1, type=int,
+              help='Number of layers in each LSTM')
+  parser.add_argument('--n_iters', default=25000, type=int,
               help='iterations to train')
   parser.add_argument('--decay_times', default=2, type=int,
               help='total lr decay times')

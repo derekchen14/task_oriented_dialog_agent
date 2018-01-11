@@ -1,7 +1,8 @@
 from torch import optim
+from torch import cuda
 from torch.autograd import Variable
 
-use_cuda = torch.cuda.is_available()
+use_cuda = cuda.is_available()
 
 def init_optimizers(optimizer_type, enc_params, dec_params, lr, weight_decay):
   if optimizer_type == 'SGD':
