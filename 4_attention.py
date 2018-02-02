@@ -61,9 +61,6 @@ def train(input_variable, target_variable, encoder, decoder, \
       decoder_output, decoder_hidden, decoder_attention = decoder(
         decoder_input, decoder_hidden, encoder_outputs)
 
-      print("decoder: {}".format(decoder_hidden.size()) )
-
-      sys.exit()
       loss += criterion(decoder_output, target_variable[di])
       decoder_input = target_variable[di]  # Teacher forcing
   else:
@@ -79,7 +76,7 @@ def train(input_variable, target_variable, encoder, decoder, \
         break
 
   loss.backward()
-
+  clip_gradient([encoder, decoder], clip=5)
   encoder_optimizer.step()
   decoder_optimizer.step()
 
@@ -137,16 +134,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
     encoder = encoder.cuda()
     decoder = decoder.cuda()
 
-  if args.optimizer == 'SGD':
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
-  elif args.optimizer == 'Adam':
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate * 0.01, weight_decay=weight_decay)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * 0.01, weight_decay=weight_decay)
-  else:
-    encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+  encoder_optimizer, decoder_optimizer = init_optimizers(args.optimizer,
+        encoder.parameters(), decoder.parameters(), learning_rate, weight_decay)
 
   training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
@@ -160,9 +149,9 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
 
     training_pair = training_pairs[iter - 1]
     input_variable = training_pair[0]
-
     output_variable = training_pair[1]
 
+    if iter == 1: print("Starting to train ...")
     loss = train(input_variable, output_variable, encoder, decoder, \
            encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio=teacher_forcing_ratio)
     print_loss_total += loss

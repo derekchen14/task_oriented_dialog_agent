@@ -22,3 +22,16 @@ def smart_variable(tensor):
     return result.cuda()
   else:
     return result
+
+def clip_gradient(models, clip):
+  '''
+  models: a list, such as [encoder, decoder]
+  clip: amount to clip the gradients by
+  '''
+  if clip is None:
+    return
+  for model in models:
+    for p in model.parameters():
+      if p.grad is None:
+        continue
+      p.grad.data = p.grad.data.clamp(-clip, clip)
