@@ -16,6 +16,16 @@ def timeSince(since, percent):
 
 def time_past(since):
   now = tm.time()
-  seconds_passed = now - since
-  print '{0:.2f} seconds '.format(seconds_passed)
+  minutes_passed = (now - since)/60.0
+  print '{0:.2f} minutes '.format(minutes_passed)
+
+def print_frequency(verbose, debug):
+  plot_every = 200
+  print_every = 400
+  val_every = 1200
+  if verbose or debug:
+    plot_every /= 2
+    print_every /= 2
+    val_every /= 2
+  return print_every, plot_every, val_every
 

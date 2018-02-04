@@ -2,7 +2,7 @@ import numpy as np
 import utils.internal.vocabulary as vocab
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
+from model.components import smart_variable
 
 use_cuda = torch.cuda.is_available()
 
@@ -41,14 +41,7 @@ def variable_from_sentence(sentence, indexes, task):
   indexes.extend([vocab.word_to_index(w, task) for w in sentence])
   indexes.append(vocab.EOS_token)
   # view.(-1,1) reshapes from vector into nx1 matrix
-  result = Variable(torch.LongTensor(indexes).view(-1, 1))
-  # except:
-  #   rest = sentence[8]
-  #   print rest
-  #   print vocab.word_to_index(rest)
-  #   print indexes
-  #   sys.exit()
-  # return result.cuda() if use_cuda else result
+  result = smart_variable(torch.LongTensor(indexes).view(-1, 1))
   return result, len(indexes)
 
 def dialog_to_variable(dialog, task, maxish):

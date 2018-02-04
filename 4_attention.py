@@ -18,7 +18,7 @@ from torch import optim
 from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
-import utils.internal.display as display
+import utils.internal.display_loss as display
 from utils.external.clock import *
 from utils.external.preprocessers import *
 from model.components import *
@@ -117,9 +117,9 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
   return loss.data[0] / target_length
 
 
-def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
-      n_iters=75000, print_every=5000, plot_every=100, val_every=150, \
-      learning_rate=0.01, teacher_forcing_ratio=0.0, weight_decay=0.0):
+def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
+      max_length=8, n_iters=75000, learning_rate=0.01, \
+      teacher_forcing_ratio=0.0, weight_decay=0.0):
   start = tm.time()
   plot_losses_train = []
   plot_losses_validation = []
@@ -127,6 +127,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
   plot_steps_validation = []
 
   v_iters = len(val_data) if task == 'car' else int(len(val_data)/500) - 1
+  n_iters = 600 if debug else n_iters
+  print_every, plot_every, val_every = print_frequency(verbose, debug)
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
 
@@ -178,6 +180,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, max_length=8, \
       print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
       plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
 
+  time_past(start)
   return plot_losses_train, plot_losses_validation, plot_steps_train, plot_steps_validation
 
 if __name__ == "__main__":
@@ -196,9 +199,9 @@ if __name__ == "__main__":
         args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
-      val_variables, task, max_length, n_iters=args.n_iters, print_every=150,
-                                              teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
-
+      val_variables, task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
+      teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
+  if args.debug: sys.exit()
   # --- MANAGE RESULTS ---
   errors = pd.DataFrame(data={'train_steps': strain, 'valid_steps': sval, 'train_error': ltrain, 'validation_error': lval})
   errors.to_csv(args.error_path, index=False)
