@@ -170,15 +170,15 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
     if iter % val_every == 0:
       plot_steps_validation.append(iter)
-      validation_losses = []
+      val_losses = []
       for iter in range(1, v_iters + 1):
         validation_pair = validation_pairs[iter - 1]
-        validation_input = validation_pair[0]
-        validation_output = validation_pair[1]
-        val_loss = validate(validation_input, validation_output, encoder, decoder, criterion, max_length)
-        validation_losses.append(val_loss)
-      print('Validation loss = ', sum(validation_losses) * 1.0 / len(validation_losses))
-      plot_losses_validation.append(sum(validation_losses) * 1.0 / len(validation_losses))
+        val_input = validation_pair[0]
+        val_output = validation_pair[1]
+        validation_loss = validate(val_input, val_output, encoder, decoder, criterion, max_length)
+        val_losses.append(validation_loss)
+      print('Validation loss: {:2.4f}'.format(sum(val_losses) * 1.0 / len(val_losses)) )
+      plot_losses_validation.append(sum(val_losses) * 1.0 / len(val_losses))
 
   time_past(start)
   return plot_losses_train, plot_losses_validation, plot_steps_train, plot_steps_validation
@@ -196,7 +196,8 @@ if __name__ == "__main__":
   # ---- BUILD MODEL ----
   encoder = Match_Encoder(vocab.ulary_size(task), args.hidden_size)
   decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size,
-        args.n_layers, args.drop_prob, max_length)
+      args.n_layers, args.drop_prob, max_length)
+  # decoder.embedding.weight = encoder.embedding.weight
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, args.verbose, args.debug, max_length, n_iters=args.n_iters,

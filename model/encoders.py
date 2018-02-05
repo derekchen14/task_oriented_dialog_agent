@@ -45,6 +45,11 @@ class Match_Encoder(nn.Module):
   def initHidden(self):
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
+  def shareEmbedding(self):
+    print self.embedding[80, 14:20]
+    self.embedding[80, 18] = 3.0
+    return self.embedding
+
 class Bid_GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_GRU_Encoder, self).__init__()
