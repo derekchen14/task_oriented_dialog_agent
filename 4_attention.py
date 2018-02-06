@@ -31,19 +31,16 @@ MAX_LENGTH = 8
 
 def train(input_variable, target_variable, encoder, decoder, \
         encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
-  encoder.train()
-  decoder.train()
-
-  encoder_hidden = encoder.initHidden()
-
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
+
   input_length = input_variable.size()[0]
   target_length = target_variable.size()[0]
   encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
 
   loss = 0
 
+  encoder_hidden = encoder.initHidden()
   for ei in range(min(max_length, input_length)):
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
@@ -118,7 +115,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, max_l
 
 
 def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
-      max_length=8, n_iters=75000, learning_rate=0.01, \
+      max_length=8, n_iters=75600, learning_rate=0.01, \
       teacher_forcing_ratio=0.0, weight_decay=0.0):
   start = tm.time()
   plot_losses_train = []

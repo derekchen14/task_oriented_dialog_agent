@@ -1,6 +1,7 @@
 from torch import optim
 from torch import cuda
 from torch.autograd import Variable
+from torch.nn.utils import clip_grad_norm
 
 use_cuda = cuda.is_available()
 
@@ -31,7 +32,4 @@ def clip_gradient(models, clip):
   if clip is None:
     return
   for model in models:
-    for p in model.parameters():
-      if p.grad is None:
-        continue
-      p.grad.data = p.grad.data.clamp(-clip, clip)
+    clip_grad_norm(model.parameters(), clip)

@@ -32,38 +32,32 @@ class Match_Encoder(nn.Module):
     super(Match_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size + 8  # extended dim for the match features
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, bidirectional = True)
+    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, \
+        num_layers=n_layers, bidirectional=True)
     self.embedding = match_embedding(vocab_size, hidden_size)
 
-  def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output, hidden = self.gru(output, hidden)
+  def forward(self, word_inputs, hidden):
+    seq_len = 1 # len(word_inputs)
+    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+    output, hidden = self.gru(embedded, hidden)
     return output, hidden
 
   def initHidden(self):
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
-
-  def shareEmbedding(self):
-    print self.embedding[80, 14:20]
-    self.embedding[80, 18] = 3.0
-    return self.embedding
 
 class Bid_GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_GRU_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-
+    self.gru = nn.GRU(hidden_size, hidden_size // 2, \
+        num_layers=n_layers, bidirectional=True)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.gru = nn.GRU(hidden_size, hidden_size // 2, bidirectional=True)
 
   def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output, hidden = self.gru(output, hidden)
+    seq_len = len(word_inputs)  # now a matrix multiplication
+    embedded = self.embedding(input).view(seq_len, 1, -1)
+    output, hidden = self.gru(embedded, hidden)
       #  output (1, 1, 256),  hidden  (2, 1, 128)
     return output, hidden
 
@@ -77,6 +71,7 @@ class Bid_GRU_Encoder(nn.Module):
     # output size, we split each of the hidden layers in half, z = h // 2
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
+# ------------- Below is Deprecated: Do Not Use ---------------
 class GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(GRU_Encoder, self).__init__()

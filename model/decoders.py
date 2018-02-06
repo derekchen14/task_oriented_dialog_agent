@@ -142,7 +142,7 @@ class Match_Decoder(nn.Module):
     self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
     self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
     self.dropout = nn.Dropout(self.dropout_p)
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+    self.gru = nn.GRU(self.hidden_size, self.hidden_size, n_layers)
     self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
   def forward(self, input, hidden, encoder_outputs):
@@ -151,11 +151,6 @@ class Match_Decoder(nn.Module):
 
     embedded = self.embedding(input).view(1, 1, -1)
     embedded = self.dropout(embedded)
-
-    # 272 + 264 = 536  = yea (probably wrong since 264 + 8 = 272)
-    # 264 * 2 = 528 = attention
-    yea = torch.cat((embedded[0], hidden[0]), 1)
-    nope = self.attn(yea)
     attn_weights = F.softmax(
       self.attn(torch.cat((embedded[0], hidden[0]), 1)))
     attn_applied = torch.bmm(attn_weights.unsqueeze(0),
@@ -164,9 +159,8 @@ class Match_Decoder(nn.Module):
     output = torch.cat((embedded[0], attn_applied[0]), 1)
     output = self.attn_combine(output).unsqueeze(0)
 
-    for i in range(self.n_layers):
-      output = F.relu(output)
-      output, hidden = self.gru(output, hidden)
+    output = F.relu(output)
+    output, hidden = self.gru(output, hidden)
 
     output = F.log_softmax(self.out(output[0]))
     return output, hidden, attn_weights
