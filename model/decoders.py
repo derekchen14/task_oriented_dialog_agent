@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import sys
+import pdb
 from components import smart_variable
 from utils.external.preprocessers import match_embedding
 
@@ -130,40 +131,49 @@ class Copy_Decoder(nn.Module):
 
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1,
-        dropout_p=0.1, max_length=8):
+        drop_prob=0.1, max_length=8):
     super(Match_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8   # extended dim for the match features
+    self.input_size = self.hidden_size * 2
     self.vocab_size = vocab_size
     self.n_layers = n_layers
-    self.dropout_p = dropout_p
     self.max_length = max_length
     self.embedding = nn.Embedding(vocab_size, self.hidden_size)
 
-    self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
-    self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
-    self.dropout = nn.Dropout(self.dropout_p)
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size, n_layers)
-    self.out = nn.Linear(self.hidden_size, self.vocab_size)
+    self.attn = nn.Linear(self.hidden_size, self.hidden_size)
+    self.dropout = nn.Dropout(drop_prob)
+    self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers) # dropout=drop_prob)
+    self.out = nn.Linear(self.hidden_size * 2, self.vocab_size)
 
-  def forward(self, input, hidden, encoder_outputs):
-    if (hidden.size()[0] == (2 * input.size()[0])):
-      hidden = hidden.view(1, 1, -1)
+  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
+    if (prev_hidden.size()[0] == (2 * word_input.size()[0])):
+      prev_hidden = prev_hidden.view(1, 1, -1)
+    # Get the embedding of the current input word (i.e. last output word)
+    embedded = self.embedding(word_input).view(1, 1, -1)  # 1 x Batch x N
+    # >>> embedded = self.dropout(embedded)
+    # Combine input word embedding and previous hidden state, run through RNN
+    rnn_input = torch.cat((embedded, last_context.unsqueeze(0)), 2)
+    # >>> rnn_input = F.relu(rnn_input)
+    rnn_output, hidden = self.gru(rnn_input, prev_hidden)
 
-    embedded = self.embedding(input).view(1, 1, -1)
-    embedded = self.dropout(embedded)
-    attn_weights = F.softmax(
-      self.attn(torch.cat((embedded[0], hidden[0]), 1)))
-    attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                 encoder_outputs.unsqueeze(0))
+    # Calculate attention from current RNN state and encoder outputs, then apply
+    seq_len = len(encoder_outputs)
+    attn_energies = smart_variable(torch.zeros((seq_len, 1, self.hidden_size))) # B x 1 x S
+    # Calculate energies for each encoder output
+    for i in range(seq_len):
+      energy = self.attn(encoder_outputs[i])
+      attn_energies[i] = rnn_output.squeeze(0) * (energy) # elementwise multplication
 
-    output = torch.cat((embedded[0], attn_applied[0]), 1)
-    output = self.attn_combine(output).unsqueeze(0)
+    # Normalize energies to weights in range 0 to 1, resize to 1 x 1 x seq_len
+    attn_weights = F.softmax(attn_energies)
+    attn_applied = attn_weights * encoder_outputs     # B x 1 x N
 
-    output = F.relu(output)
-    output, hidden = self.gru(output, hidden)
-
-    output = F.log_softmax(self.out(output[0]))
-    return output, hidden, attn_weights
+    # Predict next word using the RNN hidden state and context vector
+    rnn_context = rnn_output.squeeze(0)               # 1 x 264
+    attn_context = torch.sum(attn_applied, dim=0)     # 1 x 264
+    joined_context = torch.cat((rnn_context, attn_context), 1)
+    output = F.log_softmax(self.out(joined_context))
+    return output, attn_context, hidden, attn_weights
 
 class Bid_GRU_Attn_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1,

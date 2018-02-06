@@ -31,40 +31,41 @@ MAX_LENGTH = 8
 
 def train(input_variable, target_variable, encoder, decoder, \
         encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
+  encoder.train()   # affects the performance of dropout
+  decoder.train()
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
-
-  input_length = input_variable.size()[0]
-  target_length = target_variable.size()[0]
-  encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
-
   loss = 0
 
-  encoder_hidden = encoder.initHidden()
-  for ei in range(min(max_length, input_length)):
-    encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
-    encoder_outputs[ei] = encoder_output[0][0]
+  # input_length = input_variable.size()[0]
+  # encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
+  # for ei in range(min(max_length, input_length)):
+  # encoder_outputs[ei] = encoder_output[0][0]
+  target_length = target_variable.size()[0]
 
-  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
+  encoder_hidden = encoder.initHidden()
+  encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+
   # encoder's last hidden state is the decoder's intial hidden state
-  last_enc_hidden_state = encoder_hidden[-1]
+  # last_enc_hidden_state = encoder_hidden[-1]
+  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
+  decoder_context = smart_variable(torch.zeros(1, decoder.hidden_size))
 
   use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
   if use_teacher_forcing:
     # Teacher forcing: Feed the target as the next input
     for di in range(target_length):
-      decoder_output, decoder_hidden, decoder_attention = decoder(
-        decoder_input, decoder_hidden, encoder_outputs)
+      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
+        decoder_input, decoder_context, decoder_hidden, encoder_outputs)
 
       loss += criterion(decoder_output, target_variable[di])
       decoder_input = target_variable[di]  # Teacher forcing
   else:
-
     for di in range(target_length):
-      decoder_output, decoder_hidden, attn_weights = decoder(decoder_input, \
-          decoder_hidden, encoder_outputs)
+      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
+          decoder_input, decoder_context, decoder_hidden, encoder_outputs)
       topv, topi = decoder_output.data.topk(1)
       ni = topi[0][0]
       decoder_input = smart_variable(torch.LongTensor([[ni]]))
@@ -80,35 +81,28 @@ def train(input_variable, target_variable, encoder, decoder, \
   return loss.data[0] / target_length
 
 def validate(input_variable, target_variable, encoder, decoder, criterion, max_length):
-  encoder.eval()
+  encoder.eval()  # affects the performance of dropout
   decoder.eval()
-
-  encoder_hidden = encoder.initHidden()
-
-  input_length = input_variable.size()[0]
-  target_length = target_variable.size()[0]
-  encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
   loss = 0
 
-  for ei in range(min(max_length, input_length)):
-    encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
-    encoder_outputs[ei] = encoder_output[0][0]
+  target_length = target_variable.size()[0]
+  encoder_hidden = encoder.initHidden()
+  encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
 
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
-  # encoder's last hidden state is the decoder's intial hidden state
   decoder_hidden = encoder_hidden
+  decoder_context = smart_variable(torch.zeros(1, decoder.hidden_size))
 
   for di in range(target_length):
-    decoder_output, decoder_hidden, attn_weights = decoder(decoder_input, \
-        decoder_hidden, encoder_outputs)
+    decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
+        decoder_input, decoder_context, decoder_hidden, encoder_outputs)
 
-    # decoder_input, decoder_hidden, last_enc_hidden_state, encoder_outputs)  To be used later for attention
     topv, topi = decoder_output.data.topk(1)
     ni = topi[0][0]
     decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
     loss += criterion(decoder_output, target_variable[di])
-    if ni == vocab.EOS_token:
+    if ni == vocab.EOS_token :
       break
 
   return loss.data[0] / target_length

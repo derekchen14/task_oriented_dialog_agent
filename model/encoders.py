@@ -37,7 +37,7 @@ class Match_Encoder(nn.Module):
     self.embedding = match_embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):
-    seq_len = 1 # len(word_inputs)
+    seq_len = len(word_inputs)
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
     output, hidden = self.gru(embedded, hidden)
     return output, hidden
@@ -54,7 +54,7 @@ class Bid_GRU_Encoder(nn.Module):
         num_layers=n_layers, bidirectional=True)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
 
-  def forward(self, input, hidden):
+  def forward(self, word_inputs, hidden):
     seq_len = len(word_inputs)  # now a matrix multiplication
     embedded = self.embedding(input).view(seq_len, 1, -1)
     output, hidden = self.gru(embedded, hidden)
