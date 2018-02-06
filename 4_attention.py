@@ -188,16 +188,16 @@ if __name__ == "__main__":
   encoder = Match_Encoder(vocab.ulary_size(task), args.hidden_size)
   decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size,
       args.n_layers, args.drop_prob, max_length)
-  # decoder.embedding.weight = encoder.embedding.weight
+  decoder.embedding.weight = encoder.embedding.weight
   # ---- TRAIN MODEL ----
   ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
       val_variables, task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
       teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
   if args.debug: sys.exit()
   # --- MANAGE RESULTS ---
-  errors = pd.DataFrame(data={'train_steps': strain, 'valid_steps': sval, 'train_error': ltrain, 'validation_error': lval})
-  errors.to_csv(args.error_path, index=False)
-  print('Error saved!')
+  # errors = pd.DataFrame(data={'train_steps': strain, 'valid_steps': sval, 'train_error': ltrain, 'validation_error': lval})
+  # errors.to_csv(args.error_path, index=False)
+  # print('Error saved!')
 
   if args.save_results:
     torch.save(encoder, args.encoder_path)
