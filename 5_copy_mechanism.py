@@ -9,7 +9,6 @@ import random
 import json
 import sys
 import time as tm
-import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -17,7 +16,7 @@ from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
-import utils.internal.display as display
+import utils.internal.evaluate as evaluate
 from utils.external.clock import *
 from utils.external.preprocessers import *
 

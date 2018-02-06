@@ -8,8 +8,8 @@ import re
 import random
 import json
 import sys
+import pdb
 import time as tm
-import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -18,7 +18,7 @@ from torch import optim
 from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
-import utils.internal.display_loss as display
+import utils.internal.evaluate as evaluate
 from utils.external.clock import *
 from utils.external.preprocessers import *
 from model.components import *
@@ -190,22 +190,15 @@ if __name__ == "__main__":
       args.n_layers, args.drop_prob, max_length)
   decoder.embedding.weight = encoder.embedding.weight
   # ---- TRAIN MODEL ----
-  ltrain, lval, strain, sval = track_progress(encoder, decoder, train_variables,
-      val_variables, task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
+  results = track_progress(encoder, decoder, train_variables, val_variables,
+      task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
       teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
-  if args.debug: sys.exit()
   # --- MANAGE RESULTS ---
-  # errors = pd.DataFrame(data={'train_steps': strain, 'valid_steps': sval, 'train_error': ltrain, 'validation_error': lval})
-  # errors.to_csv(args.error_path, index=False)
-  # print('Error saved!')
-
-  if args.save_results:
+  if args.save_model:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
-    errors = pd.DataFrame(data={'train_steps':strain, 'valid_steps':sval, 'train_error': ltrain, 'validation_error':lval})
-    errors.to_csv(args.error_path, index=False)
-    print('Error saved!')
-
+  if args.save_loss:
+    evaluate.process(results, args)
   if args.plot_results:
-    display.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
+    evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')

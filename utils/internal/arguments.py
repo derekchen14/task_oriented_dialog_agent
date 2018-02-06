@@ -20,19 +20,21 @@ def solicit_args():
               help='probability of dropping a node')
   parser.add_argument('--teacher-forcing', default=0.5, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
-  parser.add_argument('-w', '--weight_decay', default=0.001, type=float,
+  parser.add_argument('-w', '--weight-decay', default=0.001, type=float,
               help='weight_decay with default 0.001')
   parser.add_argument('--n-layers', default=1, type=int,
               help='Number of layers in each LSTM')
-  parser.add_argument('--n_iters', default=25000, type=int,
+  parser.add_argument('--n-iters', default=25000, type=int,
               help='iterations to train')
-  parser.add_argument('--decay_times', default=2, type=int,
+  parser.add_argument('--decay-times', default=2, type=int,
               help='total lr decay times')
+  parser.add_argument('--attention-type', default='general', type=str,
+              help='type of attention', choices=['general', 'dot', 'special'])
 
   # -------- SAVING RESULTS ----------------
-  parser.add_argument('--save-results', default=False, action='store_true',
+  parser.add_argument('--save-model', default=False, action='store_true',
               help='when true, save model weights in a checkpoint')
-  parser.add_argument('--save-errors', default=False, action='store_true',
+  parser.add_argument('--save-loss', default=False, action='store_true',
               help='when true, save the train and loss curves')
   parser.add_argument('--plot-results', default=False, action='store_true',
               help='when true, plot the loss graph in file')
@@ -40,7 +42,7 @@ def solicit_args():
               help='where to save encoder')
   parser.add_argument('--decoder-path', default='results/1_de.pt', type=str,
               help='where to save decoder')
-  parser.add_argument('--error-path', default='results/1_error.csv', type=str,
+  parser.add_argument('--loss-path', default='results/1_loss_history.csv', type=str,
               help='where to save error')
 
   return parser.parse_args()
