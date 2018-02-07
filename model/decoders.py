@@ -163,7 +163,7 @@ class Match_Decoder(nn.Module):
       attn_energies[i] = rnn_output.squeeze(0) * (energy) # elementwise multplication
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x 1 x seq_len
-    attn_weights = F.softmax(attn_energies, dim=0)
+    attn_weights = F.softmax(attn_energies)
     attn_applied = attn_weights * encoder_outputs     # B x 1 x N
 
     # Predict next word using the RNN hidden state and context vector
