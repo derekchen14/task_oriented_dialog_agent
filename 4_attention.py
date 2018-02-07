@@ -41,8 +41,6 @@ def train(input_variable, target_variable, encoder, decoder, \
   # encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
   # for ei in range(min(max_length, input_length)):
   # encoder_outputs[ei] = encoder_output[0][0]
-  target_length = target_variable.size()[0]
-
   encoder_hidden = encoder.initHidden()
   encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
 
@@ -52,6 +50,7 @@ def train(input_variable, target_variable, encoder, decoder, \
   decoder_hidden = encoder_hidden
   decoder_context = smart_variable(torch.zeros(1, decoder.hidden_size))
 
+  target_length = target_variable.size()[0]
   use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
   if use_teacher_forcing:
@@ -74,7 +73,7 @@ def train(input_variable, target_variable, encoder, decoder, \
         break
 
   loss.backward()
-  clip_gradient([encoder, decoder], clip=5)
+  clip_gradient([encoder, decoder], clip=10)
   encoder_optimizer.step()
   decoder_optimizer.step()
 

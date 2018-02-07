@@ -56,9 +56,13 @@ class Bid_GRU_Encoder(nn.Module):
 
   def forward(self, word_inputs, hidden):
     seq_len = len(word_inputs)  # now a matrix multiplication
-    embedded = self.embedding(input).view(seq_len, 1, -1)
+    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+    # output is seq_len, batch, hidden_size * num_directions: (8,1,264)
+    # seq_len = 8, batch = 1, hidden_size = 128 + 4, num_directions = 2
+    # hidden is num_layers * num_directions, batch, hidden_size: (2,1,132)
+    # the two pieces in hidden are actually the bottom half of the last word
+    #     and the top half of the *first* word since we are bidirectional
     output, hidden = self.gru(embedded, hidden)
-      #  output (1, 1, 256),  hidden  (2, 1, 128)
     return output, hidden
 
   def initHidden(self):
