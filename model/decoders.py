@@ -149,7 +149,7 @@ class Match_Decoder(nn.Module):
       prev_hidden = prev_hidden.view(1, 1, -1)
     # Get the embedding of the current input word (i.e. last output word)
     embedded = self.embedding(word_input).view(1, 1, -1)  # 1 x Batch x N
-    # >>> embedded = self.dropout(embedded)
+    embedded = self.dropout(embedded)
     # Combine input word embedding and previous hidden state, run through RNN
     rnn_input = torch.cat((embedded, last_context.unsqueeze(0)), 2)
     rnn_output, hidden = self.gru(rnn_input, prev_hidden)
