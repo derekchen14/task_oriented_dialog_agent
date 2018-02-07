@@ -153,7 +153,6 @@ class Match_Decoder(nn.Module):
     # >>> embedded = self.dropout(embedded)
     # Combine input word embedding and previous hidden state, run through RNN
     rnn_input = torch.cat((embedded, last_context.unsqueeze(0)), 2)
-    # >>> rnn_input = F.relu(rnn_input)
     rnn_output, hidden = self.gru(rnn_input, prev_hidden)
 
     # Calculate attention from current RNN state and encoder outputs, then apply
@@ -165,7 +164,7 @@ class Match_Decoder(nn.Module):
       attn_energies[i] = rnn_output.squeeze(0) * (energy) # elementwise multplication
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x 1 x seq_len
-    attn_weights = F.softmax(attn_energies)
+    attn_weights = F.softmax(attn_energies, dim=0)
     attn_applied = attn_weights * encoder_outputs     # B x 1 x N
 
     # Predict next word using the RNN hidden state and context vector
