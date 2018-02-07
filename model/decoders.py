@@ -72,7 +72,6 @@ class Copy_Decoder(nn.Module):
     joined_input = torch.cat((embedded[0], attn_applied[0]), 1)      # (1x528)
     rnn_input = self.attention_U(joined_input).unsqueeze(0)          # (1x1x264)
 
-    rnn_input = F.relu(rnn_input)   # should order be switched? TODO: is this needed?
     # in a GRU and LSTM the encoder output is the same as encoder hidden state
     # you are confusing hidden state with the LSTM cell state which is different
     output, final_hidden = self.gru(rnn_input, hidden_state)         # (1x1x264)
@@ -180,7 +179,6 @@ class Bid_GRU_Attn_Decoder(nn.Module):
     super(Bid_GRU_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.vocab_size = vocab_size
-    self.n_layers = n_layers
     self.dropout_p = dropout_p
     self.max_length = max_length
 
@@ -188,7 +186,7 @@ class Bid_GRU_Attn_Decoder(nn.Module):
     self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
     self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
     self.dropout = nn.Dropout(self.dropout_p)
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+    self.gru = nn.GRU(self.hidden_size, self.hidden_size, n_layers)
     self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
   def forward(self, input, hidden, encoder_output, encoder_outputs):
@@ -204,11 +202,8 @@ class Bid_GRU_Attn_Decoder(nn.Module):
                  encoder_outputs.unsqueeze(0))
 
     output = torch.cat((embedded[0], attn_applied[0]), 1)
-    output = self.attn_combine(output).unsqueeze(0)
-
-    for i in range(self.n_layers):
-      output = F.relu(output)
-      output, hidden = self.gru(output, hidden)
+    attn_output = self.attn_combine(output).unsqueeze(0)
+    output, hidden = self.gru(attn_output, hidden)
 
     output = F.log_softmax(self.out(output[0]))
     return output, hidden, attn_weights
