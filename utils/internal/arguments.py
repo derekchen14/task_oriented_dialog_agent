@@ -18,9 +18,9 @@ def solicit_args():
               help='Optimizer we want to use')
   parser.add_argument('--drop-prob', default=0.2, type=float,
               help='probability of dropping a node')
-  parser.add_argument('--teacher-forcing', default=0.5, type=float,
+  parser.add_argument('--teacher-forcing', default=0.6, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
-  parser.add_argument('-w', '--weight-decay', default=0.001, type=float,
+  parser.add_argument('-w', '--weight-decay', default=0.003, type=float,
               help='weight_decay with default 0.001')
   parser.add_argument('--n-layers', default=1, type=int,
               help='Number of layers in each LSTM')
