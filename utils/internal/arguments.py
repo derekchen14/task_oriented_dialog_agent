@@ -16,7 +16,7 @@ def solicit_args():
               help='Number of hidden units in each LSTM')
   parser.add_argument('--optimizer', default='SGD', type=str,
               help='Optimizer we want to use')
-  parser.add_argument('--drop-prob', default=0.5, type=float,
+  parser.add_argument('--drop-prob', default=0.2, type=float,
               help='probability of dropping a node')
   parser.add_argument('--teacher-forcing', default=0.5, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
