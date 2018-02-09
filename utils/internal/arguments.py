@@ -31,18 +31,23 @@ def solicit_args():
   parser.add_argument('--attention-type', default='general', type=str,
               help='type of attention', choices=['general', 'dot', 'special'])
 
-  # -------- SAVING RESULTS ----------------
+  # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',
               help='when true, save model weights in a checkpoint')
-  parser.add_argument('--save-loss', default=False, action='store_true',
-              help='when true, save the train and loss curves')
+  parser.add_argument('--use-existing', default=False, action='store_true',
+              help='when true, we use an existing model rather than training a new one')
+  parser.add_argument('--encoder-path', default='results/1_en.pt', type=str,
+              help='where to save or load the encoder')
+  parser.add_argument('--decoder-path', default='results/1_de.pt', type=str,
+              help='where to save or load the decoder')
+
+  # -------- REPORTING RESULTS ----------------
+  parser.add_argument('--report-results', default=False, action='store_true',
+              help='when true, report the BLEU score, loss history, per dialog \
+              and per turn accuracy in the results path file')
   parser.add_argument('--plot-results', default=False, action='store_true',
               help='when true, plot the loss graph in file')
-  parser.add_argument('--encoder-path', default='results/1_en.pt', type=str,
-              help='where to save encoder')
-  parser.add_argument('--decoder-path', default='results/1_de.pt', type=str,
-              help='where to save decoder')
-  parser.add_argument('--loss-path', default='results/1_loss_history.csv', type=str,
-              help='where to save error')
+  parser.add_argument('--results-path', default='results/model_results1.csv',
+              help='where to save error', type=str)
 
   return parser.parse_args()
