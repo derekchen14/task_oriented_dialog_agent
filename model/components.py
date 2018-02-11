@@ -5,6 +5,13 @@ from torch.nn.utils import clip_grad_norm
 
 use_cuda = cuda.is_available()
 
+def starting_checkpoint(iteration):
+  if iteration == 1:
+    if use_cuda:
+      print("Starting to train on GPUs ... ")
+    else:
+      print("Start local CPU training ... ")
+
 def init_optimizers(optimizer_type, enc_params, dec_params, lr, weight_decay):
   if optimizer_type == 'SGD':
     encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)

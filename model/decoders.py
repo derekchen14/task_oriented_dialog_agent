@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import pdb  # set_trace
-from components import smart_variable
+from model.components import smart_variable
 from utils.external.preprocessers import match_embedding
 
 # ------- Decoders ----------

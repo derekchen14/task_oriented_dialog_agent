@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from components import *
+from model.components import *
 from utils.external.preprocessers import match_embedding
 
 # ------- Encoders ----------

@@ -138,8 +138,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
   encoder_optimizer, decoder_optimizer = init_optimizers(args.optimizer,
         encoder.parameters(), decoder.parameters(), learning_rate, weight_decay)
 
-  training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
-  validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
+  training_pairs = [random.choice(train_data) for i in range(n_iters)]
+  validation_pairs = [random.choice(val_data) for j in range(v_iters)]
   criterion = NegLL_Loss()
   scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
   scheduler2 = StepLR(decoder_optimizer, step_size=n_iters / (args.decay_times+1), gamma=0.2)
@@ -152,7 +152,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
     input_variable = training_pair[0]
     output_variable = training_pair[1]
 
-    if iter == 1: print("Starting to train ...")
+    starting_checkpoint(iter)
     loss = train(input_variable, output_variable, encoder, decoder, \
            encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio=teacher_forcing_ratio)
     print_loss_total += loss

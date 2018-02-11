@@ -47,7 +47,7 @@ def parse_dialogue(lines, tokenizer=True):
     if line != '\n' and line != lines[-1]:
       nid, line = line.split(' ', 1)
       nid = int(nid)
-      line = line.decode('utf-8').strip()
+      line = line.strip()  # line.decode('utf-8').strip() for python 2.7
 
       if len(line.split('\t')) == 1:
         kb_dialogue.append(line.split('\t'))
