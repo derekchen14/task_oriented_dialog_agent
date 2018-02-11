@@ -167,7 +167,7 @@ def load_json_dataset(path):
     '''
     with open(path) as f:
         data = json.load(f)
-    print path + ' file loaded!!'
+    print(path + ' file loaded!!')
     return data
 
 
@@ -220,12 +220,12 @@ def load_incar_data(data_json):
         elif dialogue['scenario']['task']['intent'] == 'weather':
             weather_data.append(dia)
         else:
-            print dialogue['scenario']['task']['intent']
+            print(dialogue['scenario']['task']['intent'])
 
         kbs.append(dialogue['scenario']['kb'])
-    print 'Loaded %i navigate data!'%len(navigate_data)
-    print 'Loaded %i schedule data!'%len(schedule_data)
-    print 'Loaded %i weather data!'%len(weather_data)
+    print('Loaded %i navigate data!'%len(navigate_data))
+    print('Loaded %i schedule data!'%len(schedule_data))
+    print('Loaded %i weather data!'%len(weather_data))
 
     return navigate_data, weather_data, schedule_data, kbs
 
