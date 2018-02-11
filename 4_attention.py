@@ -12,9 +12,8 @@ import pdb
 import time as tm
 
 import torch
-import torch.nn as nn
-from torch.autograd import Variable
 from torch import optim
+from torch.nn import NLLLoss as NegLL_Loss
 from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
@@ -49,7 +48,7 @@ def train(input_variable, target_variable, encoder, decoder, \
   # last_enc_hidden_state = encoder_hidden[-1]
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_hidden = encoder_hidden
-  decoder_context = smart_variable(torch.zeros(1, decoder.hidden_size))
+  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
 
   target_length = target_variable.size()[0]
   use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
@@ -92,7 +91,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion,
 
   decoder_hidden = encoder_hidden
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
-  decoder_context = smart_variable(torch.zeros(1, decoder.hidden_size))
+  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
 
   predictions = []
   for di in range(target_length):
@@ -141,7 +140,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
   training_pairs = [random.choice(train_data) for i in xrange(n_iters)]
   validation_pairs = [random.choice(val_data) for j in xrange(v_iters)]
-  criterion = nn.NLLLoss()
+  criterion = NegLL_Loss()
   scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
   scheduler2 = StepLR(decoder_optimizer, step_size=n_iters / (args.decay_times+1), gamma=0.2)
 
@@ -201,8 +200,8 @@ if __name__ == "__main__":
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
   encoder = Match_Encoder(vocab.ulary_size(task), args.hidden_size)
-  decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size,
-      args.n_layers, args.drop_prob, max_length)
+  decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size, args.attn_method,
+      args.n_layers, args.drop_prob)
   decoder.embedding.weight = encoder.embedding.weight
   # ---- TRAIN MODEL ----
   results = track_progress(encoder, decoder, train_variables, val_variables,
