@@ -28,8 +28,8 @@ def solicit_args():
               help='iterations to train')
   parser.add_argument('--decay-times', default=2, type=int,
               help='total lr decay times')
-  parser.add_argument('--attention-type', default='general', type=str,
-              help='type of attention', choices=['general', 'dot', 'special'])
+  parser.add_argument('--attn-method', default='luong', type=str,
+              help='type of attention', choices=['luong', 'dot', 'vinyals'])
 
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',

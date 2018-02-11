@@ -25,7 +25,7 @@ class BLEU(object):
     p_ns = (BLEU.modified_precision(candidate, references, i) for i, _ in enumerate(weights, start=1))
     s = math.fsum(w * math.log(p_n) for w, p_n in zip(weights, p_ns) if p_n)
 
-    bp = BLEU.brevity_penalty(candidate, references)
+    bp = BLEU.brevity_penalty(candidate, references) / 2.0
     return bp * math.exp(s)
 
   @staticmethod
