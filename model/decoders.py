@@ -335,7 +335,7 @@ class Attention(nn.Module):
     attn_scores = smart_variable(torch.zeros(seq_len))    # B (batch_size)
     # Calculate scores for each encoder output
     for i in range(seq_len):           # h_j            h_i
-        attn_scores[i] = self.score(decoder_hidden, encoder_outputs[i])
+        attn_scores[i] = self.score(decoder_hidden, encoder_outputs[i]).squeeze(0)
     # Normalize scores into weights in range 0 to 1, resize to 1 x 1 x B
     attn_weights = F.softmax(attn_scores, dim=0).unsqueeze(0).unsqueeze(0)
     return attn_weights
@@ -343,10 +343,11 @@ class Attention(nn.Module):
   def score(self, h_dec, h_enc):
     W = self.W_a
     if self.attn_method == 'luong':                # h(Wh)
-      return h_dec.dot( W(h_enc) )
+      return h_dec.matmul( W(h_enc).transpose(0,1) )
     elif self.attn_method == 'vinyals':            # v_a tanh(W[h_i;h_j])
+      hiddens = torch.cat((h_enc, h_dec), axis=1)
       # Note that W_a[h_i; h_j] is the same as W_1a(h_i) + W_2a(h_j) since
       # W_a is just (W_1a concat W_2a)             (nx2n) = [(nxn);(nxn)]
-      return self.v_a.dot(self.tanh(W(torch.cat((h_enc,h_dec),1))))
+      return self.v_a.matmul(self.tanh( W(hiddens).transpose(0,1) ))
     elif self.attn_method == 'dot':                # h_j x h_i
-      return h_dec.dot(h_enc)
+      return h_dec.matmul(h_enc.transpose(0,1))
