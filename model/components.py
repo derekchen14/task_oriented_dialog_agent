@@ -45,6 +45,41 @@ def clip_gradient(models, clip):
   for model in models:
     clip_grad_norm(model.parameters(), clip)
 
+def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob):
+  if model_type == "basic":
+    from model.encoders import RNN_Encoder
+    from model.decoders import RNN_Decoder
+    encoder = RNN_Decoder
+    decoder = RNN_Decoder
+  elif model_type == "gru":
+    from model.encoders import GRU_Encoder
+    from model.decoders import GRU_Decoder
+    encoder = GRU_Encoder
+    decoder = GRU_Decoder
+  elif model_type == "attention":
+    from model.encoders import Bid_Encoder
+    from model.decoders import Attn_Decoder
+    encoder = Bid_Encoder(vocab_size, hidden_size)
+    decoder = Attn_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
+  elif model_type == "match":
+    from model.encoders import Match_Encoder
+    from model.decoders import Match_Decoder
+    encoder = Match_Encoder(vocab_size, hidden_size)
+    decoder = Match_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
+    decoder.embedding.weight = encoder.embedding.weight
+  elif model_type == "copy":
+    from model.encoders import Copy_Encoder
+    from model.decoders import Copy_Decoder
+    encoder = Copy_Encoder
+    decoder = Copy_Decoder
+  elif model_type == "memory":
+    from model.encoders import Memory_Encoder
+    from model.decoders import Memory_Decoder
+    encoder = Memory_Encoder
+    decoder = Memory_Decoder
+
+  return encoder, decoder
+
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   encoder_hidden = encoder.initHidden()

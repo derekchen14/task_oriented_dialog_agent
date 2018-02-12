@@ -45,9 +45,9 @@ class Match_Encoder(nn.Module):
   def initHidden(self):
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
-class Bid_GRU_Encoder(nn.Module):
+class Bid_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(Bid_GRU_Encoder, self).__init__()
+    super(Bid_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.gru = nn.GRU(hidden_size, hidden_size // 2, \

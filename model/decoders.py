@@ -120,11 +120,48 @@ class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, method, n_layers=1, drop_prob=0.1):
     super(Match_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8   # extended dim for the match features
+    self.input_size = self.hidden_size * 2
+    self.vocab_size = vocab_size
+    self.dropout = nn.Dropout(drop_prob)
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
+    self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
+    self.attn = Attention(method, self.hidden_size)
+    self.out = nn.Linear(self.hidden_size * 2, vocab_size)
+
+  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
+    if (prev_hidden.size()[0] == (2 * word_input.size()[0])):
+      prev_hidden = prev_hidden.view(1, 1, -1)
+
+    embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
+    embedded = self.dropout(embedded)
+    rnn_input = torch.cat((embedded, last_context), dim=2)
+    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+
+    decoder_hidden = current_hidden.squeeze(0)
+    attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
+    attn_context = attn_weights.bmm(encoder_outputs.transpose(0,1))
+
+    joined_hidden = torch.cat((current_hidden, attn_context), dim=2).squeeze(0)
+    output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
+    return output, attn_context, current_hidden, attn_weights
+
+class Attn_Decoder(nn.Module):
+  '''
+  During bi-directional encoding, we split up the word embedding in half
+  and use then perform a forward pass into two directions.  In code,
+  this is interpreted as 2 layers at half the size. Based on the way we
+  produce the encodings, we need to merge the context vectors together in
+  order properly init the hidden state, but then everything else is the same
+  '''
+  def __init__(self, vocab_size, hidden_size, method, n_layers=1, drop_prob=0.1):
+    super(Attn_Decoder, self).__init__()
+    self.hidden_size = hidden_size
     self.input_size = self.hidden_size * 2  # since we concat input and context
     self.vocab_size = vocab_size                # |V| is around 2100
-    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-
     self.dropout = nn.Dropout(drop_prob)
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers) # dropout=drop_prob)
     self.attn = Attention(method, self.hidden_size)  # adds W_a matrix
     self.out = nn.Linear(self.hidden_size * 2, vocab_size)
@@ -153,111 +190,12 @@ class Match_Decoder(nn.Module):
     output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
     return output, attn_context, current_hidden, attn_weights
 
-class Bid_GRU_Attn_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, method, n_layers=1, dropout_p=0.1):
-    super(Bid_GRU_Attn_Decoder, self).__init__()
-    self.hidden_size = hidden_size
-    self.vocab_size = vocab_size
-    self.dropout_p = dropout_p
-    self.max_length = max_length
-
-    self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
-    self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
-    self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
-    self.dropout = nn.Dropout(self.dropout_p)
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size, n_layers)
-    self.out = nn.Linear(self.hidden_size, self.vocab_size)
-
-  def forward(self, input, hidden, encoder_output, encoder_outputs):
-    if (hidden.size()[0] == (2 * input.size()[0])):
-      hidden = hidden.view(1, 1, -1)
-
-    embedded = self.embedding(input).view(1, 1, -1)
-    embedded = self.dropout(embedded)
-
-    attn_weights = F.softmax(
-      self.attn(torch.cat((embedded[0], hidden[0]), 1)))
-    attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                 encoder_outputs.unsqueeze(0))
-
-    output = torch.cat((embedded[0], attn_applied[0]), 1)
-    attn_output = self.attn_combine(output).unsqueeze(0)
-    output, hidden = self.gru(attn_output, hidden)
-
-    output = F.log_softmax(self.out(output[0]))
-    return output, hidden, attn_weights
-
-class Bid_GRU_Decoder(nn.Module):
-  '''
-  During bi-directional encoding, we split up the word embedding in half
-  and use then perform a forward pass into two directions.  In code,
-  this is interpreted as 2 layers at half the size. Based on the way we
-  produce the encodings, we need to merge the context vectors together in
-  order properly init the hidden state, but then everything else is the same
-  '''
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(Bid_GRU_Decoder, self).__init__()
-    self.n_layers = n_layers
-    self.hidden_size = hidden_size
-    self.input_size = hidden_size #serves double duty
-
-    self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.gru = nn.GRU(self.input_size, self.hidden_size)
-    self.out = nn.Linear(hidden_size, vocab_size)
-    self.softmax = nn.LogSoftmax()
-
-  def forward(self, input, hidden):
-    # if we are processing initial time step
-    if (hidden.size()[0] == (2 * input.size()[0])):
-      hidden = hidden.view(1, 1, -1)
-    output = self.embedding(input).view(1, 1, -1)
-    for i in range(self.n_layers):
-      output = F.relu(output)
-      output, hidden = self.gru(output, hidden)
-    output = self.softmax(self.out(output[0]))
-    return output, hidden
-
-class GRU_Attn_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1,
-        dropout_p=0.1, max_length=8):
-    super(GRU_Attn_Decoder, self).__init__()
-    self.hidden_size = hidden_size
-    self.vocab_size = vocab_size
-    self.n_layers = n_layers
-    self.dropout_p = dropout_p
-    self.max_length = max_length
-
-    self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
-    self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
-    self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
-    self.dropout = nn.Dropout(self.dropout_p)
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-    self.out = nn.Linear(self.hidden_size, self.vocab_size)
-
-  def forward(self, input, hidden, encoder_output, encoder_outputs):
-    embedded = self.embedding(input).view(1, 1, -1)
-    embedded = self.dropout(embedded)
-
-    attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)))
-    attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-            encoder_outputs.unsqueeze(0))
-
-    output = torch.cat((embedded[0], attn_applied[0]), 1)
-    output = self.attn_combine(output).unsqueeze(0)
-
-    for i in range(self.n_layers):
-      output = F.relu(output)
-      output, hidden = self.gru(output, hidden)
-
-    output = F.log_softmax(self.out(output[0]))
-    return output, hidden, attn_weights
-
 class GRU_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(GRU_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-    self.input_size = hidden_size #serves double duty
+    self.input_size = hidden_size # serves double duty
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(self.input_size, self.hidden_size)

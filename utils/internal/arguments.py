@@ -3,9 +3,12 @@ import argparse
 def solicit_args():
   parser = argparse.ArgumentParser()
   parser.add_argument('--random-seed', help='Random seed', type=int, default=1)
-  parser.add_argument('-t', '--task-name', help='Choose the task to train on',
-              choices=['1','2','3','4','5','challenge','concierge','schedule', \
-                  'navigate','weather'] )
+  parser.add_argument('-t', '--task-name', choices=['1','2','3','4','5', \
+              'challenge', 'concierge','schedule', 'navigate','weather'],
+              help='Choose the task to train on', )
+  parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
+              'gru', 'attention', 'match', 'copy', 'hred', 'memory'],
+              help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')
   parser.add_argument('-v', '--verbose', default=False, action='store_true',

@@ -1,7 +1,3 @@
-# python 3_seq2seq.py --task-name challenge --hidden-size 256 --n-layers 1 \
-#     --drop-prob 0.0 -enp 'results/seq_en.pt' -edp 'results/seq_de.pt' \
-#     -ep 'results/seq_error.csv' -s -teach 0.0
-
 python 4_attention.py --task-name challenge --attn-method luong \
     --report-results --results-path results/luong1.csv
 python 4_attention.py --task-name challenge --attn-method luong \

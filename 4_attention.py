@@ -23,9 +23,6 @@ from utils.external.clock import *
 from utils.external.preprocessers import *
 from model.components import *
 
-from model.encoders import Match_Encoder, Bid_GRU_Encoder #GRU_Encoder # LSTM_Encoder, RNN_Encoder
-from model.decoders import Match_Decoder, Bid_GRU_Attn_Decoder # GRU_Attn_Decoder # RNN_Attn_Decoder
-
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
 
@@ -146,10 +143,8 @@ if __name__ == "__main__":
   val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  encoder = Match_Encoder(vocab.ulary_size(task), args.hidden_size)
-  decoder = Match_Decoder(vocab.ulary_size(task), args.hidden_size, args.attn_method,
-      args.n_layers, args.drop_prob)
-  decoder.embedding.weight = encoder.embedding.weight
+  encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
+      args.hidden_size, args.attn_method, args.n_layers, args.drop_prob)
   # ---- TRAIN MODEL ----
   results = track_progress(encoder, decoder, train_variables, val_variables,
       task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
