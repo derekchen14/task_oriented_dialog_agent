@@ -49,6 +49,8 @@ def train(input_variable, target_variable, encoder, decoder, \
     encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
     encoder_outputs[ei] = encoder_output[0][0]
 
+  # encoder's last hidden state is the decoder's intial hidden state
+  # last_enc_hidden_state = encoder_hidden[-1]
   decoder_input = Variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_input = decoder_input.cuda() if use_cuda else decoder_input
   # encoder's last hidden state is the decoder's intial hidden state
@@ -57,7 +59,8 @@ def train(input_variable, target_variable, encoder, decoder, \
   for di in range(target_length):
     decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
     topv, topi = decoder_output.data.topk(1)
-    ni = topi[0][0]
+    ni = topi[0][0]   # the index of the top predicted word
+    # the [0][0] is simply to extract a scalar from a 1x1x1 3d tensor
     decoder_input = Variable(torch.LongTensor([[ni]]))
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
     loss += criterion(decoder_output, target_variable[di])

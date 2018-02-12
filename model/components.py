@@ -2,6 +2,10 @@ from torch import optim
 from torch import cuda
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
+import utils.internal.vocabulary as vocab
+
+import torch
+import random
 
 use_cuda = cuda.is_available()
 
@@ -40,3 +44,30 @@ def clip_gradient(models, clip):
     return
   for model in models:
     clip_grad_norm(model.parameters(), clip)
+
+def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
+  loss = 0
+  encoder_hidden = encoder.initHidden()
+  encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
+
+  decoder_hidden = encoder_hidden
+  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
+  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
+
+  predictions = []
+  for di in range(targets.size()[0]):
+    decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
+        decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+    loss += criterion(decoder_output, targets[di])
+
+    if random.random() < teach_ratio:   # Use teacher forcing
+      decoder_input = targets[di]
+    else:       # Use the predicted word as the next input
+      topv, topi = decoder_output.data.topk(1)
+      ni = topi[0][0]
+      predictions.append(ni)
+      if ni == vocab.EOS_token:
+        break
+      decoder_input = smart_variable(torch.LongTensor([[ni]]))
+
+  return loss, predictions

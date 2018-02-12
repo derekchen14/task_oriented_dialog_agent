@@ -29,89 +29,36 @@ from model.decoders import Match_Decoder, Bid_GRU_Attn_Decoder # GRU_Attn_Decode
 use_cuda = torch.cuda.is_available()
 MAX_LENGTH = 8
 
-def train(input_variable, target_variable, encoder, decoder, \
-        encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
+def train(input_variable, target_variable, encoder, decoder,
+        encoder_optimizer, decoder_optimizer, criterion, teach_ratio):
   encoder.train()   # affects the performance of dropout
   decoder.train()
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
-  loss = 0
 
-  # input_length = input_variable.size()[0]
-  # encoder_outputs = smart_variable(torch.zeros(max_length, encoder.hidden_size))
-  # for ei in range(min(max_length, input_length)):
-  # encoder_outputs[ei] = encoder_output[0][0]
-  encoder_hidden = encoder.initHidden()
-  encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
-
-  # encoder's last hidden state is the decoder's intial hidden state
-  # last_enc_hidden_state = encoder_hidden[-1]
-  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
-  decoder_hidden = encoder_hidden
-  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
-
-  target_length = target_variable.size()[0]
-  use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-  if use_teacher_forcing:
-    # Teacher forcing: Feed the target as the next input
-    for di in range(target_length):
-      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-        decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-
-      loss += criterion(decoder_output, target_variable[di])
-      decoder_input = target_variable[di]  # Teacher forcing
-  else:
-    for di in range(target_length):
-      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-          decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-      topv, topi = decoder_output.data.topk(1)
-      ni = topi[0][0]
-      decoder_input = smart_variable(torch.LongTensor([[ni]]))
-      loss += criterion(decoder_output, target_variable[di])
-      if ni == vocab.EOS_token:
-        break
-
+  loss, _ = run_inference(encoder, decoder, input_variable, target_variable, \
+                        criterion, teach_ratio)
   loss.backward()
   clip_gradient([encoder, decoder], clip=10)
   encoder_optimizer.step()
   decoder_optimizer.step()
 
-  return loss.data[0] / target_length
+  return loss.data[0] / target_variable.size()[0]
 
 def validate(input_variable, target_variable, encoder, decoder, criterion,
-          verbose, task, max_length):
+          verbose, task):
   encoder.eval()  # affects the performance of dropout
   decoder.eval()
-  loss = 0
 
-  target_length = target_variable.size()[0]
-  encoder_hidden = encoder.initHidden()
-  encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
-
-  decoder_hidden = encoder_hidden
-  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
-  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
-
-  predictions = []
-  for di in range(target_length):
-    decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-        decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-    loss += criterion(decoder_output, target_variable[di])
-
-    topv, topi = decoder_output.data.topk(1)
-    ni = topi[0][0]
-    predictions.append(ni)
-    if ni == vocab.EOS_token:
-      break
-    decoder_input = smart_variable(torch.LongTensor([[ni]]))
+  loss, predictions = run_inference(encoder, decoder, input_variable, \
+                    target_variable, criterion, teach_ratio=0)
 
   queries = input_variable.data.tolist()
   targets = target_variable.data.tolist()
   predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]
   target_tokens = [vocab.index_to_word(y[0], task) for y in targets]
 
-  avg_loss = loss.data[0] / target_length
+  avg_loss = loss.data[0] / target_variable.size()[0]
   bleu_score = BLEU.compute(predicted_tokens, target_tokens)
   turn_success = [pred == tar[0] for pred, tar in zip(predictions, targets)]
 
@@ -154,7 +101,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
     starting_checkpoint(iter)
     loss = train(input_variable, output_variable, encoder, decoder, \
-           encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio=teacher_forcing_ratio)
+           encoder_optimizer, decoder_optimizer, criterion, teach_ratio=teacher_forcing_ratio)
     print_loss_total += loss
     plot_loss_total += loss
 
@@ -175,7 +122,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
         val_input = val_pair[0]
         val_output = val_pair[1]
         val_loss, bleu_score, turn_success = validate(val_input, val_output, \
-            encoder, decoder, criterion, verbose, task, max_length)
+            encoder, decoder, criterion, verbose, task)
         batch_val_loss.append(val_loss)
         batch_bleu.append(bleu_score)
         batch_success.append(turn_success)
