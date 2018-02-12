@@ -345,7 +345,7 @@ class Attention(nn.Module):
     if self.attn_method == 'luong':                # h(Wh)
       return h_dec.matmul( W(h_enc).transpose(0,1) )
     elif self.attn_method == 'vinyals':            # v_a tanh(W[h_i;h_j])
-      hiddens = torch.cat((h_enc, h_dec), axis=1)
+      hiddens = torch.cat((h_enc, h_dec), dim=1)
       # Note that W_a[h_i; h_j] is the same as W_1a(h_i) + W_2a(h_j) since
       # W_a is just (W_1a concat W_2a)             (nx2n) = [(nxn);(nxn)]
       return self.v_a.matmul(self.tanh( W(hiddens).transpose(0,1) ))
