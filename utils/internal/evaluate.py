@@ -20,9 +20,9 @@ def create_report(results, args):
   df_val = pd.DataFrame(data={'validation_steps':val_s, 'validation_loss': val_l,
                                 'bleu_score': bleu, 'per_turn_accuracy': acc})
   df_params = pd.DataFrame(data={
-      "Params": ['hidden-size', 'optimizer', 'drop-prob', \
+      "Params": ['hidden-size', 'optimizer', 'drop-prob', 'model-type', \
                 'weight-decay', 'decay-times', 'attention-method'],
-      "Values": [args.hidden_size, args.optimizer, args.drop_prob, \
+      "Values": [args.hidden_size, args.optimizer, args.drop_prob, args.model_type, \
                 args.weight_decay, args.decay_times, args.attn_method]})
   loss_history = pd.concat([df_train, df_val, df_params], axis=1)
   loss_history.to_csv(args.results_path, index=False)
