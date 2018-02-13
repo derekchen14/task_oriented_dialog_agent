@@ -64,6 +64,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion,
 def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
       learning_rate=0.01, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
+  save_model = False
   train_steps, train_losses = [], []
   val_steps, val_losses = [], []
   bleu_scores, accuracy = [], []
@@ -128,9 +129,11 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
       val_losses.append(avg_val_loss)
       bleu_scores.append(avg_bleu)
       accuracy.append(avg_success)
+      if avg_val_loss < 1.4:
+        save_model = True
 
   time_past(start)
-  return train_steps, train_losses, val_steps, val_losses, bleu_scores, accuracy
+  return train_steps, train_losses, val_steps, val_losses, bleu_scores, accuracy, save_model
 
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
@@ -149,7 +152,7 @@ if __name__ == "__main__":
       task, args.verbose, args.debug, args.learning_rate, n_iters=args.n_iters,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
-  if args.save_model:
+  if results[6]:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
