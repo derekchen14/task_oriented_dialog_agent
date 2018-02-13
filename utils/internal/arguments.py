@@ -15,6 +15,8 @@ def solicit_args():
               help='whether or not to have verbose prints')
 
   # ------ PARAMETER OPTIMIZATION --------
+  parser.add_argument('--learning-rate', default=0.01, type=float,
+              help='Learning rate alpha for weight updates')
   parser.add_argument('--hidden-size', default=256, type=int,
               help='Number of hidden units in each LSTM')
   parser.add_argument('--optimizer', default='SGD', type=str,
@@ -24,7 +26,7 @@ def solicit_args():
   parser.add_argument('--teacher-forcing', default=0.6, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
   parser.add_argument('-w', '--weight-decay', default=0.003, type=float,
-              help='weight_decay with default 0.001')
+              help='weight_decay to regularize the weights')
   parser.add_argument('--n-layers', default=1, type=int,
               help='Number of layers in each LSTM')
   parser.add_argument('--n-iters', default=25000, type=int,

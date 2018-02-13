@@ -62,8 +62,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion,
   return avg_loss, bleu_score, all(turn_success)
 
 def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
-      max_length=8, n_iters=75600, learning_rate=0.01, \
-      teacher_forcing_ratio=0.0, weight_decay=0.0):
+      learning_rate=0.01, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
   train_steps, train_losses = [], []
   val_steps, val_losses = [], []
@@ -98,7 +97,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
     starting_checkpoint(iter)
     loss = train(input_variable, output_variable, encoder, decoder, \
-           encoder_optimizer, decoder_optimizer, criterion, teach_ratio=teacher_forcing_ratio)
+           encoder_optimizer, decoder_optimizer, criterion, teach_ratio=teacher_forcing)
     print_loss_total += loss
     plot_loss_total += loss
 
@@ -147,8 +146,8 @@ if __name__ == "__main__":
       args.hidden_size, args.attn_method, args.n_layers, args.drop_prob)
   # ---- TRAIN MODEL ----
   results = track_progress(encoder, decoder, train_variables, val_variables,
-      task, args.verbose, args.debug, max_length, n_iters=args.n_iters,
-      teacher_forcing_ratio=args.teacher_forcing, weight_decay=args.weight_decay)
+      task, args.verbose, args.debug, args.learning_rate, n_iters=args.n_iters,
+      teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
   if args.save_model:
     torch.save(encoder, args.encoder_path)
