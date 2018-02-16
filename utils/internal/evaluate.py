@@ -36,3 +36,29 @@ def batch_processing(batch_val_loss, batch_bleu, batch_success):
   print('Validation Loss: {0:2.4f}, BLEU Score: {1:.2f}, Per Turn Accuracy: {2:.2f}'.format(
           avg_val_loss, avg_bleu, avg_success))
   return avg_val_loss, avg_bleu, avg_success
+
+def visualize_attention(results):
+  output_words, attentions = evaluate("je suis trop froid .")
+  plt.matshow(attentions.numpy())
+
+def show_attention(input_sentence, output_words, attentions):
+  # Set up figure with colorbar
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  cax = ax.matshow(attentions.numpy(), cmap='bone')
+  fig.colorbar(cax)
+  # Set up axes
+  ax.set_xticklabels([''] + input_sentence.split(' ') + ['<EOS>'], rotation=90)
+  ax.set_yticklabels([''] + output_words)
+  # Show label at every tick
+  ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+  ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+  plt.show()
+  plt.close()
+
+def evaluate_and_show_attention(input_sentence):
+  output_words, attentions = evaluate(input_sentence)
+  print('input =', input_sentence)
+  print('output =', ' '.join(output_words))
+  show_attention(input_sentence, output_words, attentions)

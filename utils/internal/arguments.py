@@ -31,7 +31,7 @@ def solicit_args():
               help='Number of layers in each LSTM')
   parser.add_argument('--n-iters', default=25000, type=int,
               help='iterations to train')
-  parser.add_argument('--decay-times', default=2, type=int,
+  parser.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')
   parser.add_argument('--attn-method', default='luong', type=str,
               help='type of attention', choices=['luong', 'dot', 'vinyals'])

@@ -76,15 +76,15 @@ python 4_attention.py --task-name challenge --decay-times 2 --n-iters 25000 \
     --model-type match --results-path results/tune_6c.csv \
     --encoder-path results/enc_6c.pt --decoder-path results/dec_6c.pt
 
-python 4_attention.py --task-name challenge --decay-times 2 --n-iters 25000 \
+python 4_attention.py --task-name challenge --decay-times 2 --n-iters 30000 \
     --learning-rate 0.003 --drop-prob 0.2 --attn-method luong --report-results \
     --model-type match --results-path results/tune_7a.csv \
     --encoder-path results/enc_7a.pt --decoder-path results/dec_7a.pt
-python 4_attention.py --task-name challenge --decay-times 2 --n-iters 25000 \
+python 4_attention.py --task-name challenge --decay-times 2 --n-iters 30000 \
     --learning-rate 0.003 --drop-prob 0.2 --attn-method luong --report-results \
     --model-type match --results-path results/tune_7b.csv \
     --encoder-path results/enc_7b.pt --decoder-path results/dec_7b.pt
-python 4_attention.py --task-name challenge --decay-times 2 --n-iters 25000 \
+python 4_attention.py --task-name challenge --decay-times 2 --n-iters 30000 \
     --learning-rate 0.003 --drop-prob 0.2 --attn-method luong --report-results \
     --model-type match --results-path results/tune_7c.csv \
     --encoder-path results/enc_7c.pt --decoder-path results/dec_7c.pt
