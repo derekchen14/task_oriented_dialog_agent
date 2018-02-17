@@ -170,6 +170,36 @@ def load_json_dataset(path):
     print(path + ' file loaded!!')
     return data
 
+def select_consecutive_pairs(data, count):
+  import pdb
+  random_location = (random.random()/2.0) + 0.2  # random number from 0.2 to 0.7
+  random_index = int(round(random_location * len(data)))
+  random_query = data[random_index][0]  # [0] is query, [1] is response
+  turn_index = int(random_query[0].data.numpy()[0])
+  start_index = (random_index - (turn_index - 1))
+
+  dialogues = []
+  dialog = []
+  while len(dialogues) < count:
+    turn_pair = data[start_index]
+    # check if we reached the end of the dialog
+    turn_count = int(turn_pair[0][0].data.numpy()[0])
+    if turn_count == 1 and (len(dialog) > 0):
+      dialogues.append(dialog)
+      dialog = []
+    dialog.append(turn_pair)
+    start_index += 1
+  return dialogues
+
+def spit_fire(dialogues):
+  words = []
+  for dialog in dialogues:
+    for turn in dialog:
+      for utterance in turn:
+        for token in utterance:
+          token_index = int(token.data.numpy()[0])
+          words.append(vocab.index_to_word(token_index, "res"))
+  print words
 
 def look4str(u, df):
     a = df['addrs'].apply(lambda x: x in u)

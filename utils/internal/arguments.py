@@ -15,7 +15,7 @@ def solicit_args():
               help='whether or not to have verbose prints')
 
   # ------ PARAMETER OPTIMIZATION --------
-  parser.add_argument('--learning-rate', default=0.01, type=float,
+  parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,
               help='Learning rate alpha for weight updates')
   parser.add_argument('--hidden-size', default=256, type=int,
               help='Number of hidden units in each LSTM')
@@ -25,7 +25,7 @@ def solicit_args():
               help='probability of dropping a node')
   parser.add_argument('--teacher-forcing', default=0.6, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
-  parser.add_argument('-w', '--weight-decay', default=0.003, type=float,
+  parser.add_argument('-reg', '--weight-decay', default=0.003, type=float,
               help='weight_decay to regularize the weights')
   parser.add_argument('--n-layers', default=1, type=int,
               help='Number of layers in each LSTM')
@@ -52,6 +52,9 @@ def solicit_args():
               and per turn accuracy in the results path file')
   parser.add_argument('--plot-results', default=False, action='store_true',
               help='when true, plot the loss graph in file')
+  parser.add_argument('--visualize', default=0, type=int,
+              help='randomly select x number of dialogues from validation set, \
+              visualize the attention weights and store in results/visualize.png')
   parser.add_argument('--results-path', default='results/model_results1.csv',
               help='where to save error', type=str)
 

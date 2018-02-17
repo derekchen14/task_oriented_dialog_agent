@@ -117,7 +117,7 @@ class Copy_Decoder(nn.Module):
     return final_output, final_hidden, final_weights
 
 class Match_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, method, n_layers=1, drop_prob=0.1):
+  def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
     super(Match_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8   # extended dim for the match features
     self.input_size = self.hidden_size * 2
@@ -125,7 +125,7 @@ class Match_Decoder(nn.Module):
     self.dropout = nn.Dropout(drop_prob)
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
+    self.gru = nn.GRU(self.input_size, self.hidden_size)
     self.attn = Attention(method, self.hidden_size)
     self.out = nn.Linear(self.hidden_size * 2, vocab_size)
 
@@ -146,7 +146,7 @@ class Match_Decoder(nn.Module):
     output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
     return output, attn_context, current_hidden, attn_weights
 
-class Attn_Decoder(nn.Module):
+class Bid_Decoder(nn.Module):
   '''
   During bi-directional encoding, we split up the word embedding in half
   and use then perform a forward pass into two directions.  In code,
@@ -154,15 +154,15 @@ class Attn_Decoder(nn.Module):
   produce the encodings, we need to merge the context vectors together in
   order properly init the hidden state, but then everything else is the same
   '''
-  def __init__(self, vocab_size, hidden_size, method, n_layers=1, drop_prob=0.1):
-    super(Attn_Decoder, self).__init__()
+  def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
+    super(Bid_Decoder, self).__init__()
     self.hidden_size = hidden_size
     self.input_size = self.hidden_size * 2  # since we concat input and context
     self.vocab_size = vocab_size                # |V| is around 2100
     self.dropout = nn.Dropout(drop_prob)
-
+    # num_layers is removed since decoder always has one layer
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers) # dropout=drop_prob)
+    self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
     self.attn = Attention(method, self.hidden_size)  # adds W_a matrix
     self.out = nn.Linear(self.hidden_size * 2, vocab_size)
     # we need "* 2" since we concat hidden state and attention context vector
@@ -176,6 +176,42 @@ class Attn_Decoder(nn.Module):
     embedded = self.dropout(embedded)
     # Combine input word embedding and previous hidden state, run through RNN
     rnn_input = torch.cat((embedded, last_context), dim=2)
+    pdb.set_trace()
+    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+
+    # Calculate attention from current RNN state and encoder outputs, then apply
+    # Drop first dimension to line up with single encoder_output
+    decoder_hidden = current_hidden.squeeze(0)    # (1 x 1 x N) --> 1 x N
+    attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
+     # [1 x (1xS)(SxN)] = [1 x (1xN)] = 1 x 1 x N)   where S is seq_len of encoder
+    attn_context = attn_weights.bmm(encoder_outputs.transpose(0,1))
+
+    # Predict next word using the decoder hidden state and context vector
+    joined_hidden = torch.cat((current_hidden, attn_context), dim=2).squeeze(0)
+    output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
+    return output, attn_context, current_hidden, attn_weights
+
+class Attn_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
+    super(Attn_Decoder, self).__init__()
+    self.hidden_size = hidden_size
+    self.input_size = self.hidden_size * 2  # since we concat input and context
+    self.vocab_size = vocab_size                # |V| is around 2100
+    self.dropout = nn.Dropout(drop_prob)
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
+    self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
+    self.attn = Attention(method, self.hidden_size)  # adds W_a matrix
+    self.out = nn.Linear(self.hidden_size * 2, vocab_size)
+    # we need "* 2" since we concat hidden state and attention context vector
+
+  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
+    # Get the embedding of the current input word (i.e. last output word)
+    embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
+    embedded = self.dropout(embedded)
+    # Combine input word embedding and previous hidden state, run through RNN
+    rnn_input = torch.cat((embedded, last_context), dim=2)
+    # pdb.set_trace()
     rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
 
     # Calculate attention from current RNN state and encoder outputs, then apply

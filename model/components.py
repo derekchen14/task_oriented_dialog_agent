@@ -2,10 +2,14 @@ from torch import optim
 from torch import cuda
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
+from torch.nn import NLLLoss as NegLL_Loss
+
 import utils.internal.vocabulary as vocab
+import utils.internal.data_io as data_io
 
 import torch
 import random
+import pdb
 
 use_cuda = cuda.is_available()
 
@@ -57,10 +61,15 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     encoder = GRU_Encoder
     decoder = GRU_Decoder
   elif model_type == "attention":
-    from model.encoders import Bid_Encoder
+    from model.encoders import Attn_Encoder
     from model.decoders import Attn_Decoder
+    encoder = Attn_Encoder(vocab_size, hidden_size, n_layers)
+    decoder = Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
+  elif model_type == "bidirectional":
+    from model.encoders import Bid_Encoder
+    from model.decoders import Bid_Decoder
     encoder = Bid_Encoder(vocab_size, hidden_size)
-    decoder = Attn_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
+    decoder = Bid_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
   elif model_type == "match":
     from model.encoders import Match_Encoder
     from model.decoders import Match_Decoder
@@ -83,16 +92,20 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   encoder_hidden = encoder.initHidden()
+  encoder_length = sources.size()[0]
   encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
 
   decoder_hidden = encoder_hidden
+  decoder_length = targets.size()[0]
   decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
   decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
 
+  visual = torch.zeros(encoder_length, decoder_length)
   predictions = []
-  for di in range(targets.size()[0]):
+  for di in range(decoder_length):
     decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
         decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+    visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
     loss += criterion(decoder_output, targets[di])
 
     if random.random() < teach_ratio:   # Use teacher forcing
@@ -105,4 +118,25 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
         break
       decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
-  return loss, predictions
+  return loss, predictions, visual
+
+def grab_attention(val_data, encoder, decoder, task, vis_count):
+  encoder.eval()
+  decoder.eval()
+  criterion = NegLL_Loss()
+  dialogues = data_io.select_consecutive_pairs(val_data, vis_count)
+
+  visualizations = []
+  for dialog in dialogues:
+    for turn in dialog:
+      input_variable, output_variable = turn
+      _, responses, visual = run_inference(encoder, decoder, input_variable, \
+                      output_variable, criterion, teach_ratio=0)
+      queries = input_variable.data.tolist()
+      # pdb.set_trace()
+      query_tokens = [vocab.index_to_word(q[0], task) for q in queries]
+      response_tokens = [vocab.index_to_word(r, task) for r in responses]
+
+      visualizations.append((visual, query_tokens, response_tokens))
+
+  return visualizations

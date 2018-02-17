@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import pandas as pd
+import pdb
 
 def plot(xs, ys, title, xlabel, ylabel):
   assert len(xs) == len(ys)
@@ -37,28 +38,24 @@ def batch_processing(batch_val_loss, batch_bleu, batch_success):
           avg_val_loss, avg_bleu, avg_success))
   return avg_val_loss, avg_bleu, avg_success
 
-def visualize_attention(results):
-  output_words, attentions = evaluate("je suis trop froid .")
-  plt.matshow(attentions.numpy())
-
-def show_attention(input_sentence, output_words, attentions):
-  # Set up figure with colorbar
-  fig = plt.figure()
-  ax = fig.add_subplot(111)
-  cax = ax.matshow(attentions.numpy(), cmap='bone')
-  fig.colorbar(cax)
-  # Set up axes
-  ax.set_xticklabels([''] + input_sentence.split(' ') + ['<EOS>'], rotation=90)
-  ax.set_yticklabels([''] + output_words)
-  # Show label at every tick
-  ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-  ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-
-  plt.show()
-  plt.close()
-
-def evaluate_and_show_attention(input_sentence):
-  output_words, attentions = evaluate(input_sentence)
-  print('input =', input_sentence)
-  print('output =', ' '.join(output_words))
-  show_attention(input_sentence, output_words, attentions)
+def show_save_attention(visualizations, method, verbose):
+  for i, viz in enumerate(visualizations):
+    visual, query_tokens, response_tokens = viz
+    # Set up figure with colorbar
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(visual.numpy(), cmap='bone')
+    fig.colorbar(cax)
+    # Set up axes
+    ax.set_yticklabels([''] + query_tokens)
+    ax.set_xticklabels([''] + response_tokens, rotation=90)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    # Set up labels
+    plt.ylabel("User Query")
+    plt.xlabel("Agent Response")
+    # pdb.set_trace()
+    plt.savefig("results/visualize_{0}{1}.png".format(method, i))
+    if verbose:
+      plt.show()
+    plt.close()

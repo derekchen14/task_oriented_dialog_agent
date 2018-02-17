@@ -33,7 +33,7 @@ def train(input_variable, target_variable, encoder, decoder,
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
 
-  loss, _ = run_inference(encoder, decoder, input_variable, target_variable, \
+  loss, _, _ = run_inference(encoder, decoder, input_variable, target_variable, \
                         criterion, teach_ratio)
   loss.backward()
   clip_gradient([encoder, decoder], clip=10)
@@ -42,18 +42,18 @@ def train(input_variable, target_variable, encoder, decoder,
 
   return loss.data[0] / target_variable.size()[0]
 
-def validate(input_variable, target_variable, encoder, decoder, criterion,
-          verbose, task):
+def validate(input_variable, target_variable, encoder, decoder, criterion, task):
   encoder.eval()  # affects the performance of dropout
   decoder.eval()
 
-  loss, predictions = run_inference(encoder, decoder, input_variable, \
+  loss, predictions, visual = run_inference(encoder, decoder, input_variable, \
                     target_variable, criterion, teach_ratio=0)
 
   queries = input_variable.data.tolist()
   targets = target_variable.data.tolist()
   predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]
-  target_tokens = [vocab.index_to_word(y[0], task) for y in targets]
+  query_tokens = [vocab.index_to_word(y[0], task) for y in queries]
+  target_tokens = [vocab.index_to_word(z[0], task) for z in targets]
 
   avg_loss = loss.data[0] / target_variable.size()[0]
   bleu_score = BLEU.compute(predicted_tokens, target_tokens)
@@ -62,7 +62,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion,
   return avg_loss, bleu_score, all(turn_success)
 
 def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
-      learning_rate=0.01, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
+        learning_rate=0.01, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
   save_model = False
   train_steps, train_losses = [], []
@@ -70,7 +70,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
   bleu_scores, accuracy = [], []
 
   v_iters = len(val_data) if task == 'car' else int(len(val_data)/500)
-  n_iters = 600 if debug else n_iters
+  n_iters = 1800 if debug else n_iters
   print_every, plot_every, val_every = print_frequency(verbose, debug)
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
@@ -107,7 +107,6 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
       print_loss_total = 0
       print('%d%% complete %s, Train Loss: %.4f' % ((iter / n_iters * 100),
           timeSince(start, iter / n_iters), print_loss_avg))
-      # train_losses.append(print_loss_avg)
       train_losses.append(print_loss_avg)
       train_steps.append(iter)
 
@@ -118,8 +117,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
         val_pair = validation_pairs[iter - 1]
         val_input = val_pair[0]
         val_output = val_pair[1]
-        val_loss, bleu_score, turn_success = validate(val_input, val_output, \
-            encoder, decoder, criterion, verbose, task)
+        val_loss, bleu_score, turn_success = validate(val_input, \
+              val_output, encoder, decoder, criterion, task)
         batch_val_loss.append(val_loss)
         batch_bleu.append(bleu_score)
         batch_success.append(turn_success)
@@ -129,11 +128,9 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
       val_losses.append(avg_val_loss)
       bleu_scores.append(avg_bleu)
       accuracy.append(avg_success)
-      if avg_val_loss < 1.4:
-        save_model = True
 
   time_past(start)
-  return train_steps, train_losses, val_steps, val_losses, bleu_scores, accuracy, save_model
+  return train_steps, train_losses, val_steps, val_losses, bleu_scores, accuracy
 
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
@@ -152,11 +149,14 @@ if __name__ == "__main__":
       task, args.verbose, args.debug, args.learning_rate, n_iters=args.n_iters,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
-  if results[6]:
+  if args.save_model:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
     print('Model saved!')
   if args.report_results:
     evaluate.create_report(results, args)
+  if args.visualize > 0:
+    visualizations = grab_attention(val_variables, encoder, decoder, task, args.visualize)
+    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
   if args.plot_results:
     evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
