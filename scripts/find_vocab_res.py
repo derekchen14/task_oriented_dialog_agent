@@ -16,6 +16,11 @@ fnames = [  "dialog-babi-task6-dstc2-dev.txt",
             "dialog-babi-task2-tst-OOV.txt",
           ]
 
+'''
+Checks if the token is a normal, valid word
+If the token is valid, then return True
+Otherwise, it is a special keywork, so return False
+'''
 def valid(token):
   if token in ["<SILENCE>", "api_call"]:
     return False

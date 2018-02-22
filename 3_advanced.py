@@ -70,7 +70,7 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
   bleu_scores, accuracy = [], []
 
   v_iters = len(val_data) if task == 'car' else int(len(val_data)/500)
-  n_iters = 1800 if debug else n_iters
+  n_iters = 600 if debug else n_iters
   print_every, plot_every, val_every = print_frequency(verbose, debug)
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every

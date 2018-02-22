@@ -69,12 +69,12 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.encoders import Bid_Encoder
     from model.decoders import Bid_Decoder
     encoder = Bid_Encoder(vocab_size, hidden_size)
-    decoder = Bid_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
+    decoder = Bid_Decoder(vocab_size, hidden_size, method, drop_prob)
   elif model_type == "match":
     from model.encoders import Match_Encoder
     from model.decoders import Match_Decoder
     encoder = Match_Encoder(vocab_size, hidden_size)
-    decoder = Match_Decoder(vocab_size, hidden_size, method, n_layers, drop_prob)
+    decoder = Match_Decoder(vocab_size, hidden_size, method, drop_prob)
     decoder.embedding.weight = encoder.embedding.weight
   elif model_type == "copy":
     from model.encoders import Copy_Encoder

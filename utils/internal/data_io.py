@@ -57,6 +57,7 @@ def parse_dialogue(lines, tokenizer=True):
       if tokenizer is True:
         u = word_tokenize(u)
         r = word_tokenize(r)
+      u = fix_silence(u) if len(u)>2 else u
       dialogue.append((u, r))
     else:
       data.append(dialogue)
@@ -65,6 +66,17 @@ def parse_dialogue(lines, tokenizer=True):
       kb_dialogue = []
   return data, kb
 
+def fix_silence(utterance):
+  '''
+  Special keyword <SILENCE> is being split into three tokens
+  So we revert that back to one token as required
+  '''
+  if (utterance[0] == "<") and (utterance[1] == "SILENCE"):
+    utterance[0] = "<SILENCE>"
+    utterance.pop(2)
+    utterance.pop(1)
+
+  return utterance
 
 def parse_candidates(lines):
   '''
