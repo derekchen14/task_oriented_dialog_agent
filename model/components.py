@@ -61,7 +61,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     encoder = GRU_Encoder
     decoder = GRU_Decoder
   elif model_type == "attention":
-    from model.encoders import Attn_Encoder
+    from model.encoders import GRU_Encoder
     from model.decoders import Attn_Decoder
     encoder = Attn_Encoder(vocab_size, hidden_size, n_layers)
     decoder = Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
@@ -77,7 +77,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     decoder = Match_Decoder(vocab_size, hidden_size, method, drop_prob)
     decoder.embedding.weight = encoder.embedding.weight
   elif model_type == "copy":
-    from model.encoders import Copy_Encoder
+    from model.encoders import Match_Encoder
     from model.decoders import Copy_Decoder
     encoder = Copy_Encoder
     decoder = Copy_Decoder

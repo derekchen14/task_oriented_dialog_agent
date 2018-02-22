@@ -9,24 +9,6 @@ from utils.external.preprocessers import match_embedding
 # The encoder of a seq2seq network is a RNN that outputs some value for every
 # word from the input sentence. For every input word the encoder outputs a vector
 # and a hidden state, and uses the hidden state for the next input word.
-class Copy_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(Copy_Encoder, self).__init__()
-    self.n_layers = n_layers
-    self.hidden_size = hidden_size + 8  # extended dim for the match features
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, bidirectional = True)
-    self.embedding = match_embedding(vocab_size, hidden_size)
-
-  def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output, hidden = self.gru(output, hidden)
-    return output, hidden
-
-  def initHidden(self):
-    return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
-
 class Match_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Match_Encoder, self).__init__()
@@ -73,33 +55,13 @@ class Bid_Encoder(nn.Module):
     # output size, we split each of the hidden layers in half, z = h // 2
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
-class Attn_Encoder(nn.Module):
+class GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Attn_Encoder, self).__init__()
     self.hidden_size = hidden_size # dim of object passed into IFOG gates
     self.input_size = hidden_size # serves double duty
 
     self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
-    self.embedding = nn.Embedding(vocab_size, hidden_size)
-
-  def forward(self, word_inputs, hidden):
-    seq_len = len(word_inputs)
-    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
-    output, hidden = self.gru(embedded, hidden)
-    return output, hidden
-
-  def initHidden(self):
-    return smart_variable(torch.zeros(1, 1, self.hidden_size))
-
-# ------------- Below is Deprecated: Do Not Use ---------------
-class GRU_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(GRU_Encoder, self).__init__()
-    self.n_layers = n_layers
-    self.hidden_size = hidden_size # dim of object passed into IFOG gates
-    self.input_size = hidden_size # serves double duty
-
-    self.gru = nn.GRU(self.input_size, self.hidden_size)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):
