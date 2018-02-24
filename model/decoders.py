@@ -82,7 +82,8 @@ class Copy_Decoder(nn.Module):
 
     # ----------- Merge COPY-prob and GENERATE-prob together --------------
     # 4a) Extract indexes of words in the encoder input sequence
-    input_indexes = sources.data.long().t().unsqueeze_(2)    # (b,7,1)
+    input_indexes = sources.data.cpu().t().unsqueeze_(2)    # (b,7,1)
+    # pdb.set_trace()
     batch_size, seq_len, _ = input_indexes.size()
     # 4b) Create a vector of zeros to store all the encoder indices
     # Only necessary because we might multiple identical words in the encoder
