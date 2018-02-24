@@ -143,7 +143,7 @@ if __name__ == "__main__":
   val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
   encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
-      args.hidden_size, args.attn_method, args.n_layers, args.drop_prob)
+      args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   results = track_progress(encoder, decoder, train_variables, val_variables,
       task, args.verbose, args.debug, args.learning_rate, n_iters=args.n_iters,
