@@ -211,7 +211,7 @@ def spit_fire(dialogues):
         for token in utterance:
           token_index = int(token.data.numpy()[0])
           words.append(vocab.index_to_word(token_index, "res"))
-  print words
+  print(words)
 
 def look4str(u, df):
     a = df['addrs'].apply(lambda x: x in u)
