@@ -20,7 +20,7 @@ class Copy_Decoder(nn.Module):
     self.vocab_size = vocab_size  # check extend_vocab method below
     self.dropout = nn.Dropout(drop_prob)
     self.max_length = max_length
-    self.expand_params = True
+    self.arguments_size = "large"
 
     # max_length is added to help train the location based addressing
     self.embedding = nn.Embedding(vocab_size, self.hidden_size + max_length)
@@ -117,6 +117,51 @@ class Copy_Decoder(nn.Module):
       matched[i] = matched[i]/total if total > 1 else matched[i]
     '''
 
+class Transformer_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, n_layers=4):
+    super(Transformer_Decoder, self).__init__()
+    self.hidden_size = hidden_size
+    self.input_size = hidden_size
+    self.vocab_size = vocab_size
+    self.arguments_size = "small"
+
+    self.num_attention_heads = 8  # hardcoded since it won't change
+    self.num_layers = n_layers
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
+    self.enc_self_attn = Attention(self.hidden_size)
+    self.dec_self_attn = Attention(self.hidden_size)
+    self.traditional_attn = Attention(self.hidden_size)
+
+    tranform_dim = self.hidden_size / num_attention_heads
+    self.key_transform = nn.Linear(hidden_size, tranform_dim)
+    self.value_transform = nn.Linear(hidden_size, tranform_dim)
+    self.query_transform = nn.Linear(hidden_size, tranform_dim)
+    self.out = nn.Linear(self.input_size, vocab_size)
+
+  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
+    embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
+    embedded = self.dropout(embedded)
+    rnn_input = torch.cat((embedded, last_context), dim=2)
+    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+
+    decoder_hidden = current_hidden.squeeze(0)    # (1 x 1 x N) --> 1 x N
+    attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
+    attn_context = attn_weights.bmm(encoder_outputs.transpose(0,1))
+
+    joined_hidden = torch.cat((current_hidden, attn_context), dim=2).squeeze(0)
+    output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
+    return output, attn_context, current_hidden, attn_weights
+
+  def multihead_attention(self):
+    pass
+
+  def masked_attention(self):
+    pass
+
+  def layer_norm(self):
+    pass
+
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
     super(Match_Decoder, self).__init__()
@@ -124,14 +169,14 @@ class Match_Decoder(nn.Module):
     self.input_size = self.hidden_size * 2
     self.vocab_size = vocab_size
     self.dropout = nn.Dropout(drop_prob)
-    self.expand_params = False
+    self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.gru = nn.GRU(self.input_size, self.hidden_size)
     self.attn = Attention(method, self.hidden_size)
     self.out = nn.Linear(self.input_size, vocab_size)
 
-  def forward(self, word_input, last_context, prev_hidden, encoder_outputs, s):
+  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
     if (prev_hidden.size()[0] == (2 * word_input.size()[0])):
       prev_hidden = prev_hidden.view(1, 1, -1)
 
@@ -162,7 +207,7 @@ class Bid_Decoder(nn.Module):
     self.input_size = self.hidden_size * 2  # since we concat input and context
     self.vocab_size = vocab_size                # |V| is around 2100
     self.dropout = nn.Dropout(drop_prob)
-    self.expand_params = False
+    self.arguments_size = "medium"
     # num_layers is removed since decoder always has one layer
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
@@ -201,7 +246,7 @@ class Attn_Decoder(nn.Module):
     self.input_size = self.hidden_size * 2  # since we concat input and context
     self.vocab_size = vocab_size                # |V| is around 2100
     self.dropout = nn.Dropout(drop_prob)
-    self.expand_params = False
+    self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
@@ -236,7 +281,7 @@ class GRU_Decoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size # serves double duty
-    self.expand_params = False
+    self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(self.input_size, self.hidden_size)
@@ -257,7 +302,7 @@ class LSTM_Decoder(nn.Module):
     super(LSTM_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-    self.expand_params = False
+    self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)
@@ -281,7 +326,7 @@ class RNN_Decoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size
-    self.expand_params = False
+    self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.rnn = nn.RNN(self.input_size, self.hidden_size)

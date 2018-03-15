@@ -85,12 +85,12 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
   training_pairs = [random.choice(train_data) for i in range(n_iters)]
   validation_pairs = [random.choice(val_data) for j in range(v_iters)]
   criterion = NegLL_Loss()
-  scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
-  scheduler2 = StepLR(decoder_optimizer, step_size=n_iters / (args.decay_times+1), gamma=0.2)
+  enc_scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
+  dec_scheduler = StepLR(decoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for iter in range(1, n_iters + 1):
-    scheduler.step()
-    scheduler2.step()
+    enc_scheduler.step()
+    dec_scheduler.step()
 
     training_pair = training_pairs[iter - 1]
     input_variable = training_pair[0]
@@ -105,8 +105,8 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
     if iter % print_every == 0:
       print_loss_avg = print_loss_total / print_every
       print_loss_total = 0
-      print('%d%% complete %s, Train Loss: %.4f' % ((iter / n_iters * 100),
-          timeSince(start, iter / n_iters), print_loss_avg))
+      print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
+          (iter / n_iters * 100.0), timeSince(start, iter / n_iters)))
       train_losses.append(print_loss_avg)
       train_steps.append(iter)
 
