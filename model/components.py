@@ -9,6 +9,7 @@ import utils.internal.data_io as data_io
 
 import torch
 import random
+import numpy as np
 import pdb
 
 use_cuda = cuda.is_available()
@@ -20,7 +21,7 @@ def starting_checkpoint(iteration):
     else:
       print("Start local CPU training ... ")
 
-def init_optimizers(optimizer_type, enc_params, dec_params, lr, weight_decay):
+def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
   if optimizer_type == 'SGD':
     encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)
     decoder_optimizer = optim.SGD(dec_params, lr, weight_decay)
@@ -85,6 +86,11 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     zeros_tensor = torch.zeros(vocab_size, max_length)
     copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
     decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
+  elif model_type == "transformer":
+    from model.encoders import Transformer_Encoder
+    from model.decoders import Transformer_Decoder
+    encoder = Transformer_Encoder(vocab_size, hidden_size, n_layers)
+    decoder = Transformer_Decoder(vocab_size, hidden_size, n_layers)
   elif model_type == "memory":
     from model.encoders import Memory_Encoder
     from model.decoders import Memory_Decoder
@@ -109,13 +115,17 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   predictions = []
   for di in range(decoder_length):
     use_teacher_forcing = random.random() < teach_ratio
-    if decoder.expand_params:
+    if decoder.arguments_size == "large":
       decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
         decoder_input, decoder_context, decoder_hidden, encoder_outputs,
         sources, targets, di, use_teacher_forcing)
-    else:
+    elif decoder.arguments_size == "medium":
       decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
           decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+    elif decoder.arguments_size == "small":
+      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
+          decoder_input, decoder_context)
+
     visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
     loss += criterion(decoder_output, targets[di])
 
@@ -150,3 +160,63 @@ def grab_attention(val_data, encoder, decoder, task, vis_count):
       visualizations.append((visual, query_tokens, response_tokens))
 
   return visualizations
+
+class LossTracker(object):
+  def __init__(self, threshold):
+    self.train_steps = []
+    self.train_losses = []
+    self.train_epoch = 0
+
+    self.val_steps = []
+    self.val_losses = []
+    self.val_epoch = 0
+
+    self.completed_training = True
+    # Minimum loss we are willing to accept for calculating absolute loss
+    self.threshold = threshold
+    self.absolute_range = 4
+    # Trailing average storage for calculating relative loss
+    self.trailing_average = []
+    self.epochs_per_avg = 3
+    self.lookback_range = 2
+
+  def update_loss(self, loss, split):
+    if split == "train":
+      self.train_losses.append(loss)
+      self.train_epoch += 1
+    elif split == "val":
+      self.val_losses.append(loss)
+      self.val_epoch += 1
+
+  def should_early_stop(self):
+    if self.threshold < 0:  # we turn off early stopping
+      return False
+
+    trail_idx = self.val_epoch - self.epochs_per_avg
+    if trail_idx >= 0:
+      avg = np.average(self.val_losses[trail_idx : self.val_epoch])
+      self.trailing_average.append(float(avg))
+
+      if self._check_absolute(avg) or self._check_relative(avg, trail_idx):
+        return True
+    # if nothing causes an alarm, then we should continue
+    return False
+
+  def _check_absolute(self, current_avg):
+    if self.val_epoch == (10 - self.absolute_range):
+      if current_avg > (self.threshold * 1.5):
+        return True
+    elif self.val_epoch == 10:
+      if current_avg > self.threshold:
+        return True
+    elif self.val_epoch == (10 + self.absolute_range):
+      if current_avg > (self.threshold * 0.9):
+        return True
+    return False
+
+  def _check_relative(self, current_avg, trail_idx):
+    if self.val_epoch >= (self.epochs_per_avg + self.lookback_range):
+      lookback_avg = self.trailing_average[trail_idx - self.lookback_range]
+      if (current_avg / lookback_avg) > 1.1:
+        return True
+    return False

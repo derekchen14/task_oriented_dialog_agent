@@ -15,6 +15,9 @@ def solicit_args():
               help='whether or not to have verbose prints')
 
   # ------ PARAMETER OPTIMIZATION --------
+  parser.add_argument('--early-stopping', default=-1.0, type=float,
+              help='Minimum loss value we are willing to accept during epoch 10 \
+                    at validation, set to negative value to prevent early stopping')
   parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,
               help='Learning rate alpha for weight updates')
   parser.add_argument('--hidden-size', default=256, type=int,

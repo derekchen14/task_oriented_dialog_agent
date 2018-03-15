@@ -61,13 +61,11 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
 
   return avg_loss, bleu_score, all(turn_success)
 
-def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug, \
-        learning_rate=0.01, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
+def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
+                  task, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
-  save_model = False
-  train_steps, train_losses = [], []
-  val_steps, val_losses = [], []
   bleu_scores, accuracy = [], []
+  learner = LossTracker(args.early_stopping)
 
   v_iters = len(val_data) if task == 'car' else int(len(val_data)/500)
   n_iters = 600 if debug else n_iters
@@ -79,14 +77,14 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
     encoder = encoder.cuda()
     decoder = decoder.cuda()
 
-  encoder_optimizer, decoder_optimizer = init_optimizers(args.optimizer,
-        encoder.parameters(), decoder.parameters(), learning_rate, weight_decay)
+  enc_optimizer, dec_optimizer = init_optimizers(args.optimizer, weight_decay,
+        encoder.parameters(), decoder.parameters(), args.learning_rate)
 
   training_pairs = [random.choice(train_data) for i in range(n_iters)]
   validation_pairs = [random.choice(val_data) for j in range(v_iters)]
   criterion = NegLL_Loss()
-  enc_scheduler = StepLR(encoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
-  dec_scheduler = StepLR(decoder_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
+  enc_scheduler = StepLR(enc_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
+  dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for iter in range(1, n_iters + 1):
     enc_scheduler.step()
@@ -98,20 +96,20 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
     starting_checkpoint(iter)
     loss = train(input_variable, output_variable, encoder, decoder, \
-           encoder_optimizer, decoder_optimizer, criterion, teach_ratio=teacher_forcing)
+           enc_optimizer, dec_optimizer, criterion, teach_ratio=teacher_forcing)
     print_loss_total += loss
     plot_loss_total += loss
 
     if iter % print_every == 0:
+      learner.train_steps.append(iter)
       print_loss_avg = print_loss_total / print_every
       print_loss_total = 0
       print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
           (iter / n_iters * 100.0), timeSince(start, iter / n_iters)))
-      train_losses.append(print_loss_avg)
-      train_steps.append(iter)
+      learner.update_loss(print_loss_avg, "train")
 
     if iter % val_every == 0:
-      val_steps.append(iter)
+      learner.val_steps.append(iter)
       batch_val_loss, batch_bleu, batch_success = [], [], []
       for iter in range(1, v_iters + 1):
         val_pair = validation_pairs[iter - 1]
@@ -125,12 +123,16 @@ def track_progress(encoder, decoder, train_data, val_data, task, verbose, debug,
 
       avg_val_loss, avg_bleu, avg_success = evaluate.batch_processing(
                                     batch_val_loss, batch_bleu, batch_success)
-      val_losses.append(avg_val_loss)
+      learner.update_loss(avg_val_loss, "val")
       bleu_scores.append(avg_bleu)
       accuracy.append(avg_success)
+      if learner.should_early_stop():
+        print("Early stopped at val epoch {}".format(iter/val_every))
+        learner.completed_training = False
+        break
 
   time_past(start)
-  return train_steps, train_losses, val_steps, val_losses, bleu_scores, accuracy
+  return learner, bleu_scores, accuracy
 
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
@@ -145,18 +147,18 @@ if __name__ == "__main__":
   encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
       args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
-  results = track_progress(encoder, decoder, train_variables, val_variables,
-      task, args.verbose, args.debug, args.learning_rate, n_iters=args.n_iters,
+  results = track_progress(args, encoder, decoder, args.verbose, args.debug,
+      train_variables, val_variables, task, n_iters=args.n_iters,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
-  if args.save_model:
+  if args.save_model and results[0].completed_training:
     torch.save(encoder, args.encoder_path)
     torch.save(decoder, args.decoder_path)
-    print('Model saved!')
-  if args.report_results:
+    print('Model saved at {}!'.format(args.encoder_path))
+  if args.report_results and results[0].completed_training:
     evaluate.create_report(results, args)
+  if args.plot_results and results[0].completed_training:
+    evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
   if args.visualize > 0:
     visualizations = grab_attention(val_variables, encoder, decoder, task, args.visualize)
     evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
-  if args.plot_results:
-    evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')

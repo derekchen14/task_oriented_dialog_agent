@@ -16,7 +16,9 @@ def plot(xs, ys, title, xlabel, ylabel):
   print('Performance plotted!')
 
 def create_report(results, args):
-  train_s, train_l, val_s, val_l, bleu, acc = results
+  learner, bleu, acc = results
+  train_s, train_l = learner.train_steps, learner.train_losses
+  val_s, val_l = learner.val_steps, learner.val_losses
   df_train = pd.DataFrame(data={'train_steps':train_s, 'train_loss': train_l})
   df_val = pd.DataFrame(data={'validation_steps':val_s, 'validation_loss': val_l,
                                 'bleu_score': bleu, 'per_turn_accuracy': acc})
