@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from model.modules import Transformer
 from model.components import *
 from utils.external.preprocessers import match_embedding
 
@@ -14,7 +16,7 @@ class Match_Encoder(nn.Module):
     super(Match_Encoder, self).__init__()
     self.hidden_size = hidden_size + 8  # extended dim for the match features
     self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, \
-        num_layers=n_layers, bidirectional=True)
+      num_layers=n_layers, bidirectional=True)
     self.embedding = match_embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):
@@ -27,28 +29,25 @@ class Match_Encoder(nn.Module):
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
 class Transformer_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers):
+  def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Encoder, self).__init__()
-    self.hidden_size = hidden_size  # extended dim for the match features
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, \
-        num_layers=n_layers, bidirectional=True)
+    self.hidden_size = hidden_size
+    self.scale_factor = math.sqrt(hidden_size)
     self.embedding = match_embedding(vocab_size, hidden_size)
+    self.transformer = Transformer(hidden_size, n_layers)
 
-  def forward(self, word_inputs, hidden):
+  def forward(self, word_inputs):
     seq_len = len(word_inputs)
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
-    output, hidden = self.gru(embedded, hidden)
-    return output, hidden
-
-  def initHidden(self):
-    return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
+    final_output = self.transformer(embedded)
+    return final_output
 
 class Bid_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_Encoder, self).__init__()
     self.hidden_size = hidden_size
     self.gru = nn.GRU(hidden_size, hidden_size // 2, \
-        num_layers=n_layers, bidirectional=True)
+      num_layers=n_layers, bidirectional=True)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):

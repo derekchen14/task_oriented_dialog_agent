@@ -4,7 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import pdb  # set_trace
+
 from model.components import smart_variable
+from model.modules import Attention, Transformer
 from utils.external.preprocessers import match_embedding
 
 # ------- Decoders ----------
@@ -52,7 +54,7 @@ class Copy_Decoder(nn.Module):
     # 0b) Tensor indicating whether decoder word appeared in the encoder words
     #     (ie. whether or not we should have performed a copy action)
     locations = torch.cat([(word==di) for word in sources]).float()
-    locations = smart_variable(locations, is_var=True)            # a list (7,)
+    locations = smart_variable(locations, dtype="var")            # a list (7,)
     # default of dim=1 will throw error since "locations" only has one dimension
     embedded[:, :, :len(locations)] = F.normalize(locations, p=2, dim=0)
 
@@ -118,49 +120,23 @@ class Copy_Decoder(nn.Module):
     '''
 
 class Transformer_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=4):
+  def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Decoder, self).__init__()
     self.hidden_size = hidden_size
-    self.input_size = hidden_size
-    self.vocab_size = vocab_size
     self.arguments_size = "small"
 
-    self.num_attention_heads = 8  # hardcoded since it won't change
-    self.num_layers = n_layers
-
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.enc_self_attn = Attention(self.hidden_size)
-    self.dec_self_attn = Attention(self.hidden_size)
-    self.traditional_attn = Attention(self.hidden_size)
+    self.masked_transformer = Transformer(hidden_size, n_layers, True)
+    self.out = nn.Linear(hidden_size, vocab_size)
 
-    tranform_dim = self.hidden_size / num_attention_heads
-    self.key_transform = nn.Linear(hidden_size, tranform_dim)
-    self.value_transform = nn.Linear(hidden_size, tranform_dim)
-    self.query_transform = nn.Linear(hidden_size, tranform_dim)
-    self.out = nn.Linear(self.input_size, vocab_size)
-
-  def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
-    embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
-    embedded = self.dropout(embedded)
-    rnn_input = torch.cat((embedded, last_context), dim=2)
-    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
-
-    decoder_hidden = current_hidden.squeeze(0)    # (1 x 1 x N) --> 1 x N
-    attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
-    attn_context = attn_weights.bmm(encoder_outputs.transpose(0,1))
-
-    joined_hidden = torch.cat((current_hidden, attn_context), dim=2).squeeze(0)
-    output = F.log_softmax(self.out(joined_hidden), dim=1)  # (1x2N) (2NxV) = 1xV
-    return output, attn_context, current_hidden, attn_weights
-
-  def multihead_attention(self):
-    pass
-
-  def masked_attention(self):
-    pass
-
-  def layer_norm(self):
-    pass
+  def forward(self, word_inputs, di):
+    embedded = self.embedding(word_inputs)
+    print("embedded: {}".format(embedded.size()) )
+    pdb.set_trace()
+    dropped_embed = self.dropout(embedded)
+    transformer_output = self.masked_transformer(dropped_embed, di)
+    final_output = F.log_softmax(self.out(transformer_output), dim=1)  # (1x2N) (2NxV) = 1xV
+    return final_output
 
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
@@ -340,40 +316,3 @@ class RNN_Decoder(nn.Module):
       output, hidden = self.rnn(output, hidden)
     output = self.softmax(self.out(output[0]))
     return output, hidden
-
-class Attention(nn.Module):
-  def __init__(self, method, hidden_size):
-    super(Attention, self).__init__()
-    self.attn_method = method
-    self.tanh = nn.Tanh()
-    # the "_a" stands for the "attention" weight matrix
-    if self.attn_method == 'luong':                # h(Wh)
-      self.W_a = nn.Linear(hidden_size, hidden_size)
-    elif self.attn_method == 'vinyals':            # v_a tanh(W[h_i;h_j])
-      self.W_a =  nn.Linear(hidden_size * 2, hidden_size)
-      self.v_a = nn.Parameter(torch.FloatTensor(1, hidden_size))
-    elif self.attn_method == 'dot':                 # h_j x h_i
-      self.W_a = torch.eye(hidden_size) # identity since no extra matrix is needed
-
-  def forward(self, decoder_hidden, encoder_outputs):
-    # Create variable to store attention scores           # seq_len = batch_size
-    seq_len = len(encoder_outputs)
-    attn_scores = smart_variable(torch.zeros(seq_len))    # B (batch_size)
-    # Calculate scores for each encoder output
-    for i in range(seq_len):           # h_j            h_i
-        attn_scores[i] = self.score(decoder_hidden, encoder_outputs[i]).squeeze(0)
-    # Normalize scores into weights in range 0 to 1, resize to 1 x 1 x B
-    attn_weights = F.softmax(attn_scores, dim=0).unsqueeze(0).unsqueeze(0)
-    return attn_weights
-
-  def score(self, h_dec, h_enc):
-    W = self.W_a
-    if self.attn_method == 'luong':                # h(Wh)
-      return h_dec.matmul( W(h_enc).transpose(0,1) )
-    elif self.attn_method == 'vinyals':            # v_a tanh(W[h_i;h_j])
-      hiddens = torch.cat((h_enc, h_dec), dim=1)
-      # Note that W_a[h_i; h_j] is the same as W_1a(h_i) + W_2a(h_j) since
-      # W_a is just (W_1a concat W_2a)             (nx2n) = [(nxn);(nxn)]
-      return self.v_a.matmul(self.tanh( W(hiddens).transpose(0,1) ))
-    elif self.attn_method == 'dot':                # h_j x h_i
-      return h_dec.matmul(h_enc.transpose(0,1))

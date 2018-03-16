@@ -127,7 +127,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
       bleu_scores.append(avg_bleu)
       accuracy.append(avg_success)
       if learner.should_early_stop():
-        print("Early stopped at val epoch {}".format(iter/val_every))
+        print("Early stopped at val epoch {}".format(learner.val_epoch))
         learner.completed_training = False
         break
 
