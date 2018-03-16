@@ -26,6 +26,10 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)
     decoder_optimizer = optim.SGD(dec_params, lr, weight_decay)
   elif optimizer_type == 'Adam':
+    # warmup = step_num * math.pow(4000, -1.5)
+    # lr = (1 / math.sqrt(d)) * min(math.pow(step, -0.5), warmup)
+    # encoder_optimizer = optim.Adam(enc_params, lr, betas=(0.9, 0.98), eps=1e-9)
+    # decoder_optimizer = optim.Adam(dec_params, lr, betas=(0.9, 0.98), eps=1e-9)
     encoder_optimizer = optim.Adam(enc_params, lr * 0.01, weight_decay=weight_decay)
     decoder_optimizer = optim.Adam(dec_params, lr * 0.01, weight_decay=weight_decay)
   else:
@@ -33,13 +37,22 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     decoder_optimizer = optim.RMSprop(dec_params, lr, weight_decay)
   return encoder_optimizer, decoder_optimizer
 
-def smart_variable(tensor, is_var=False):
-  # If the "tensor" is actually already a variable, then no need to update
-  result = tensor if is_var else Variable(tensor)
-  if use_cuda:
-    return result.cuda()
-  else:
-    return result
+def basic_variable(data, dtype="long"):
+    if dtype == "long":
+        tensor = torch.LongTensor(data)
+    elif dtype == "float":
+        tensor = torch.FloatTensor(data)
+    return Variable(tensor)
+
+def smart_variable(data, dtype="tensor"):
+    if dtype == "list":
+        result = basic_variable(data)
+    elif dtype == "tensor":
+        result = Variable(data)
+    elif dtype == "var":
+        result = data
+
+    return result.cuda() if use_cuda else result
 
 def clip_gradient(models, clip):
   '''
@@ -100,7 +113,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
 
   return encoder, decoder
 
-def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
+def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   encoder_hidden = encoder.initHidden()
   encoder_length = sources.size()[0]
@@ -108,7 +121,7 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
 
   decoder_hidden = encoder_hidden
   decoder_length = targets.size()[0]
-  decoder_input = smart_variable(torch.LongTensor([[vocab.SOS_token]]))
+  decoder_input = smart_variable([[vocab.SOS_token]], "list")
   decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
 
   visual = torch.zeros(encoder_length, decoder_length)
@@ -123,8 +136,7 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
           decoder_input, decoder_context, decoder_hidden, encoder_outputs)
     elif decoder.arguments_size == "small":
-      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-          decoder_input, decoder_context)
+      decoder_output = decoder(targets, di, decoder_context)
 
     visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
     loss += criterion(decoder_output, targets[di])
@@ -140,6 +152,25 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
   return loss, predictions, visual
+
+def run_inference(encoder, decoder, sources, targets, criterion, tr):
+  loss = 0
+  predictions = []
+
+  encoder_outputs = encoder(sources)
+  decoder_inputs = torch.cat(smart_variable([[vocab.SOS_token]], "list"), targets)
+
+  for di in range(targets.size()[0]):
+    decoder_output = decoder(decoder_inputs, di)
+    loss += criterion(decoder_output, targets[di])
+
+    topv, topi = decoder_output.data.topk(1)
+    ni = topi[0][0]
+    predictions.append(ni)
+    if ni == vocab.EOS_token:
+      break
+
+  return loss, predictions, None
 
 def grab_attention(val_data, encoder, decoder, task, vis_count):
   encoder.eval()
