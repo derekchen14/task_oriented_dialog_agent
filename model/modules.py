@@ -53,7 +53,7 @@ class Transformer(nn.Module):
     self.scale_factor = math.sqrt(hidden_size)
     self.num_attention_heads = 8  # hardcoded since it won't change
     self.num_layers = n_layers   # defaults to 6 to follow the paper
-    self.positions = smart_variable(torch.randn(30, hidden_size))
+    self.positions = smart_variable(torch.randn(31, hidden_size)) # max_length + 1
     self.dropout = nn.Dropout(0.2)
     self.masked = masked
 

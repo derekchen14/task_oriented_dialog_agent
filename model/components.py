@@ -26,8 +26,9 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)
     decoder_optimizer = optim.SGD(dec_params, lr, weight_decay)
   elif optimizer_type == 'Adam':
-    warmup = step_num * math.pow(4000, -1.5)
-    lr = (1 / math.sqrt(d)) * min(math.pow(step, -0.5), warmup)
+    # warmup = step_num * math.pow(4000, -1.5)
+    # lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
+    lr = 0.0158
     encoder_optimizer = optim.Adam(enc_params, lr, betas=(0.9, 0.98), eps=1e-9)
     decoder_optimizer = optim.Adam(dec_params, lr, betas=(0.9, 0.98), eps=1e-9)
     # encoder_optimizer = optim.Adam(enc_params, lr * 0.01, weight_decay=weight_decay)
