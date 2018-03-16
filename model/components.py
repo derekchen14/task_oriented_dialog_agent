@@ -26,12 +26,12 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)
     decoder_optimizer = optim.SGD(dec_params, lr, weight_decay)
   elif optimizer_type == 'Adam':
-    # warmup = step_num * math.pow(4000, -1.5)
-    # lr = (1 / math.sqrt(d)) * min(math.pow(step, -0.5), warmup)
-    # encoder_optimizer = optim.Adam(enc_params, lr, betas=(0.9, 0.98), eps=1e-9)
-    # decoder_optimizer = optim.Adam(dec_params, lr, betas=(0.9, 0.98), eps=1e-9)
-    encoder_optimizer = optim.Adam(enc_params, lr * 0.01, weight_decay=weight_decay)
-    decoder_optimizer = optim.Adam(dec_params, lr * 0.01, weight_decay=weight_decay)
+    warmup = step_num * math.pow(4000, -1.5)
+    lr = (1 / math.sqrt(d)) * min(math.pow(step, -0.5), warmup)
+    encoder_optimizer = optim.Adam(enc_params, lr, betas=(0.9, 0.98), eps=1e-9)
+    decoder_optimizer = optim.Adam(dec_params, lr, betas=(0.9, 0.98), eps=1e-9)
+    # encoder_optimizer = optim.Adam(enc_params, lr * 0.01, weight_decay=weight_decay)
+    # decoder_optimizer = optim.Adam(dec_params, lr * 0.01, weight_decay=weight_decay)
   else:
     encoder_optimizer = optim.RMSprop(enc_params, lr, weight_decay)
     decoder_optimizer = optim.RMSprop(dec_params, lr, weight_decay)
@@ -139,6 +139,7 @@ def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output = decoder(targets, di, decoder_context)
 
     visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+
     loss += criterion(decoder_output, targets[di])
 
     if use_teacher_forcing:
@@ -153,16 +154,17 @@ def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
 
   return loss, predictions, visual
 
-def run_inference(encoder, decoder, sources, targets, criterion, tr):
+def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   predictions = []
-
   encoder_outputs = encoder(sources)
-  decoder_inputs = torch.cat(smart_variable([[vocab.SOS_token]], "list"), targets)
+  decoder_start = smart_variable([[vocab.SOS_token]], "list")
+  decoder_inputs = torch.cat([decoder_start, targets], dim=0)
 
   for di in range(targets.size()[0]):
-    decoder_output = decoder(decoder_inputs, di)
-    loss += criterion(decoder_output, targets[di])
+    decoder_output = decoder(decoder_inputs, encoder_outputs, di)
+    # we need to index into the output now since output is (seq_len, vocab)
+    loss += criterion(decoder_output[di].view(1,-1), targets[di])
 
     topv, topi = decoder_output.data.topk(1)
     ni = topi[0][0]

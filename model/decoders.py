@@ -14,6 +14,23 @@ from utils.external.preprocessers import match_embedding
 # the start-of-string <SOS> token, and the first hidden state is the context
 # vector (the encoder's last hidden state, not the last output!).
 
+class Transformer_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, n_layers=6):
+    super(Transformer_Decoder, self).__init__()
+    self.hidden_size = hidden_size
+    self.arguments_size = "small"
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
+    self.transformer = Transformer(vocab_size, hidden_size, n_layers, True)
+    self.out = nn.Linear(hidden_size, vocab_size)
+
+  def forward(self, word_inputs, encoder_outputs, di):
+    embedded = self.embedding(word_inputs)
+    # dropped_embed = self.dropout(embedded)
+    transformer_output = self.transformer(embedded, encoder_outputs, di)
+    final_output = F.log_softmax(self.out(transformer_output), dim=1)  # (1x2N) (2NxV) = 1xV
+    return final_output
+
 class Copy_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
     super(Copy_Decoder, self).__init__()
@@ -118,25 +135,6 @@ class Copy_Decoder(nn.Module):
       total = matched[i].sum().data[0]
       matched[i] = matched[i]/total if total > 1 else matched[i]
     '''
-
-class Transformer_Decoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=6):
-    super(Transformer_Decoder, self).__init__()
-    self.hidden_size = hidden_size
-    self.arguments_size = "small"
-
-    self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.masked_transformer = Transformer(hidden_size, n_layers, True)
-    self.out = nn.Linear(hidden_size, vocab_size)
-
-  def forward(self, word_inputs, di):
-    embedded = self.embedding(word_inputs)
-    print("embedded: {}".format(embedded.size()) )
-    pdb.set_trace()
-    dropped_embed = self.dropout(embedded)
-    transformer_output = self.masked_transformer(dropped_embed, di)
-    final_output = F.log_softmax(self.out(transformer_output), dim=1)  # (1x2N) (2NxV) = 1xV
-    return final_output
 
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):

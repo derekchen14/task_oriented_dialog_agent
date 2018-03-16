@@ -32,9 +32,8 @@ class Transformer_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Encoder, self).__init__()
     self.hidden_size = hidden_size
-    self.scale_factor = math.sqrt(hidden_size)
-    self.embedding = match_embedding(vocab_size, hidden_size)
-    self.transformer = Transformer(hidden_size, n_layers)
+    self.embedding = nn.Embedding(vocab_size, hidden_size)
+    self.transformer = Transformer(vocab_size, hidden_size, n_layers)
 
   def forward(self, word_inputs):
     seq_len = len(word_inputs)

@@ -7,7 +7,7 @@ def solicit_args():
               'challenge', 'concierge','schedule', 'navigate','weather'],
               help='Choose the task to train on', )
   parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
-              'gru', 'attention', 'match', 'copy', 'hred', 'memory'],
+              'gru', 'attention', 'match', 'copy', 'transformer', 'memory'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')

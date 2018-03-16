@@ -1,8 +1,13 @@
 import math
+import numbers
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from model.components import smart_variable
 import pdb  # set_trace
+import sys
+import numpy as np
 
 class Attention(nn.Module):
   def __init__(self, method, hidden_size):
@@ -42,70 +47,84 @@ class Attention(nn.Module):
       return h_dec.matmul(h_enc.transpose(0,1))
 
 class Transformer(nn.Module):
-  def __init__(self, hidden_size, n_layers, masked=False):
+  def __init__(self, vocab_size, hidden_size, n_layers, masked=False):
     super(Transformer, self).__init__()
-    self.max_length = 30
+    self.hidden_size = hidden_size
+    self.scale_factor = math.sqrt(hidden_size)
     self.num_attention_heads = 8  # hardcoded since it won't change
     self.num_layers = n_layers   # defaults to 6 to follow the paper
-    self.positional_embedding = nn.Embedding(self.max_length, hidden_size)
-    self.positional_embedding.weight.requires_grad = False
+    self.positions = smart_variable(torch.randn(30, hidden_size))
     self.dropout = nn.Dropout(0.2)
     self.masked = masked
 
     for head_idx in range(self.num_attention_heads):
       for vector_type in ['query', 'key', 'value']:
-        head_name = vector_type + "_head_" + head_idx
-        mask_name = vector_type + "_mask_" + head_idx
+        head_name = "{0}_head_{1}".format(vector_type, head_idx)
+        mask_name = "{0}_mask_{1}".format(vector_type, head_idx)
         head_in = self.hidden_size
         head_out = self.hidden_size / self.num_attention_heads
         setattr(self, head_name, nn.Linear(head_in, head_out))
         if masked:
           setattr(self, mask_name, nn.Linear(head_in, head_out))
 
-    self.pw_ffn_1 = nn.Linear(self.input_size, vocab_size)
-    self.pw_ffn_2 = nn.Linear(self.input_size, vocab_size)
-    self.layernorm = nn.LayerNorm(100)
+    self.pw_ffn_1 = nn.Linear(self.hidden_size, hidden_size)
+    self.pw_ffn_2 = nn.Linear(self.hidden_size, hidden_size)
+    try:
+      self.layernorm = nn.LayerNorm(hidden_size, affine=False)
+    except(AttributeError):
+      self.layernorm = nn.BatchNorm1d(hidden_size, affine=False)
 
-  def forward(self, transformer_input, encoder_outputs=None, di=None):
-    positions = self.positional_embedding[:len(transformer_input), :]
-    transformer_input += positions
+  def forward(self, inputs, encoder_outputs=None, di=None):
+    # inputs will be seq_len, batch_size, hidden dim.  However, our batch_size
+    # is always one so we squeeze it out to keep calculations simpler
+    transformer_input = inputs.squeeze() + self.positions[:len(inputs), :]
+    k_v_input = transformer_input
 
     for layer_idx in range(self.num_layers):
       if layer_idx > 0:
         transformer_input = self.dropout(transformer_output)
 
       if self.masked:
-        masked_input = self.apply_mask(transformer_input, decoder_idx)
-        k_v_inputs = encoder_outputs
+        masked_input = self.apply_mask(transformer_input, di)
+        k_v_input = encoder_outputs
 
         mask_attn_heads = []
         for j in range(self.num_attention_heads):
           Q = getattr(self, "query_mask_{}".format(j))(masked_input)
-          K = getattr(self, "key_mask_{}".format(j))(k_v_inputs)
-          V = getattr(self, "value_mask_{}".format(j))(k_v_inputs)
+          K = getattr(self, "key_mask_{}".format(j))(k_v_input)
+          V = getattr(self, "value_mask_{}".format(j))(k_v_input)
           mask_attn_heads.append(self.scaled_dot_product_attention(Q, K, V))
-        residual_connection = embedded + torch.stack(mask_attn_heads, dim=1)
+        residual_connection = masked_input + torch.cat(mask_attn_heads, dim=1)
         masked_output = self.layernorm(residual_connection)
         transformer_input = self.dropout(masked_output)
 
       attn_heads = []  # don't create a new variable since it messes with the graph
       for idx in range(self.num_attention_heads):
         Q = getattr(self, "query_head_{}".format(idx))(transformer_input)
-        K = getattr(self, "key_head_{}".format(idx))(k_v_inputs)
-        V = getattr(self, "value_head_{}".format(idx))(k_v_inputs)
+        K = getattr(self, "key_head_{}".format(idx))(k_v_input)
+        V = getattr(self, "value_head_{}".format(idx))(k_v_input)
         attn_heads.append(self.scaled_dot_product_attention(Q, K, V))
-      residual_connection = embedded + torch.stack(attn_heads, dim=1)
+      residual_connection = transformer_input + torch.cat(attn_heads, dim=1)
       multihead_output = self.layernorm(residual_connection)
 
-      pw_ffn_output = self.position_wise_ffn(multihead_output)
+      pw_ffn_output = self.positionwise_ffn(multihead_output)
       transformer_output = self.layernorm(multihead_output + pw_ffn_output)
 
     return transformer_output
 
   def apply_mask(self, decoder_inputs, decoder_idx):
-    mask = torch.zeros(( decoder_inputs.size() ))
-    mask[:, :decoder_idx+1] = 1
+    mask = smart_variable(torch.zeros(( decoder_inputs.size() )))
+    mask[:decoder_idx+1, :] = 1
     return decoder_inputs * mask
+    # updated code for dealing with batch_size >1; lengths is a list,
+    # where each element is an integer representing the number of tokens
+    # for each sentence in the batch
+    # batch_size = lengths.numel()
+    # max_len = max_len or lengths.max()
+    # return (torch.arange(0, max_len)
+    #         .type_as(lengths)
+    #         .repeat(batch_size, 1)
+    #         .lt(lengths.unsqueeze(1)))  # less than
 
   def positionwise_ffn(self, multihead_output):
     ffn_1_output = F.relu(self.pw_ffn_1(multihead_output))
@@ -113,10 +132,10 @@ class Transformer(nn.Module):
     return ffn_2_output
 
   def scaled_dot_product_attention(self, Q, K, V):
-    # K should be seq_len, hidden_dim to start with, but will be transposed
-    scaled_matmul = Q.matmul(K.T) / self.scale_factor   # batch_size x seq_len
+    # K should be seq_len, hidden_dim / 8 to start with, but will be transposed
+    scaled_matmul = Q.matmul(K.transpose(0,1)) / self.scale_factor   # batch_size x seq_len
     # (batch_size, hidden_dim) x (hidden_dim, seq_len) / broadcast integer
-    attn_weights = F.softmax(scaled_matmul, axis=1)
+    attn_weights = F.softmax(scaled_matmul, dim=1)
     attn_context = attn_weights.matmul(V)             # batch_size, hidden_dim
     return attn_context
 

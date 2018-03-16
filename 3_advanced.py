@@ -10,6 +10,7 @@ import json
 import sys
 import pdb
 import time as tm
+import pickle
 
 import torch
 from torch import optim
@@ -139,10 +140,14 @@ if __name__ == "__main__":
   args = solicit_args()
   task = 'car' if args.task_name in ['navigate', 'schedule', 'weather'] else 'res'
   # ----- LOAD DATA -----
-  train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)
-  train_variables = collect_dialogues(train_data, task=task)
-  val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
-  val_variables = collect_dialogues(val_data, task=task)
+  if args.debug:
+    debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
+    train_variables, val_variables, max_length = debug_data
+  else:
+    train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)
+    train_variables = collect_dialogues(train_data, task=task)
+    val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
+    val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
   encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
       args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
