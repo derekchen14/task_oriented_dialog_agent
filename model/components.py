@@ -157,14 +157,15 @@ def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   predictions = []
-  encoder_outputs = encoder(sources)
+  encoder_outputs = encoder(smart_variable(sources, dtype="var"))
   decoder_start = smart_variable([[vocab.SOS_token]], "list")
-  decoder_inputs = torch.cat([decoder_start, targets], dim=0)
+  decoder_tokens = smart_variable(targets, dtype="var")
+  decoder_inputs = torch.cat([decoder_start, decoder_tokens], dim=0)
 
   for di in range(targets.size()[0]):
     decoder_output = decoder(decoder_inputs, encoder_outputs, di)
     # we need to index into the output now since output is (seq_len, vocab)
-    loss += criterion(decoder_output[di].view(1,-1), targets[di])
+    loss += criterion(decoder_output[di].view(1,-1), decoder_tokens[di])
 
     topv, topi = decoder_output.data.topk(1)
     ni = topi[0][0]
@@ -186,7 +187,6 @@ def grab_attention(val_data, encoder, decoder, task, vis_count):
       _, responses, visual = run_inference(encoder, decoder, input_variable, \
                       output_variable, criterion=NLLLoss(), teach_ratio=0)
       queries = input_variable.data.tolist()
-      # pdb.set_trace()
       query_tokens = [vocab.index_to_word(q[0], task) for q in queries]
       response_tokens = [vocab.index_to_word(r, task) for r in responses]
 

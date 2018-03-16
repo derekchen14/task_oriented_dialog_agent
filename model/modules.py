@@ -62,7 +62,7 @@ class Transformer(nn.Module):
         head_name = "{0}_head_{1}".format(vector_type, head_idx)
         mask_name = "{0}_mask_{1}".format(vector_type, head_idx)
         head_in = self.hidden_size
-        head_out = self.hidden_size / self.num_attention_heads
+        head_out = int(self.hidden_size / self.num_attention_heads)
         setattr(self, head_name, nn.Linear(head_in, head_out))
         if masked:
           setattr(self, mask_name, nn.Linear(head_in, head_out))
