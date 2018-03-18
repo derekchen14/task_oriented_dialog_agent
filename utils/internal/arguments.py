@@ -14,10 +14,15 @@ def solicit_args():
   parser.add_argument('-v', '--verbose', default=False, action='store_true',
               help='whether or not to have verbose prints')
 
-  # ------ PARAMETER OPTIMIZATION --------
+  # --------- TUNING OPTIONS -------------
   parser.add_argument('--early-stopping', default=-1.0, type=float,
               help='Minimum loss value we are willing to accept during epoch 10 \
                     at validation, set to negative value to prevent early stopping')
+  parser.add_argument('--trials-per-setting', default=2, type=int,
+              help='Number of trials per parameter setting, appends a letter to \
+                    the end of each report or checkpoint to differentiate runs')
+
+  # ------ PARAMETER OPTIMIZATION --------
   parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,
               help='Learning rate alpha for weight updates')
   parser.add_argument('--hidden-size', default=256, type=int,
