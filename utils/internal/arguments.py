@@ -7,7 +7,7 @@ def solicit_args():
               'challenge', 'concierge','schedule', 'navigate','weather'],
               help='Choose the task to train on', )
   parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
-              'gru', 'attention', 'combined', 'copy', 'transformer', 'memory'],
+              'gru', 'attention', 'combined', 'copy', 'transformer', 'replica'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')
@@ -21,6 +21,8 @@ def solicit_args():
   parser.add_argument('--trials-per-setting', default=5, type=int,
               help='Number of trials per parameter setting, appends a letter to \
                     the end of each report or checkpoint to differentiate runs')
+  parser.add_argument('--test-mode', default=False, action='store_true',
+              help='if true, then we are in test phase instead of train/val')
 
   # ------ PARAMETER OPTIMIZATION --------
   parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,

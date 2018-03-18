@@ -143,13 +143,23 @@ if __name__ == "__main__":
   if args.debug:
     debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
     train_variables, val_variables, max_length = debug_data
+  if args.test_mode:
+    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "tst", args.debug)
+    test_variables = collect_dialogues(test_data, task=task)
+
+    encoder = torch.load("results/enc_attn_6c.pt")
+    decoder = torch.load("results/dec_attn_6c.pt")
+    results = test_mode_run(test_variables, encoder, decoder, task)
+    print("Done with testing.")
+    sys.exit()
   else:
     train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)
     train_variables = collect_dialogues(train_data, task=task)
     val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
     val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  for trial in ['a', 'b', 'c', 'd', 'e']:
+  trials = ['debug'] if args.debug else ['a', 'b', 'c', 'd', 'e']
+  for trial in trials:
     encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
         args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
     # ---- TRAIN MODEL ----
