@@ -160,6 +160,7 @@ if __name__ == "__main__":
   # ---- BUILD MODEL ----
   trials = ['debug'] if args.debug else ['a', 'b', 'c', 'd', 'e']
   for trial in trials:
+    print("{0}_{1} run".format(args.model_path, trial))
     encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
         args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
     # ---- TRAIN MODEL ----
