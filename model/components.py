@@ -79,7 +79,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
   elif model_type == "attention":
     from model.encoders import GRU_Encoder
     from model.decoders import Attn_Decoder
-    encoder = Attn_Encoder(vocab_size, hidden_size, n_layers)
+    encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
     decoder = Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
   elif model_type == "bidirectional":
     from model.encoders import Bid_Encoder
@@ -142,8 +142,7 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output, decoder_context = decoder(decoder_input, decoder_context)
       attn_weights, visual = False, False
 
-    if attn_weights:
-      visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+    visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
 
     loss += criterion(decoder_output, targets[di])
 

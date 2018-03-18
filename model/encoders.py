@@ -75,6 +75,7 @@ class GRU_Encoder(nn.Module):
     super(GRU_Encoder, self).__init__()
     self.hidden_size = hidden_size # dim of object passed into IFOG gates
     self.input_size = hidden_size # serves double duty
+    self.num_layers = n_layers
 
     self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
@@ -94,7 +95,7 @@ class GRU_Encoder(nn.Module):
 
   def initHidden(self):
     # args are (num_layers * num_directions, batch_size, hidden_size)
-    return smart_variable(torch.zeros(1, 1, self.hidden_size))
+    return smart_variable(torch.zeros(self.num_layers, 1, self.hidden_size))
 
 class LSTM_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):

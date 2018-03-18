@@ -37,7 +37,7 @@ def solicit_args():
               help='weight_decay to regularize the weights')
   parser.add_argument('--n-layers', default=1, type=int,
               help='Number of layers in each LSTM')
-  parser.add_argument('--n-iters', default=25000, type=int,
+  parser.add_argument('--n-iters', default=30000, type=int,
               help='iterations to train')
   parser.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')

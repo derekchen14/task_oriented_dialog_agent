@@ -283,6 +283,7 @@ class Attn_Decoder(nn.Module):
     self.dropout = nn.Dropout(drop_prob)
     self.arguments_size = "medium"
 
+    self.compact = nn.Linear(self.input_size, self.hidden_size)
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
     self.attn = Attention(method, self.hidden_size)  # adds W_a matrix
@@ -290,6 +291,9 @@ class Attn_Decoder(nn.Module):
     # we need "* 2" since we concat hidden state and attention context vector
 
   def forward(self, word_input, last_context, prev_hidden, encoder_outputs):
+    if (prev_hidden.size()[0] == 2):
+        prev_hidden = self.compact(prev_hidden.view(1, 1, -1))
+
     # Get the embedding of the current input word (i.e. last output word)
     embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
     embedded = self.dropout(embedded)
