@@ -115,7 +115,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
   return encoder, decoder
 
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
-  if teach_ratio == 14:
+  if decoder.arguments_size == "transformer":
     return transformer_inference(encoder, decoder, sources, targets, criterion)
   loss = 0
   encoder_hidden = encoder.initHidden()

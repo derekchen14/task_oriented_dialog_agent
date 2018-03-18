@@ -18,7 +18,7 @@ class Transformer_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Decoder, self).__init__()
     self.hidden_size = hidden_size
-    self.arguments_size = "small"
+    self.arguments_size = "transformer"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.transformer = Transformer(vocab_size, hidden_size, n_layers, True)
