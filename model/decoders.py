@@ -266,12 +266,9 @@ class GRU_Decoder(nn.Module):
     output = self.embedding(input).view(1, 1, -1)
     # input: scalar, hidden: [1, 1, 256], output:[1, 1, 256]
     output, hidden = self.gru(output, hidden)
-    thing = self.out(output[0])
-    print("th: {}".format(thing.size()) )
-    pdb.set_trace()
-    output = F.log_softmax(self.out(output[0]), dim=1)
+    final_output = F.log_softmax(self.out(output[0]), dim=1)
 
-    return output, hidden
+    return final_output, hidden
 
 class LSTM_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
