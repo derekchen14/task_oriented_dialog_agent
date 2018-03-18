@@ -31,7 +31,7 @@ class Transformer_Decoder(nn.Module):
     final_output = F.log_softmax(self.out(transformer_output), dim=1)  # (1x2N) (2NxV) = 1xV
     return final_output
 
-class Copy_Decoder(nn.Module):
+class x_Copy_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
     super(Copy_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8
@@ -136,6 +136,68 @@ class Copy_Decoder(nn.Module):
       matched[i] = matched[i]/total if total > 1 else matched[i]
     '''
 
+class Copy_Decoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
+    super(Copy_Decoder, self).__init__()
+    self.hidden_size = hidden_size + 8
+    self.input_size = self.hidden_size * 2
+    self.vocab_size = vocab_size  # check extend_vocab method below
+    self.dropout = nn.Dropout(drop_prob)
+    self.max_length = max_length
+    self.arguments_size = "large"
+
+    self.embedding = nn.Embedding(vocab_size, self.hidden_size + max_length)
+    self.gru = nn.GRU(self.input_size + max_length, self.hidden_size)
+    self.attn = Attention(attn_method, self.hidden_size)
+    self.out = nn.Linear(self.input_size, vocab_size) # will be replaced
+
+    self.copy_mode = nn.Linear(self.hidden_size, self.hidden_size)
+    self.generate_mode = nn.Linear(self.hidden_size, self.vocab_size)
+
+  def extend_vocab(self, input_sentence):
+    num_words_to_be_copied = len(input_sentence)
+    self.vocab_size += num_words_to_be_copied
+    self.out = nn.Linear(self.input_size, self.vocab_size)
+
+  def forward(self, word_input, prev_context, prev_hidden, encoder_outputs, \
+        sources, targets, ti, use_teacher_forcing):
+    batch_size = 1      # prev_hidden: [b,1,264]  encoder_outputs: [9,1,264]
+    if (prev_hidden.size()[0] == (2 * word_input.size()[0])):
+      prev_hidden = prev_hidden.view(batch_size, 1, -1)
+
+    embedded = self.embedding(word_input).view(batch_size, 1, -1)
+    embedded = self.dropout(embedded)
+    di = targets[ti].squeeze() if use_teacher_forcing else word_input.squeeze()
+    locations = torch.cat([(word==di) for word in sources]).float()
+    locations = smart_variable(locations, dtype="var")            # a list (7,)
+    embedded[:, :, :len(locations)] = F.normalize(locations, p=2, dim=0)
+
+    rnn_input = torch.cat((embedded, prev_context), dim=2)
+    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+    decoder_hidden = current_hidden.squeeze(0)
+
+    score_g = self.generate_mode(decoder_hidden)              # (b x vocab_size)
+    c_part = F.tanh(self.copy_mode(encoder_outputs))                  # (7x264)
+    c_part = c_part.view(batch_size, -1, self.hidden_size)          # (bx7x264)
+    h_part = prev_hidden.transpose(1,2)                  # (bx1x264 => bx264x1)
+    score_c = torch.bmm(c_part, h_part).squeeze(2)             # (bx7x1 => bx7)
+
+    probs = F.log_softmax(torch.cat([score_g,score_c], 1), dim=1)    # (b, v+7)
+    prob_g = probs[:,:self.vocab_size]              # (batch_size x vocab_size)
+    prob_c = probs[:,self.vocab_size:]                 # (batch_size x seq_len)
+
+    input_indexes = sources.data.cpu().t().unsqueeze_(2)    # (b,7,1)
+    batch_size, seq_len, _ = input_indexes.size()
+    one_hot = torch.zeros((batch_size, seq_len, self.vocab_size))
+    one_hot.scatter_(2, input_indexes, 1)                           # (b,7,v)
+    carrier = torch.bmm(prob_c.unsqueeze(1), smart_variable(one_hot))
+    output = prob_g + carrier.squeeze(1)          # (batch_size, vocab_size)
+
+    attn_context = decoder_hidden.unsqueeze(1)
+    attn_weights = False
+
+    return output, attn_context, current_hidden, attn_weights
+
 class Match_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, method, drop_prob=0.1):
     super(Match_Decoder, self).__init__()
@@ -198,7 +260,6 @@ class Bid_Decoder(nn.Module):
     embedded = self.dropout(embedded)
     # Combine input word embedding and previous hidden state, run through RNN
     rnn_input = torch.cat((embedded, last_context), dim=2)
-    pdb.set_trace()
     rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
 
     # Calculate attention from current RNN state and encoder outputs, then apply
