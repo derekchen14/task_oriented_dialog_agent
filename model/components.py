@@ -74,8 +74,8 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
   elif model_type == "gru":
     from model.encoders import GRU_Encoder
     from model.decoders import GRU_Decoder
-    encoder = GRU_Encoder
-    decoder = GRU_Decoder
+    encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
+    decoder = GRU_Decoder(vocab_size, hidden_size, n_layers)
   elif model_type == "attention":
     from model.encoders import GRU_Encoder
     from model.decoders import Attn_Decoder
@@ -114,7 +114,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
 
   return encoder, decoder
 
-def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
+def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   encoder_hidden = encoder.initHidden()
   encoder_length = sources.size()[0]
@@ -137,9 +137,11 @@ def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
           decoder_input, decoder_context, decoder_hidden, encoder_outputs)
     elif decoder.arguments_size == "small":
-      decoder_output = decoder(targets, di, decoder_context)
+      decoder_output, decoder_context = decoder(decoder_input, decoder_context)
+      attn_weights, visual = False, False
 
-    visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+    if attn_weights:
+      visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
 
     loss += criterion(decoder_output, targets[di])
 
@@ -155,7 +157,7 @@ def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
 
   return loss, predictions, visual
 
-def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
+def x_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   loss = 0
   predictions = []
   encoder_outputs = encoder(smart_variable(sources, dtype="var"))

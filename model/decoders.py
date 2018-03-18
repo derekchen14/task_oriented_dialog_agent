@@ -255,7 +255,7 @@ class GRU_Decoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.input_size = hidden_size # serves double duty
-    self.arguments_size = "medium"
+    self.arguments_size = "small"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.gru = nn.GRU(self.input_size, self.hidden_size)
@@ -265,10 +265,12 @@ class GRU_Decoder(nn.Module):
   def forward(self, input, hidden):
     output = self.embedding(input).view(1, 1, -1)
     # input: scalar, hidden: [1, 1, 256], output:[1, 1, 256]
-    for i in range(self.n_layers):
-      output = F.relu(output)
-      output, hidden = self.gru(output, hidden)
-    output = self.softmax(self.out(output[0]))
+    output, hidden = self.gru(output, hidden)
+    thing = self.out(output[0])
+    print("th: {}".format(thing.size()) )
+    pdb.set_trace()
+    output = F.log_softmax(self.out(output[0]), dim=1)
+
     return output, hidden
 
 class LSTM_Decoder(nn.Module):
@@ -276,7 +278,7 @@ class LSTM_Decoder(nn.Module):
     super(LSTM_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-    self.arguments_size = "medium"
+    self.arguments_size = "small"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)

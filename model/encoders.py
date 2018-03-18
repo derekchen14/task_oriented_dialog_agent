@@ -72,7 +72,7 @@ class Bid_Encoder(nn.Module):
 
 class GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(Attn_Encoder, self).__init__()
+    super(GRU_Encoder, self).__init__()
     self.hidden_size = hidden_size # dim of object passed into IFOG gates
     self.input_size = hidden_size # serves double duty
 
