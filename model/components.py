@@ -11,6 +11,7 @@ import torch
 import random
 import numpy as np
 import pdb
+import sys
 
 use_cuda = cuda.is_available()
 
@@ -86,13 +87,15 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.decoders import Bid_Decoder
     encoder = Bid_Encoder(vocab_size, hidden_size)
     decoder = Bid_Decoder(vocab_size, hidden_size, method, drop_prob)
-  elif model_type == "match":
-    from model.encoders import Match_Encoder
-    from model.decoders import Match_Decoder
-    encoder = Match_Encoder(vocab_size, hidden_size)
-    decoder = Match_Decoder(vocab_size, hidden_size, method, drop_prob)
-    decoder.embedding.weight = encoder.embedding.weight
   elif model_type == "copy":
+    from model.encoders import Match_Encoder
+    from model.decoders import Copy_Without_Attn_Decoder
+    encoder = Match_Encoder(vocab_size, hidden_size)
+    decoder = Copy_Without_Attn_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
+    zeros_tensor = torch.zeros(vocab_size, max_length)
+    copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
+    decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
+  elif model_type == "combined":
     from model.encoders import Match_Encoder
     from model.decoders import Copy_Decoder
     encoder = Match_Encoder(vocab_size, hidden_size)
@@ -145,7 +148,8 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output, decoder_context = decoder(decoder_input, decoder_context)
       attn_weights, visual = False, False
 
-    visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+    if attn_weights.size()[0] > 0:
+      visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
 
     loss += criterion(decoder_output, targets[di])
 

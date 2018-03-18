@@ -15,7 +15,7 @@ def plot(xs, ys, title, xlabel, ylabel):
   plt.show()
   print('Performance plotted!')
 
-def create_report(results, args):
+def create_report(results, args, trial):
   learner, bleu, acc = results
   train_s, train_l = learner.train_steps, learner.train_losses
   val_s, val_l = learner.val_steps, learner.val_losses
@@ -27,9 +27,10 @@ def create_report(results, args):
                 'weight-decay', 'decay-times', 'attention-method'],
       "Values": [args.hidden_size, args.learning_rate, args.drop_prob, args.model_type, \
                 args.weight_decay, args.decay_times, args.attn_method]})
+  results_path = "results/{0}_{1}.csv".format(args.results_path, trial)
   loss_history = pd.concat([df_train, df_val, df_params], axis=1)
-  loss_history.to_csv(args.results_path, index=False)
-  print('Loss, BLEU and accuracy saved to {}!'.format(args.results_path))
+  loss_history.to_csv(results_path, index=False)
+  print('Loss, BLEU and accuracy saved to {}!'.format(results_path))
 
 def batch_processing(batch_val_loss, batch_bleu, batch_success):
   avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)

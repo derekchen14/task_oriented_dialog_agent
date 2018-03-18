@@ -7,7 +7,7 @@ def solicit_args():
               'challenge', 'concierge','schedule', 'navigate','weather'],
               help='Choose the task to train on', )
   parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
-              'gru', 'attention', 'match', 'copy', 'transformer', 'memory'],
+              'gru', 'attention', 'combined', 'copy', 'transformer', 'memory'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')
@@ -18,7 +18,7 @@ def solicit_args():
   parser.add_argument('--early-stopping', default=-1.0, type=float,
               help='Minimum loss value we are willing to accept during epoch 10 \
                     at validation, set to negative value to prevent early stopping')
-  parser.add_argument('--trials-per-setting', default=2, type=int,
+  parser.add_argument('--trials-per-setting', default=5, type=int,
               help='Number of trials per parameter setting, appends a letter to \
                     the end of each report or checkpoint to differentiate runs')
 
@@ -49,10 +49,8 @@ def solicit_args():
               help='when true, save model weights in a checkpoint')
   parser.add_argument('--use-existing', default=False, action='store_true',
               help='when true, we use an existing model rather than training a new one')
-  parser.add_argument('--encoder-path', default='results/1_en.pt', type=str,
-              help='where to save or load the encoder')
-  parser.add_argument('--decoder-path', default='results/1_de.pt', type=str,
-              help='where to save or load the decoder')
+  parser.add_argument('--model-path', default='default_path', type=str,
+              help='where in the results folder to save the encoder and decoder')
 
   # -------- REPORTING RESULTS ----------------
   parser.add_argument('--report-results', default=False, action='store_true',
@@ -63,7 +61,7 @@ def solicit_args():
   parser.add_argument('--visualize', default=0, type=int,
               help='randomly select x number of dialogues from validation set, \
               visualize the attention weights and store in results/visualize.png')
-  parser.add_argument('--results-path', default='results/model_results1.csv',
+  parser.add_argument('--results-path', default='report_path',
               help='where to save error', type=str)
 
   return parser.parse_args()
