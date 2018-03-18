@@ -28,6 +28,29 @@ class Match_Encoder(nn.Module):
   def initHidden(self):
     return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
 
+class Replica_Encoder(nn.Module):
+  def __init__(self, vocab_size, hidden_size, n_layers=1):
+    super(Replica_Encoder, self).__init__()
+    self.vocab_dim = 300
+    self.hidden_size = hidden_size + 8  # extended dim for the match features
+    # API for LSTM (input dimension, hidden_dimension, num_layers)
+    self.lstm = nn.LSTM(self.vocab_dim + 8, self.hidden_size, \
+      num_layers=n_layers, bidirectional=True)
+    self.embedding = match_embedding(vocab_size, self.vocab_dim)
+
+  def forward(self, word_inputs, hidden_state):
+    seq_len = len(word_inputs)
+    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+    output, hidden_state = self.lstm(embedded, hidden_state)
+    # output: (seq_len, batch_size, 2 * hidden_size)
+    # hidden_state, tuple of (hidden, cell), both are (2, batch_size, hidden_dim)
+    return output, hidden_state
+
+  def initHidden(self):
+    hidden = smart_variable(torch.zeros(2, 1, self.hidden_size))
+    cell = smart_variable(torch.zeros(2, 1, self.hidden_size))
+    return (hidden, cell)
+
 class Transformer_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Encoder, self).__init__()
