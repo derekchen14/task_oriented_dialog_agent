@@ -31,7 +31,7 @@ class Transformer_Decoder(nn.Module):
     final_output = F.log_softmax(self.out(transformer_output), dim=1)  # (1x2N) (2NxV) = 1xV
     return final_output
 
-class x_Copy_Decoder(nn.Module):
+class Copy_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
     super(Copy_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8
@@ -136,7 +136,7 @@ class x_Copy_Decoder(nn.Module):
       matched[i] = matched[i]/total if total > 1 else matched[i]
     '''
 
-class Copy_Decoder(nn.Module):
+class Copy_Without_Attn_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
     super(Copy_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8
