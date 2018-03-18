@@ -117,13 +117,16 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   if decoder.arguments_size == "transformer":
     return transformer_inference(encoder, decoder, sources, targets, criterion)
+
   loss = 0
   encoder_hidden = encoder.initHidden()
   encoder_length = sources.size()[0]
-  encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
+  cuda_sources = smart_variable(sources, dtype="var")
+  encoder_outputs, encoder_hidden = encoder(cuda_sources, encoder_hidden)
 
   decoder_hidden = encoder_hidden
   decoder_length = targets.size()[0]
+  targets = smart_variable(targets, dtype="var")
   decoder_input = smart_variable([[vocab.SOS_token]], "list")
   decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
 
