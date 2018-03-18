@@ -1,4 +1,30 @@
-python 5_copy_mechanism.py --task-name challenge --hidden-size 256 \
-    --n-layers 1 --drop-prob 0.3 --teacher-forcing 0.6 --debug # -verbose
-    # --encoder-path 'results/copy_enc_1.pt' \
-    # --decoder-path 'results/copy_dec_1.pt' --error-path 'results/copy_err_1.csv' \
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 \
+    --encoder-path results/enc_copy_2c.pt  --encoder-path results/dec_copy_2c.pt \
+    --report-results --results-path results/copy_2c.csv -lr 0.003
+
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_3a.pt  --encoder-path results/dec_copy_3a.pt \
+    --report-results --results-path results/copy_3a.csv -lr 0.01
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_3b.pt  --encoder-path results/dec_copy_3b.pt \
+    --report-results --results-path results/copy_3b.csv -lr 0.01
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_3c.pt  --encoder-path results/dec_copy_3c.pt \
+    --report-results --results-path results/copy_3c.csv -lr 0.01
+
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_4a.pt  --encoder-path results/dec_copy_4a.pt \
+    --report-results --results-path results/copy_4a.csv -lr 0.003
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_4b.pt  --encoder-path results/dec_copy_4b.pt \
+    --report-results --results-path results/copy_4b.csv -lr 0.003
+python 3_advanced.py --task-name challenge --model-type copy \
+    --optimizer SGD --save-model --early-stopping 3.2 --weight-decay 0.01 \
+    --encoder-path results/enc_copy_4c.pt  --encoder-path results/dec_copy_4c.pt \
+    --report-results --results-path results/copy_4c.csv -lr 0.003
