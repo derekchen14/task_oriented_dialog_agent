@@ -236,6 +236,35 @@ def grab_attention(val_data, encoder, decoder, task, vis_count):
 
   return visualizations
 
+def show_dialogues(val_data, encoder, decoder, task):
+  encoder.eval()
+  decoder.eval()
+  dialogues = data_io.select_consecutive_pairs(val_data, 5)
+
+  for i, dialog in enumerate(dialogues):
+    print("Dialogue Sample {} ------------".format(i))
+    for j, turn in enumerate(dialog):
+      input_variable, output_variable = turn
+      _, predictions, _ = run_inference(encoder, decoder, input_variable, \
+                      output_variable, criterion=NLLLoss(), teach_ratio=0)
+      sources = input_variable.data.tolist()
+      targets = output_variable.data.tolist()
+
+      source_tokens = [vocab.index_to_word(s[0], task) for s in sources]
+      target_tokens = [vocab.index_to_word(t[0], task) for t in targets]
+      pred_tokens = [vocab.index_to_word(p, task) for p in predictions]
+
+      source = " ".join(source_tokens)
+      target = " ".join(target_tokens)
+      pred = " ".join(pred_tokens)
+      print("User Query {0}: {1}".format(j, source))
+      print("Target Response {0}: {1}".format(j, target))
+      print("Predicted Response {0}: {1}".format(j, pred))
+
+
+      visualizations.append((visual, query_tokens, response_tokens))
+    print('')
+
 class LossTracker(object):
   def __init__(self, threshold):
     self.train_steps = []
