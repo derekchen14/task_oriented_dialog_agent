@@ -144,13 +144,15 @@ if __name__ == "__main__":
     debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
     train_variables, val_variables, max_length = debug_data
   if args.test_mode:
-    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "tst", args.debug)
+    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "val", args.debug)
     test_variables = collect_dialogues(test_data, task=task)
 
     encoder = torch.load("results/enc_attn_6c.pt")
     decoder = torch.load("results/dec_attn_6c.pt")
-    results = test_mode_run(test_variables, encoder, decoder, task)
-    print("Done with testing.")
+    visualizations = grab_attention(test_variables, encoder, decoder, task, 3)
+    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+    # results = test_mode_run(test_variables, encoder, decoder, task)
+    print("Done with visualizing.")
     sys.exit()
   else:
     train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)
@@ -158,24 +160,22 @@ if __name__ == "__main__":
     val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
     val_variables = collect_dialogues(val_data, task=task)
   # ---- BUILD MODEL ----
-  trials = ['debug'] if args.debug else ['a', 'b', 'c', 'd', 'e']
-  for trial in trials:
-    print("{0}_{1} run".format(args.model_path, trial))
-    encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
-        args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
-    # ---- TRAIN MODEL ----
-    results = track_progress(args, encoder, decoder, args.verbose, args.debug,
-        train_variables, val_variables, task, n_iters=args.n_iters,
-        teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
-    # --- MANAGE RESULTS ---
-    if args.save_model and results[0].completed_training:
-      torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, trial))
-      torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, trial))
-      print('Model saved at results/model_{}!'.format(args.model_path))
-    if args.report_results and results[0].completed_training:
-      evaluate.create_report(results, args, trial)
-    if args.plot_results and results[0].completed_training:
-      evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
-    if args.visualize > 0:
-      visualizations = grab_attention(val_variables, encoder, decoder, task, args.visualize)
-      evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+  print("{0}_{1} run".format(args.model_path, trial))
+  encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
+      args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
+  # ---- TRAIN MODEL ----
+  results = track_progress(args, encoder, decoder, args.verbose, args.debug,
+      train_variables, val_variables, task, n_iters=args.n_iters,
+      teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
+  # --- MANAGE RESULTS ---
+  if args.save_model and results[0].completed_training:
+    torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, trial))
+    torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, trial))
+    print('Model saved at results/model_{}!'.format(args.model_path))
+  if args.report_results and results[0].completed_training:
+    evaluate.create_report(results, args, trial)
+  if args.plot_results and results[0].completed_training:
+    evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
+  if args.visualize > 0:
+    visualizations = grab_attention(val_variables, encoder, decoder, task, args.visualize)
+    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
