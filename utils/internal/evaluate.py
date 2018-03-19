@@ -1,4 +1,7 @@
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import pandas as pd
 import pdb
@@ -44,6 +47,7 @@ def batch_processing(batch_val_loss, batch_bleu, batch_success):
 def show_save_attention(visualizations, method, verbose):
   for i, viz in enumerate(visualizations):
     visual, query_tokens, response_tokens = viz
+    visual[-1,:] = 0
     # Set up figure with colorbar
     fig = plt.figure()
     ax = fig.add_subplot(111)

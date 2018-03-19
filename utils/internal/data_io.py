@@ -187,7 +187,7 @@ def select_consecutive_pairs(data, count):
   random_location = (random.random()/2.0) + 0.2  # random number from 0.2 to 0.7
   random_index = int(round(random_location * len(data)))
   random_query = data[random_index][0]  # [0] is query, [1] is response
-  turn_index = int(random_query[0].data.numpy()[0])
+  turn_index = int(random_query[0].cpu().data.numpy()[0])
   start_index = (random_index - (turn_index - 1))
 
   dialogues = []
@@ -195,7 +195,7 @@ def select_consecutive_pairs(data, count):
   while len(dialogues) < count:
     turn_pair = data[start_index]
     # check if we reached the end of the dialog
-    turn_count = int(turn_pair[0][0].data.numpy()[0])
+    turn_count = int(turn_pair[0][0].data.cpu().numpy()[0])
     if turn_count == 1 and (len(dialog) > 0):
       dialogues.append(dialog)
       dialog = []
