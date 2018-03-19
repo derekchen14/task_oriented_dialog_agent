@@ -147,8 +147,8 @@ if __name__ == "__main__":
     test_data, candidates, max_length = data_io.load_dataset(args.task_name, "dev", args.debug)
     test_variables = collect_dialogues(test_data, task=task)
 
-    encoder = torch.load("results/enc_attn_6c.pt")
-    decoder = torch.load("results/dec_attn_6c.pt")
+    encoder = torch.load("results/enc_vanilla_1a.pt")
+    decoder = torch.load("results/dec_vanilla_1a.pt")
     show_dialogues(test_variables, encoder, decoder, task)
     # grab_attention(val_data, encoder, decoder, task, 3)
     # evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)

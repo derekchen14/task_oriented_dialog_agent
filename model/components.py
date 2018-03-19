@@ -181,7 +181,8 @@ def transformer_inference(encoder, decoder, sources, targets, criterion):
     # we need to index into the output now since output is (seq_len, vocab)
     loss += criterion(decoder_output[di].view(1,-1), decoder_tokens[di])
 
-    topv, topi = decoder_output.data.topk(1)
+    topv, topi = decoder_output[di].data.topk(1)
+    pdb.set_trace()
     ni = topi[0][0]
     predictions.append(ni)
     if ni == vocab.EOS_token:
@@ -254,15 +255,12 @@ def show_dialogues(val_data, encoder, decoder, task):
       target_tokens = [vocab.index_to_word(t[0], task) for t in targets]
       pred_tokens = [vocab.index_to_word(p, task) for p in predictions]
 
-      source = " ".join(source_tokens)
-      target = " ".join(target_tokens)
-      pred = " ".join(pred_tokens)
-      print("User Query {0}: {1}".format(j, source))
-      print("Target Response {0}: {1}".format(j, target))
-      print("Predicted Response {0}: {1}".format(j, pred))
-
-
-      visualizations.append((visual, query_tokens, response_tokens))
+      source = " ".join(source_tokens[:-1]) # Remove the <EOS>
+      target = " ".join(target_tokens[:-1])
+      pred = " ".join(pred_tokens[:-1])
+      print("User Query: {0}".format(source))
+      print("Target Response: {0}".format(target))
+      print("Predicted Response: {0}".format(pred))
     print('')
 
 class LossTracker(object):
