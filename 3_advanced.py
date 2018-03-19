@@ -144,15 +144,16 @@ if __name__ == "__main__":
     debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
     train_variables, val_variables, max_length = debug_data
   if args.test_mode:
-    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "val", args.debug)
+    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "dev", args.debug)
     test_variables = collect_dialogues(test_data, task=task)
 
     encoder = torch.load("results/enc_attn_6c.pt")
     decoder = torch.load("results/dec_attn_6c.pt")
-    visualizations = grab_attention(test_variables, encoder, decoder, task, 3)
-    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+    show_dialogues(test_variables, encoder, decoder, task)
+    # grab_attention(val_data, encoder, decoder, task, 3)
+    # evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
     # results = test_mode_run(test_variables, encoder, decoder, task)
-    print("Done with visualizing.")
+    # print("Done with visualizing.")
     sys.exit()
   else:
     train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)

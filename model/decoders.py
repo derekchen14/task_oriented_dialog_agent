@@ -138,7 +138,7 @@ class Copy_Decoder(nn.Module):
 
 class Copy_Without_Attn_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, attn_method, drop_prob, max_length):
-    super(Copy_Decoder, self).__init__()
+    super(Copy_Without_Attn_Decoder, self).__init__()
     self.hidden_size = hidden_size + 8
     self.input_size = self.hidden_size * 2
     self.vocab_size = vocab_size  # check extend_vocab method below
