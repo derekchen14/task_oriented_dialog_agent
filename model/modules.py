@@ -47,13 +47,14 @@ class Attention(nn.Module):
       return h_dec.matmul(h_enc.transpose(0,1))
 
 class Transformer(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers, masked=False):
+  def __init__(self, vocab_size, hidden_size, n_layers, masked=False, max_len=30):
     super(Transformer, self).__init__()
     self.hidden_size = hidden_size
     self.scale_factor = math.sqrt(hidden_size)
     self.num_attention_heads = 8  # hardcoded since it won't change
     self.num_layers = n_layers   # defaults to 6 to follow the paper
-    self.positions = smart_variable(torch.randn(31, hidden_size)) # max_length + 1
+    self.positions = positional_encoding(hidden_size, max_len+1)
+
     self.dropout = nn.Dropout(0.2)
     self.masked = masked
 
@@ -77,8 +78,10 @@ class Transformer(nn.Module):
   def forward(self, inputs, encoder_outputs=None, di=None):
     # inputs will be seq_len, batch_size, hidden dim.  However, our batch_size
     # is always one so we squeeze it out to keep calculations simpler
-    transformer_input = inputs.squeeze() + self.positions[:len(inputs), :]
-    k_v_input = transformer_input
+    position_emb = Variable(self.positions[:len(inputs), :], requires_grad=False)
+    # if batch_size > 1, self.positions[:len(inputs), :1, :inputs.size(2)].expand_as(inputs)
+    transformer_input = inputs.squeeze() + position_emb
+    k_v_input = self.dropout(transformer_input)
 
     for layer_idx in range(self.num_layers):
       if layer_idx > 0:
@@ -139,3 +142,11 @@ class Transformer(nn.Module):
     attn_context = attn_weights.matmul(V)             # batch_size, hidden_dim
     return attn_context
 
+  def positional_encoding(dim, max_len=5000):
+    # Implementation based on "Attention Is All You Need"
+    pe = torch.arange(0, max_len).unsqueeze(1).expand(max_len, dim)
+    div_term = 1 / torch.pow(10000, torch.arange(0, dim * 2, 2) / dim)
+    pe = pe * div_term.expand_as(pe)
+    pe[:, 0::2] = torch.sin(pe[:, 0::2])
+    pe[:, 1::2] = torch.cos(pe[:, 1::2])
+    return pe  # .unsqueeze(1)

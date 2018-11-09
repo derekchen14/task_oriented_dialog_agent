@@ -1,8 +1,9 @@
 import numpy as np
 import utils.internal.vocabulary as vocab
 import torch
+from torch import LongTensor as var
 import torch.nn as nn
-from model.components import smart_variable
+# from model.components import smart_variable
 
 use_cuda = torch.cuda.is_available()
 
@@ -25,18 +26,6 @@ def token_to_vec(location):
   # sentence_matrix = np.zeros((sentence_length, vector_size))
   # sentence_matrix[token_location, np.array(encoding)] = 1
 
-def task_simplification(task):
-  if task in ['schedule','navigate','weather']:
-    return 'car'
-  elif task in ['1', '2', '3', '4', '5']:
-    return 'res'
-  elif task == 'challenge':
-    return task
-  elif task == 'concierge':
-    raise ValueError("Sorry, concierge task not supported at this time")
-  else:
-    raise ValueError("Not a valid task")
-
 def variable_from_sentence(sentence, indexes, task):
   indexes.extend([vocab.word_to_index(w, task) for w in sentence])
   indexes.append(vocab.EOS_token)
@@ -44,9 +33,7 @@ def variable_from_sentence(sentence, indexes, task):
   result = smart_variable(torch.LongTensor(indexes).view(-1, 1))
   return result, len(indexes)
 
-def dialog_to_variable(dialog, task, maxish):
-  # Dialog: list of tuples, where each tuple is utterance and response
-  # [(u1, r1), (u2, r2)...]
+def dialog_to_variable(dialog, task):
   dialog_pairs = []
   for t_idx, turn in enumerate(dialog):
     utterance, wop = variable_from_sentence(turn[0], [t_idx+1], task)
@@ -54,12 +41,59 @@ def dialog_to_variable(dialog, task, maxish):
     # utt_vector = [token_to_vec(t) for t in utt_encoding]
     # res_vector = [token_to_vec(t) for t in res_encoding]
     dialog_pairs.append((utterance, response))
-  return dialog_pairs, maxish
+  return dialog_pairs
 
-def collect_dialogues(dataset, task):
-  maxish = 0
+def prepare_input(source, use_context, task):
+  tokens = []
+  if "turn" in source.keys():
+    # vocab is designed so that the first 14 tokens are turn indicators
+    tokens.append(source["turn"])
+  if use_context:
+    for word in source["context"].split():
+      tokens.append(var(vocab.word_to_index(word, task)))
+    tokens.append(var(vocab.SOS_token))
+  for word in source["utterance"].split():
+    tokens.append(var(vocab.word_to_index(word, task)))
+  return tokens
+
+def prepare_output(target):
+  kind = "full_enumeration" # , "possible_only", "ordered_values"
+  if len(target) == 1:
+    target_index = vocab.belief_to_index(target[0], kind)
+    output_var = var(target_index)
+    return output_var, False
+  elif len(target) == 2:
+    target_index = vocab.beliefs_to_index(target, kind)
+    if kind == "full_enumeration":
+      output_var = var(target_index)
+      return output_var, False
+    else:
+      output_vars = [var(ti) for ti in target_index]
+      return output_vars, True
+
+  else:
+    print("ok that was unexpected")
+    import pdb
+    pdb.set_trace()
+
+def prepare_examples(dataset, use_context, task):
   variables = []
-  for dialog in dataset:
-    dialog_vars, maxish = dialog_to_variable(dialog, task, maxish)
-    variables.extend(dialog_vars)
+
+  for example in dataset:
+    if task in ["in-car", "babi"]:
+      # example is list of tuples, where each tuple is utterance and response
+      # [(u1, r1), (u2, r2)...]
+      input_output_vars = dialog_to_variable(example, task)
+    elif task == "dstc2":
+      # Example is dict with keys
+      #   {"input_source": [utterance, context, id]}
+      #   {"output_target": [list of labels]}
+      # where each label is (high level intent, low level intent, slot, value)
+      input_var = prepare_input(example["input_source"], use_context, task)
+      output_var, double = prepare_output(example["output_target"])
+      if double:
+        variables.append((input_var, output_var[0]))  # append extra example
+        output_var = output_var[1]      # set output to be the second label
+    variables.append((input_var, output_var))
+
   return variables

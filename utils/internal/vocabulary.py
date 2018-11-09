@@ -1,11 +1,23 @@
 import json
 from torch import eye
-from torch.autograd import Variable
+import pdb
 
-car_vocab = json.load(open("datasets/car_vocab.json", "r") )
-res_vocab = json.load( open("datasets/res_vocab.json", "r") )
-match_embeddings = Variable(eye(8))
+def load_vocab(path):
+  with open("datasets/" + path, "r") as f:
+    vocab = json.load(f)
+  print("datasets/{} file loaded!".format(path))
+  return vocab
 
+# car_vocab = load_vocab("car_vocab.json")
+# babi_vocab = load_vocab("babi_vocab.json")
+dstc2_vocab = load_vocab("dstc2/cleaned/vocab.json")
+label_vocab = load_vocab("dstc2/cleaned/label_vocab.json")
+# woz2_vocab = load_vocab("woz2/cleaned/vocab.json")
+# frames_vocab = load_vocab("frames/cleaned/vocab.json")
+
+
+# special_tokens = ["<SILENCE>", "<T01>","<T02>","<T03>", ... , "<T14>",
+#           "UNK", "SOS", "EOS", "api_call","poi", "addr"]
 UNK_token = 15
 SOS_token = 16
 EOS_token = 17
@@ -15,9 +27,9 @@ ADDR_token = 20
 
 # Task independent since car dataset special tokens already replaced
 def word_to_index(token, task):
-  if task == "car":
+  if task == "in-car":
     return car_vocab.index(token)
-  else:
+  elif task == "babi":
     if token.startswith("resto"):
       if "phone" in token:
         return PHONE_token
@@ -25,17 +37,68 @@ def word_to_index(token, task):
         return ADDR_token
     if task == "res" and token == 'cantonese':
       return 259 # CHINESE_token
-  # if none of the special events occur ...
-  return res_vocab.index(token)
+    # if none of the special events occur ...
+    return res_vocab.index(token)
+  elif task == "dstc2":
+    return dstc2_vocab.index(token)
 
 def index_to_word(idx, task):
-  if task == "car":
+  if task == "in-car":
     return car_vocab[idx]
-  else:
+  elif task == "babi":
     return res_vocab[idx]
+  elif task == "dstc2":
+    return dstc2_vocab[idx]
+
+def belief_to_index(belief, task):
+  labels = label_vocab[task]
+  high, low, slot, value = belief
+
+  if high in ["inform", "request", "answer", "question"]:
+    if slot is None:
+      token = "{0}({1})".format(high, value)
+    else:
+      token = "{0}({1}={2})".format(high, slot, value)
+  else:
+    token = high
+  return labels.index(token)
+
+def beliefs_to_index(beliefs, kind):
+  labels = label_vocab[kind]
+
+  intents = []
+  for belief in beliefs:
+    high, low, slot, value = belief
+    if high in ["inform", "request", "answer", "question"]:
+      if slot is None:
+        token = "{0}({1})".format(high, value)
+      else:
+        token = "{0}({1}={2})".format(high, slot, value)
+    else:
+      token = high
+    intents.append(token)
+
+  if kind == "full_enumeration":
+    intents.sort()
+    joined = "+".join(intents)
+    return labels.index(joined)
+  else:
+    return [labels.index(x) for x in intents]
+
+def index_to_word(idx, task):
+  if task == "in-car":
+    return car_vocab[idx]
+  elif task == "babi":
+    return res_vocab[idx]
+  elif task == "dstc2":
+    return dstc2_vocab[idx]
+  else:
+    return label_vocab[task][idx]
 
 def ulary_size(task):
-  if task == "car":
+  if task == "in-car":
     return len(car_vocab)
-  else:
+  elif task == "babi":
     return len(res_vocab)
+  elif task == "dstc2":
+    return len(dstc2_vocab)

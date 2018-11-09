@@ -12,27 +12,31 @@ import utils.internal.vocabulary as vocab
 def load_dataset(task, split, debug=False):
   if task in ['1', '2', '3', '4', '5']:
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
-    restaurants, kb = read_restuarant_data(dataset_name)
-    candidates = read_restuarant_data("dialog-babi-candidates.txt")
+    restaurants, kb = read_restaurant_data(dataset_name)
+    candidates = read_restaurant_data("dialog-babi-candidates.txt")
     max_length = 22
     return (restaurants, candidates, max_length)
   elif task in ['schedule','navigate','weather']:
-    prefix = 'datasets/in_car/'
-    paths = {'trn': prefix+'train.json', 'dev':prefix+'dev.json', 'tst':prefix+'test.json'}
+    paths = {'trn': 'in_car/train.json', 'dev': 'in_car/dev.json', 'tst': 'in_car/test.json'}
     data = load_json_dataset(paths[split])
-    if debug:
-      data = data[0:20]
-      print ('Debug mode!')
+    data = data[0:20] if debug else data
     navigations, weathers, schedules, kbs = load_incar_data(data)
     tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
     max_length = 42
     return (tasks[task], kbs, max_length)
   elif task == "challenge":
     dataset_name = "dialog-babi-task6-{0}2-{1}.txt".format('dstc', split)
-    restaurants, kb = read_restuarant_data(dataset_name)
-    candidates = read_restuarant_data("dialog-dstc-candidates.txt")
+    restaurants, kb = read_restaurant_data(dataset_name)
+    candidates = read_restaurant_data("dialog-dstc-candidates.txt")
     max_length = 30
     return (restaurants, candidates, max_length)
+  elif task == "dstc2":
+    dataset_name = "{0}/cleaned/{1}_v3.json".format(task, split)
+    data = vocab.load_vocab(dataset_name)  # actually used to load json
+    examples = data[0:20] if debug else data
+    max_length = 23
+    return (examples, max_length)
+
 
 def parse_dialogue(lines, tokenizer=True):
   '''
@@ -131,35 +135,22 @@ def parse_dialogue_QA(lines, tokenizer=True):
 
   return data, kb
 
-
-def word_to_glove_vector(glove, word):
-  '''
-  :param glove: Glove object from pytorchtext
-  :param word: str
-  :return: the embedding vector of the word
-  '''
-  return glove.vectors[glove.stoi[word]]
-
-def read_restuarant_data(filename, restaraunt_prefix = "datasets/restaurants/"):
+def read_restaurant_data(filename, restaraunt_prefix = "datasets/babi/"):
   '''
   :param filename: 'directory/file.txt'
   :return:[
     [(u1, r1), (u2, r2)...]
     , [(u1, r1), (u2, r2)...], ...]
-  the data is a list of training examples
-  each example consists of one dialog
+  the data is a list of training example, each example consists of one dialog
   for each dialog, there are a number of turns
   each turn is made up of a tuple of (u_i, r_i) for up to N turns
     where ui is utterance from the customer
     where ri is a response from an agent
   each ui or ri, is a list of strings, for up to M tokens
     each token is usually a word or punctuation
-  if the customer said nothing during their turn,
-    special token of <SILENCE> is used
 
   kb: the knowledge base in the format of
   [u'saint_johns_chop_house R_post_code saint_johns_chop_house_post_code',
-  u'saint_johns_chop_house R_cuisine british', u'saint_johns_chop_house R_location west',
   u'saint_johns_chop_house R_phone saint_johns_chop_house_phone',
   u'saint_johns_chop_house R_address saint_johns_chop_house_address',
   u'saint_johns_chop_house R_price moderate']
@@ -169,18 +160,6 @@ def read_restuarant_data(filename, restaraunt_prefix = "datasets/restaurants/"):
     # max_length = None
     data, kb = parse_dialogue(f.readlines())
   return data, kb
-
-
-def load_json_dataset(path):
-    '''
-    Load the in-car dataset as it is
-    :param path: path to train/validation/test.json
-    :return: the json file
-    '''
-    with open(path) as f:
-        data = json.load(f)
-    print(path + ' file loaded!!')
-    return data
 
 def select_consecutive_pairs(data, count):
   import pdb

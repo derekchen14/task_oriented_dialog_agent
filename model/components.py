@@ -153,7 +153,7 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_output, decoder_context = decoder(decoder_input, decoder_context)
       attn_weights, visual = False, False
 
-    visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+    # visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
     loss += criterion(decoder_output, targets[di])
 
     if use_teacher_forcing:

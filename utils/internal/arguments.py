@@ -3,11 +3,11 @@ import argparse
 def solicit_args():
   parser = argparse.ArgumentParser()
   parser.add_argument('--random-seed', help='Random seed', type=int, default=1)
-  parser.add_argument('-t', '--task-name', choices=['1','2','3','4','5', \
-              'challenge', 'concierge','schedule', 'navigate','weather'],
+  parser.add_argument('-t', '--task-name', choices=['babi', 'in-car', 'woz2',
+              'dstc2', 'dstc7', 'frames', 'multiwoz'], default='frames',
               help='Choose the task to train on', )
   parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
-              'gru', 'attention', 'combined', 'copy', 'transformer', 'replica'],
+              'gru', 'attention', 'combined', 'copy', 'transformer', 'match'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')
@@ -15,6 +15,8 @@ def solicit_args():
               help='whether or not to have verbose prints')
 
   # --------- TUNING OPTIONS -------------
+  parser.add_argument('--context', default=False, action='store_true',
+              help='if true, then include context as part of training input')
   parser.add_argument('--early-stopping', default=-1.0, type=float,
               help='Minimum loss value we are willing to accept during epoch 10 \
                     at validation, set to negative value to prevent early stopping')
@@ -53,6 +55,8 @@ def solicit_args():
               help='when true, we use an existing model rather than training a new one')
   parser.add_argument('--model-path', default='default_path', type=str,
               help='where in the results folder to save the encoder and decoder')
+  parser.add_argument('--suffix', default='Nov_09', type=str,
+              help='string appended to filenames to distinguish among trials')
 
   # -------- REPORTING RESULTS ----------------
   parser.add_argument('--report-results', default=False, action='store_true',

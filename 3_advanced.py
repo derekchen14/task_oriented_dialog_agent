@@ -7,8 +7,7 @@ import string
 import re
 import random
 import json
-import sys
-import pdb
+import pdb, sys
 import time as tm
 import pickle
 
@@ -138,7 +137,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
 if __name__ == "__main__":
   # ---- PARSE ARGS -----
   args = solicit_args()
-  task = 'car' if args.task_name in ['navigate', 'schedule', 'weather'] else 'res'
+  task = args.task_name
   # ----- LOAD DATA -----
   if args.debug:
     debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
@@ -147,21 +146,20 @@ if __name__ == "__main__":
     test_data, candidates, max_length = data_io.load_dataset(args.task_name, "dev", args.debug)
     test_variables = collect_dialogues(test_data, task=task)
 
-    encoder = torch.load("results/enc_vanilla_1a.pt")
-    decoder = torch.load("results/dec_vanilla_1a.pt")
+    encoder = torch.load("results/enc_vanilla_1b.pt")
+    decoder = torch.load("results/dec_vanilla_1b.pt")
     show_dialogues(test_variables, encoder, decoder, task)
-    # grab_attention(val_data, encoder, decoder, task, 3)
-    # evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
-    # results = test_mode_run(test_variables, encoder, decoder, task)
-    # print("Done with visualizing.")
-    sys.exit()
+    grab_attention(val_data, encoder, decoder, task, 3)
+    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+    results = test_mode_run(test_variables, encoder, decoder, task)
+    print("Done with visualizing.")
   else:
-    train_data, candidates, max_length = data_io.load_dataset(args.task_name, "trn", args.debug)
-    train_variables = collect_dialogues(train_data, task=task)
-    val_data, val_candidates, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
-    val_variables = collect_dialogues(val_data, task=task)
+    train_data, max_length = data_io.load_dataset(args.task_name, "train", args.debug)
+    train_variables = prepare_examples(train_data, args.context, task=task)
+    val_data, _ = data_io.load_dataset(args.task_name, "dev", args.debug)
+    val_variables = prepare_examples(val_data, args.context, task=task)
   # ---- BUILD MODEL ----
-  print("{0}_{1} run".format(args.model_path, trial))
+  print("Running model {0}_{1}".format(args.model_path, args.suffix))
   encoder, decoder = choose_model(args.model_type, vocab.ulary_size(task),
       args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
@@ -170,11 +168,11 @@ if __name__ == "__main__":
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
   if args.save_model and results[0].completed_training:
-    torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, trial))
-    torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, trial))
+    torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
+    torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
     print('Model saved at results/model_{}!'.format(args.model_path))
   if args.report_results and results[0].completed_training:
-    evaluate.create_report(results, args, trial)
+    evaluate.create_report(results, args, args.suffix)
   if args.plot_results and results[0].completed_training:
     evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
   if args.visualize > 0:
