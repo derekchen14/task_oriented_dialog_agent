@@ -99,6 +99,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
     if debug and epoch == 1:
       print("exiting early due to debug")
       sys.exit()
+    starting_checkpoint(epoch, epochs)
     for iteration in range(n_iters):
       enc_scheduler.step()
       dec_scheduler.step()
@@ -107,7 +108,6 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
       input_variable = training_pair[0]
       output_variable = training_pair[1]
 
-      starting_checkpoint(iteration, epoch, epochs)
       loss = train(input_variable, output_variable, encoder, decoder, \
              enc_optimizer, dec_optimizer, criterion, teach_ratio=teacher_forcing)
       print_loss_total += loss

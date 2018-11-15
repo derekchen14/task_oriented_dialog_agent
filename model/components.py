@@ -17,8 +17,8 @@ from tqdm import tqdm as progress_bar
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-def starting_checkpoint(iteration, epoch, epochs):
-  if iteration == 0:
+def starting_checkpoint(epoch, epochs):
+  if epoch == 0:
     if use_cuda:
       print("Starting to train on GPUs on epoch {}... ".format(epoch+1))
     else:
