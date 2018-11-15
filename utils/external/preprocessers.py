@@ -1,12 +1,10 @@
 import numpy as np
 import utils.internal.vocabulary as vocab
 import torch
-from torch import LongTensor as var
+from torch import LongTensor
 import torch.nn as nn
 import pdb, sys
-# from model.components import smart_variable
-
-use_cuda = torch.cuda.is_available()
+from model.components import var
 
 def match_embedding(vocab_size, hidden_size):
   match_tensor = torch.load('datasets/restaurants/match_features.pt')
@@ -27,13 +25,6 @@ def token_to_vec(location):
   # sentence_matrix = np.zeros((sentence_length, vector_size))
   # sentence_matrix[token_location, np.array(encoding)] = 1
 
-def variable_from_sentence(sentence, indexes, task):
-  indexes.extend([vocab.word_to_index(w, task) for w in sentence])
-  indexes.append(vocab.EOS_token)
-  # view.(-1,1) reshapes from vector into nx1 matrix
-  result = smart_variable(torch.LongTensor(indexes).view(-1, 1))
-  return result, len(indexes)
-
 def dialog_to_variable(dialog, task):
   dialog_pairs = []
   for t_idx, turn in enumerate(dialog):
@@ -51,27 +42,27 @@ def prepare_input(source, use_context, task):
     tokens.append(source["turn"])
   if use_context:
     for word in source["context"].split():
-      tokens.append(var(vocab.word_to_index(word, task)))
-    tokens.append(var(vocab.SOS_token))
+      tokens.append(var(vocab.word_to_index(word, task), "long"))
+    tokens.append(var(vocab.SOS_token, "long"))
 
   for word in source["utterance"].split():
     tokens.append(vocab.word_to_index(word, task))
-  return var(tokens)
+  return var(tokens, "long")
 
 def prepare_output(target):
   kind = "full_enumeration" # , "possible_only", "ordered_values"
 
   if len(target) == 1:
     target_index = vocab.belief_to_index(target[0], kind)
-    output_var = var([target_index])
+    output_var = var([target_index], "long")
     return output_var, False
   elif len(target) == 2:
     target_index = vocab.beliefs_to_index(target, kind)
     if kind == "full_enumeration":
-      output_var = var([target_index])
+      output_var = var([target_index], "long")
       return output_var, False
     else:
-      output_vars = [var([ti]) for ti in target_index]
+      output_vars = [var([ti], "long") for ti in target_index]
       return output_vars, True
 
 def prepare_examples(dataset, use_context, task):

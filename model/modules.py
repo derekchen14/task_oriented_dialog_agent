@@ -4,9 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.components import smart_variable
-import pdb  # set_trace
-import sys
+from model.components import var
+import sys, pdb  # set_trace
 import numpy as np
 
 class Attention(nn.Module):
@@ -19,14 +18,14 @@ class Attention(nn.Module):
       self.W_a = nn.Linear(hidden_size, hidden_size)
     elif self.attn_method == 'vinyals':            # v_a tanh(W[h_i;h_j])
       self.W_a =  nn.Linear(hidden_size * 2, hidden_size)
-      self.v_a = nn.Parameter(torch.FloatTensor(1, hidden_size))
+      self.v_a = nn.Parameter(var(1, hidden_size))
     elif self.attn_method == 'dot':                 # h_j x h_i
       self.W_a = torch.eye(hidden_size) # identity since no extra matrix is needed
 
   def forward(self, decoder_hidden, encoder_outputs):
     # Create variable to store attention scores           # seq_len = batch_size
     seq_len = len(encoder_outputs)
-    attn_scores = smart_variable(torch.zeros(seq_len))    # B (batch_size)
+    attn_scores = var(torch.zeros(seq_len))    # B (batch_size)
     # Calculate scores for each encoder output
     for i in range(seq_len):           # h_j            h_i
         attn_scores[i] = self.score(decoder_hidden, encoder_outputs[i]).squeeze(0)
@@ -78,7 +77,7 @@ class Transformer(nn.Module):
   def forward(self, inputs, encoder_outputs=None, di=None):
     # inputs will be seq_len, batch_size, hidden dim.  However, our batch_size
     # is always one so we squeeze it out to keep calculations simpler
-    position_emb = Variable(self.positions[:len(inputs), :], requires_grad=False)
+    position_emb = torch.tensor(self.positions[:len(inputs), :], requires_grad=False)
     # if batch_size > 1, self.positions[:len(inputs), :1, :inputs.size(2)].expand_as(inputs)
     transformer_input = inputs.squeeze() + position_emb
     k_v_input = self.dropout(transformer_input)
@@ -116,7 +115,7 @@ class Transformer(nn.Module):
     return transformer_output
 
   def apply_mask(self, decoder_inputs, decoder_idx):
-    mask = smart_variable(torch.zeros(( decoder_inputs.size() )))
+    mask = var(torch.zeros(( decoder_inputs.shape )), "variable")
     mask[:decoder_idx+1, :] = 1
     return decoder_inputs * mask
     # updated code for dealing with batch_size >1; lengths is a list,
