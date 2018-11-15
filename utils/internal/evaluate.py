@@ -18,6 +18,31 @@ def plot(xs, ys, title, xlabel, ylabel):
   plt.show()
   print('Performance plotted!')
 
+# Qualitative evalution of model performance
+def interpret_model(encoder, decoder):
+  # TODO: allow sample sentences to be passed in rather than hard-coded
+  samples = ["i want european food",
+    "restaurant in the north part of town that serves korean food",
+    "whats the address and phone number",
+    "okay thank you good bye",
+    "i need cheap chinese food",
+    "i need chinese food",
+    "is there anything else"]
+
+  for sample in samples:
+    tokens = [vocab.word_to_index(word, "dstc2") for word in sample.split()]
+    encoder_hidden = encoder.initHidden()
+    encoder_outputs, _ = encoder(tokens, encoder_hidden)
+
+    decoder_output = decoder(encoder_outputs[0])
+    topv, topi = decoder_output.data.topk(1)
+    pred = topi[0][0]
+    human_readable = vocab.index_to_word(pred, "intents")
+    print("Input Source: {}".format(sample))
+    print("Predicted: {}".format(human_readable))
+
+
+# Quantitative evalution of model performance
 def create_report(results, args, trial):
   learner, bleu, acc = results
   train_s, train_l = learner.train_steps, learner.train_losses

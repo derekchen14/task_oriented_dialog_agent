@@ -17,12 +17,14 @@ from tqdm import tqdm as progress_bar
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-def starting_checkpoint(iteration, epoch):
+def starting_checkpoint(iteration, epoch, epochs):
   if iteration == 0:
     if use_cuda:
-      print("Starting to train on GPUs on epoch {}... ".format(epoch))
+      print("Starting to train on GPUs on epoch {}... ".format(epoch+1))
     else:
-      print("Start local CPU training on epoch {} ... ".format(epoch))
+      print("Start local CPU training on epoch {} ... ".format(epoch+1))
+  else:
+    print("Continuing on epoch {} of {} ...".format(epoch+1, epochs))
 
 def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
   if optimizer_type == 'SGD':
@@ -66,7 +68,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.encoders import RNN_Encoder
     from model.decoders import RNN_Decoder
     encoder = RNN_Decoder
-    decoder = RNN_Decoder 
+    decoder = RNN_Decoder
   elif model_type == "gru":
     from model.encoders import GRU_Encoder
     from model.decoders import GRU_Decoder
@@ -118,7 +120,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
     decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
 
-  return encoder, decoder
+  return encoder.to(device), decoder.to(device)
 
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   if decoder.arguments_size == "extra_large":
@@ -170,7 +172,6 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
 
 def basic_inference(encoder, decoder, sources, targets, criterion):
   encoder_hidden = encoder.initHidden()
-  encoder_length = len(sources)
   encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
 
   decoder_output = decoder(encoder_outputs[0])

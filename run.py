@@ -18,13 +18,14 @@ from torch.optim.lr_scheduler import StepLR as StepLR
 
 import utils.internal.data_io as data_io
 import utils.internal.evaluate as evaluate
+# from utils.internal.evaluate import LossTracker, Evaluator
 from utils.internal.bleu import BLEU
 from utils.external.clock import *
 from utils.external.preprocessers import *
 from model.components import *
 
-use_cuda = torch.cuda.is_available()
-MAX_LENGTH = 8
+MAX_LENGTH = 14
+torch.manual_seed(14)
 
 def train(input_variable, target_variable, encoder, decoder,
         encoder_optimizer, decoder_optimizer, criterion, teach_ratio):
@@ -85,10 +86,6 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   print_loss_total = 0  # Reset every print_every
   plot_loss_total = 0  # Reset every plot_every
 
-  if use_cuda:
-    encoder = encoder.cuda()
-    decoder = decoder.cuda()
-
   enc_optimizer, dec_optimizer = init_optimizers(args.optimizer, weight_decay,
         encoder.parameters(), decoder.parameters(), args.learning_rate)
 
@@ -99,6 +96,9 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for epoch in range(epochs):
+    if debug and epoch == 1:
+      print("exiting early due to debug")
+      sys.exit()
     for iteration in range(n_iters):
       enc_scheduler.step()
       dec_scheduler.step()
@@ -107,7 +107,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
       input_variable = training_pair[0]
       output_variable = training_pair[1]
 
-      starting_checkpoint(iteration, epoch)
+      starting_checkpoint(iteration, epoch, epochs)
       loss = train(input_variable, output_variable, encoder, decoder, \
              enc_optimizer, dec_optimizer, criterion, teach_ratio=teacher_forcing)
       print_loss_total += loss
@@ -180,6 +180,8 @@ if __name__ == "__main__":
       train_variables, val_variables, task, args.epochs,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
+  print("worked?", results[0].completed_training)
+  evaluate.interpret_model(encoder, decoder)
   if args.save_model and results[0].completed_training:
     torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
     torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
