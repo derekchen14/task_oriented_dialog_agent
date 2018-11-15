@@ -5,7 +5,6 @@ from torch.nn import NLLLoss, parameter
 
 import utils.internal.vocabulary as vocab
 import utils.internal.data_io as data_io
-import utils.internal.evaluate as evaluate
 from utils.internal.bleu import BLEU
 
 import torch
@@ -202,34 +201,6 @@ def transformer_inference(encoder, decoder, sources, targets, criterion):
       break
 
   return loss, predictions, None
-
-def test_mode_run(test_pairs, encoder, decoder, task):
-  batch_test_loss, batch_bleu, batch_success = [], [], []
-  bleu_scores, accuracy = [], []
-  learner = LossTracker(-1)
-
-  encoder.eval()
-  decoder.eval()
-
-  for test_pair in progress_bar(test_pairs):
-    test_input = test_pair[0]
-    test_output = test_pair[1]
-    loss, predictions, visual = run_inference(encoder, decoder, test_input, \
-                      test_output, criterion=NLLLoss(), teach_ratio=0)
-
-    targets = test_output.data.tolist()
-    predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]
-    target_tokens = [vocab.index_to_word(z[0], task) for z in targets]
-
-    test_loss = loss.data[0] / test_output.size()[0]
-    bleu_score = BLEU.compute(predicted_tokens, target_tokens)
-    turn_success = all([pred == tar[0] for pred, tar in zip(predictions, targets)])
-
-    batch_test_loss.append(test_loss)
-    batch_bleu.append(bleu_score)
-    batch_success.append(turn_success)
-
-  return evaluate.batch_processing(batch_test_loss, batch_bleu, batch_success)
 
 def grab_attention(val_data, encoder, decoder, task, vis_count):
   encoder.eval()

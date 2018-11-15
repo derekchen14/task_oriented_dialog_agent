@@ -164,7 +164,7 @@ if __name__ == "__main__":
     show_dialogues(test_variables, encoder, decoder, task)
     grab_attention(val_data, encoder, decoder, task, 3)
     evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
-    results = test_mode_run(test_variables, encoder, decoder, task)
+    results = evaluate.test_mode_run(test_variables, encoder, decoder, task)
     print("Done with visualizing.")
   else:
     train_data, max_length = data_io.load_dataset(args.task_name, "train", args.debug)

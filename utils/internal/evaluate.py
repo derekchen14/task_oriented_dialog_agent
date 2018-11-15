@@ -6,6 +6,7 @@ import matplotlib.ticker as ticker
 import pandas as pd
 import pdb
 
+from utils.internal.bleu import BLEU
 import utils.internal.vocabulary as vocab
 from model.components import var
 
@@ -93,3 +94,31 @@ def show_save_attention(visualizations, method, verbose):
     if verbose:
       plt.show()
     plt.close()
+
+def test_mode_run(test_pairs, encoder, decoder, task):
+  batch_test_loss, batch_bleu, batch_success = [], [], []
+  bleu_scores, accuracy = [], []
+  learner = LossTracker(-1)
+
+  encoder.eval()
+  decoder.eval()
+
+  for test_pair in progress_bar(test_pairs):
+    test_input = test_pair[0]
+    test_output = test_pair[1]
+    loss, predictions, visual = run_inference(encoder, decoder, test_input, \
+                      test_output, criterion=NLLLoss(), teach_ratio=0)
+
+    targets = test_output.data.tolist()
+    predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]
+    target_tokens = [vocab.index_to_word(z[0], task) for z in targets]
+
+    test_loss = loss.data[0] / test_output.size()[0]
+    bleu_score = BLEU.compute(predicted_tokens, target_tokens)
+    turn_success = all([pred == tar[0] for pred, tar in zip(predictions, targets)])
+
+    batch_test_loss.append(test_loss)
+    batch_bleu.append(bleu_score)
+    batch_success.append(turn_success)
+
+  return batch_processing(batch_test_loss, batch_bleu, batch_success)
