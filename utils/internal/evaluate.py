@@ -6,6 +6,9 @@ import matplotlib.ticker as ticker
 import pandas as pd
 import pdb
 
+import utils.internal.vocabulary as vocab
+from model.components import var
+
 def plot(xs, ys, title, xlabel, ylabel):
   assert len(xs) == len(ys)
   for i in range(len(xs)):
@@ -32,7 +35,7 @@ def interpret_model(encoder, decoder):
   for sample in samples:
     tokens = [vocab.word_to_index(word, "dstc2") for word in sample.split()]
     encoder_hidden = encoder.initHidden()
-    encoder_outputs, _ = encoder(tokens, encoder_hidden)
+    encoder_outputs, _ = encoder(var(tokens, "long"), encoder_hidden)
 
     decoder_output = decoder(encoder_outputs[0])
     topv, topi = decoder_output.data.topk(1)
@@ -40,7 +43,6 @@ def interpret_model(encoder, decoder):
     human_readable = vocab.index_to_word(pred, "intents")
     print("Input Source: {}".format(sample))
     print("Predicted: {}".format(human_readable))
-
 
 # Quantitative evalution of model performance
 def create_report(results, args, trial):

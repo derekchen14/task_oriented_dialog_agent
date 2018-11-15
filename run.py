@@ -180,7 +180,6 @@ if __name__ == "__main__":
       train_variables, val_variables, task, args.epochs,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
-  print("worked?", results[0].completed_training)
   evaluate.interpret_model(encoder, decoder)
   if args.save_model and results[0].completed_training:
     torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
