@@ -26,7 +26,7 @@ class Match_Encoder(nn.Module):
     return output, hidden
 
   def initHidden(self):
-    return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
+    return torch.zeros(2, 1, self.hidden_size // 2).to(device)
 
 class Replica_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
@@ -47,8 +47,8 @@ class Replica_Encoder(nn.Module):
     return output, hidden_state
 
   def initHidden(self):
-    hidden = smart_variable(torch.zeros(2, 1, self.hidden_size))
-    cell = smart_variable(torch.zeros(2, 1, self.hidden_size))
+    hidden = torch.zeros(2, 1, self.hidden_size).to(device)
+    cell = torch.zeros(2, 1, self.hidden_size).to(device)
     return (hidden, cell)
 
 class Transformer_Encoder(nn.Module):
@@ -91,7 +91,7 @@ class Bid_Encoder(nn.Module):
     # Finally, recall that the output of a bi-directional GRU is the
     # concat of the two hidden layers, so in order to maintain the same
     # output size, we split each of the hidden layers in half, z = h // 2
-    return smart_variable(torch.zeros(2, 1, self.hidden_size // 2))
+    return torch.zeros(2, 1, self.hidden_size // 2).to(device)
 
 class GRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
@@ -118,7 +118,7 @@ class GRU_Encoder(nn.Module):
 
   def initHidden(self):
     # args are (num_layers * num_directions, batch_size, hidden_size)
-    return smart_variable(torch.zeros(self.num_layers, 1, self.hidden_size))
+    return torch.zeros(self.num_layers, 1, self.hidden_size).to(device)
 
 class LSTM_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
@@ -140,8 +140,8 @@ class LSTM_Encoder(nn.Module):
     # you need two variables since LSTMs have
     # (1) hidden state and (2) candidate cell state
     # whereas GRU have only the hidden state which does both
-    hidden = smart_variable(torch.zeros(1, 1, self.hidden_size))
-    cell = smart_variable(torch.zeros(1, 1, self.hidden_size))
+    hidden = torch.zeros(1, 1, self.hidden_size).to(device)
+    cell = torch.zeros(1, 1, self.hidden_size).to(device)
     return (hidden, cell)
 
 class RNN_Encoder(nn.Module):
@@ -162,4 +162,4 @@ class RNN_Encoder(nn.Module):
     return output
 
   def initHidden(self):
-    return smart_variable(torch.zeros(1, 1, self.hidden_size))
+    return torch.zeros(1, 1, self.hidden_size).to(device)

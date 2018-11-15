@@ -1,5 +1,4 @@
 from torch import optim
-from torch import cuda
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 from torch.nn import NLLLoss, parameter
@@ -12,11 +11,11 @@ from utils.internal.bleu import BLEU
 import torch
 import random
 import numpy as np
-import pdb
-import sys
+import pdb, sys
 from tqdm import tqdm as progress_bar
 
-use_cuda = cuda.is_available()
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
 
 def starting_checkpoint(iteration):
   if iteration == 0:
@@ -42,22 +41,15 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     decoder_optimizer = optim.RMSprop(dec_params, lr, weight_decay)
   return encoder_optimizer, decoder_optimizer
 
-def basic_variable(data, dtype="long"):
-    if dtype == "long":
-        tensor = torch.LongTensor(data)
-    elif dtype == "float":
-        tensor = torch.FloatTensor(data)
-    return Variable(tensor)
 
-def smart_variable(data, dtype="tensor"):
-    if dtype == "list":
-        result = basic_variable(data)
-    elif dtype == "tensor":
-        result = Variable(data)
-    elif dtype == "var":
-        result = data
-
-    return result.cuda() if use_cuda else result
+def var(data, dtype="float"):
+  if dtype == "float":
+    result = torch.Tensor(data)
+  elif dtype == "long":
+    result = torch.LongTensor(data)
+  elif dtype == "variable":
+    result = data
+  return result.to(device)
 
 def clip_gradient(models, clip):
   '''
@@ -74,7 +66,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.encoders import RNN_Encoder
     from model.decoders import RNN_Decoder
     encoder = RNN_Decoder
-    decoder = RNN_Decoder
+    decoder = RNN_Decoder 
   elif model_type == "gru":
     from model.encoders import GRU_Encoder
     from model.decoders import GRU_Decoder

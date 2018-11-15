@@ -2,10 +2,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import sys
-import pdb  # set_trace
+import sys, pdb  # set_trace
 
-from model.components import smart_variable
+from model.components import var
 from model.modules import Attention, Transformer
 from utils.external.preprocessers import match_embedding
 
@@ -71,7 +70,7 @@ class Copy_Decoder(nn.Module):
     # 0b) Tensor indicating whether decoder word appeared in the encoder words
     #     (ie. whether or not we should have performed a copy action)
     locations = torch.cat([(word==di) for word in sources]).float()
-    locations = smart_variable(locations, dtype="var")            # a list (7,)
+    locations = var(locations, dtype="variable")            # a list (7,)
     # default of dim=1 will throw error since "locations" only has one dimension
     embedded[:, :, :len(locations)] = F.normalize(locations, p=2, dim=0)
 
@@ -111,7 +110,7 @@ class Copy_Decoder(nn.Module):
     one_hot.scatter_(2, input_indexes, 1)                           # (b,7,v)
     # 4d) Pull out and sum together the encoder words probabilities
     # (b,1,7) x (b,7,v)  => (b x 1 x vocab_size)
-    carrier = torch.bmm(prob_c.unsqueeze(1), smart_variable(one_hot))
+    carrier = torch.bmm(prob_c.unsqueeze(1), var(one_hot))
     # 4e) Transfer probabilities from copy to generate
     #        (b,v)  +   (b,1,v => b,v)
     output = prob_g + carrier.squeeze(1)          # (batch_size, vocab_size)
@@ -169,7 +168,7 @@ class Copy_Without_Attn_Decoder(nn.Module):
     embedded = self.dropout(embedded)
     di = targets[ti].squeeze() if use_teacher_forcing else word_input.squeeze()
     locations = torch.cat([(word==di) for word in sources]).float()
-    locations = smart_variable(locations, dtype="var")            # a list (7,)
+    locations = var(locations, dtype="variable")            # a list (7,)
     embedded[:, :, :len(locations)] = F.normalize(locations, p=2, dim=0)
 
     rnn_input = torch.cat((embedded, prev_context), dim=2)
@@ -190,7 +189,7 @@ class Copy_Without_Attn_Decoder(nn.Module):
     batch_size, seq_len, _ = input_indexes.size()
     one_hot = torch.zeros((batch_size, seq_len, self.vocab_size))
     one_hot.scatter_(2, input_indexes, 1)                           # (b,7,v)
-    carrier = torch.bmm(prob_c.unsqueeze(1), smart_variable(one_hot))
+    carrier = torch.bmm(prob_c.unsqueeze(1), var(one_hot))
     output = prob_g + carrier.squeeze(1)          # (batch_size, vocab_size)
 
     attn_context = decoder_hidden.unsqueeze(1)
@@ -356,7 +355,7 @@ class LSTM_Decoder(nn.Module):
     return output, hidden
 
   def initHidden(self):
-    return smart_variable(torch.zeros(1, 1, self.hidden_size))
+    return torch.zeros(1, 1, self.hidden_size)
 
 class RNN_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
