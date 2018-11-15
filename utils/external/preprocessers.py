@@ -3,6 +3,7 @@ import utils.internal.vocabulary as vocab
 import torch
 from torch import LongTensor as var
 import torch.nn as nn
+import pdb, sys
 # from model.components import smart_variable
 
 use_cuda = torch.cuda.is_available()
@@ -52,29 +53,26 @@ def prepare_input(source, use_context, task):
     for word in source["context"].split():
       tokens.append(var(vocab.word_to_index(word, task)))
     tokens.append(var(vocab.SOS_token))
+
   for word in source["utterance"].split():
-    tokens.append(var(vocab.word_to_index(word, task)))
-  return tokens
+    tokens.append(vocab.word_to_index(word, task))
+  return var(tokens)
 
 def prepare_output(target):
   kind = "full_enumeration" # , "possible_only", "ordered_values"
+
   if len(target) == 1:
     target_index = vocab.belief_to_index(target[0], kind)
-    output_var = var(target_index)
+    output_var = var([target_index])
     return output_var, False
   elif len(target) == 2:
     target_index = vocab.beliefs_to_index(target, kind)
     if kind == "full_enumeration":
-      output_var = var(target_index)
+      output_var = var([target_index])
       return output_var, False
     else:
-      output_vars = [var(ti) for ti in target_index]
+      output_vars = [var([ti]) for ti in target_index]
       return output_vars, True
-
-  else:
-    print("ok that was unexpected")
-    import pdb
-    pdb.set_trace()
 
 def prepare_examples(dataset, use_context, task):
   variables = []

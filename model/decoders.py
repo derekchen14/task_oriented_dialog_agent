@@ -18,7 +18,7 @@ class Transformer_Decoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Decoder, self).__init__()
     self.hidden_size = hidden_size
-    self.arguments_size = "transformer"
+    self.arguments_size = "extra_large"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
     self.transformer = Transformer(vocab_size, hidden_size, n_layers, True)
@@ -340,7 +340,7 @@ class LSTM_Decoder(nn.Module):
     super(LSTM_Decoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
-    self.arguments_size = "small"
+    self.arguments_size = "tiny"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)
@@ -378,3 +378,18 @@ class RNN_Decoder(nn.Module):
       output, hidden = self.rnn(output, hidden)
     output = self.softmax(self.out(output[0]))
     return output, hidden
+
+class FF_Network(nn.Module):
+  def __init__(self, input_size, target_size):
+    super(FF_Network, self).__init__()
+    # for DSTC2, target is 140 or 640
+    self.out = nn.Linear(input_size, target_size)
+    self.softmax = nn.LogSoftmax(dim=1)
+    self.arguments_size = "tiny"
+
+  def forward(self, lstm_output):
+    # lstm_output is batch_size, hidden size
+    resized = self.out(lstm_output)
+    # resized is batch_size, vocab_size (or num dialog acts)
+    final_output = self.softmax(resized)
+    return final_output

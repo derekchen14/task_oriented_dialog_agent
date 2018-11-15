@@ -128,12 +128,13 @@ class LSTM_Encoder(nn.Module):
     self.embedding = nn.Embedding(vocab_size, hidden_size)
     self.lstm = nn.LSTM(hidden_size, hidden_size)
 
-  def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output, hidden = self.lstm(output, hidden)
-    return output, hidden
+  def forward(self, word_inputs, hidden_tuple):
+    seq_len = len(word_inputs)
+    # dimensions are timesteps, batch_size, input_size
+    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+    # for i in range(self.n_layers):
+    output, hidden_tuple = self.lstm(embedded, hidden_tuple)
+    return output, hidden_tuple
 
   def initHidden(self):
     # you need two variables since LSTMs have

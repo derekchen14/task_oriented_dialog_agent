@@ -62,12 +62,12 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
   return avg_loss, bleu_score, all(turn_success)
 
 def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
-                  task, n_iters=75600, teacher_forcing=0.0, weight_decay=0.0):
+                  task, n_iters=1400, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
   bleu_scores, accuracy = [], []
   learner = LossTracker(args.early_stopping)
 
-  v_iters = len(val_data) if task == 'car' else int(len(val_data)/500)
+  v_iters = len(val_data)
   n_iters = 600 if debug else n_iters
   print_every, plot_every, val_every = print_frequency(verbose, debug)
   print_loss_total = 0  # Reset every print_every
@@ -80,39 +80,39 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   enc_optimizer, dec_optimizer = init_optimizers(args.optimizer, weight_decay,
         encoder.parameters(), decoder.parameters(), args.learning_rate)
 
-  training_pairs = [random.choice(train_data) for i in range(n_iters)]
-  validation_pairs = [random.choice(val_data) for j in range(v_iters)]
+  # training_pairs = [random.choice(train_data) for i in range(n_iters)]
+  # validation_pairs = [random.choice(val_data) for j in range(v_iters)]
   criterion = NegLL_Loss()
   enc_scheduler = StepLR(enc_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
   dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
-  for iter in range(1, n_iters + 1):
+  for iteration in range(n_iters):
     enc_scheduler.step()
     dec_scheduler.step()
 
-    training_pair = training_pairs[iter - 1]
+    training_pair = train_data[iteration] # training_pairs[iter - 1]
     input_variable = training_pair[0]
     output_variable = training_pair[1]
 
-    starting_checkpoint(iter)
+    starting_checkpoint(iteration)
     loss = train(input_variable, output_variable, encoder, decoder, \
            enc_optimizer, dec_optimizer, criterion, teach_ratio=teacher_forcing)
     print_loss_total += loss
     plot_loss_total += loss
 
-    if iter % print_every == 0:
-      learner.train_steps.append(iter)
+    if iteration > 0 and iteration % print_every == 0:
+      learner.train_steps.append(iteration + 1)
       print_loss_avg = print_loss_total / print_every
-      print_loss_total = 0
+      print_loss_total = 0  # reset the print loss
       print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
-          (iter / n_iters * 100.0), timeSince(start, iter / n_iters)))
+          ((iteration + 1)/ n_iters * 100.0), timeSince(start, (iteration + 1)/ n_iters)))
       learner.update_loss(print_loss_avg, "train")
 
-    if iter % val_every == 0:
-      learner.val_steps.append(iter)
+    if iteration > 0 and iteration % val_every == 0:
+      learner.val_steps.append(iteration + 1)
       batch_val_loss, batch_bleu, batch_success = [], [], []
-      for iter in range(1, v_iters + 1):
-        val_pair = validation_pairs[iter - 1]
+      for j in range(v_iters):
+        val_pair = validation_pairs[j]
         val_input = val_pair[0]
         val_output = val_pair[1]
         val_loss, bleu_score, turn_success = validate(val_input, \

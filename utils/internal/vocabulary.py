@@ -102,3 +102,6 @@ def ulary_size(task):
     return len(res_vocab)
   elif task == "dstc2":
     return len(dstc2_vocab)
+
+def label_size(kind):
+  return len(label_vocab[kind])

@@ -1,7 +1,7 @@
 from torch import optim
 from torch import cuda
 from torch.autograd import Variable
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 from torch.nn import NLLLoss, parameter
 
 import utils.internal.vocabulary as vocab
@@ -19,7 +19,7 @@ from tqdm import tqdm as progress_bar
 use_cuda = cuda.is_available()
 
 def starting_checkpoint(iteration):
-  if iteration == 1:
+  if iteration == 0:
     if use_cuda:
       print("Starting to train on GPUs ... ")
     else:
@@ -67,7 +67,7 @@ def clip_gradient(models, clip):
   if clip is None:
     return
   for model in models:
-    clip_grad_norm(model.parameters(), clip)
+    clip_grad_norm_(model.parameters(), clip)
 
 def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob, max_length):
   if model_type == "basic":
@@ -80,6 +80,12 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.decoders import GRU_Decoder
     encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
     decoder = GRU_Decoder(vocab_size, hidden_size, n_layers)
+  elif model_type == "lstm":
+    from model.encoders import LSTM_Encoder
+    from model.decoders import FF_Network
+    encoder = LSTM_Encoder(vocab_size, hidden_size, n_layers)
+    label_size = 640  # for full enumeration
+    decoder = FF_Network(hidden_size, label_size)
   elif model_type == "attention":
     from model.encoders import GRU_Encoder
     from model.decoders import Attn_Decoder
@@ -123,8 +129,10 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
   return encoder, decoder
 
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
-  if decoder.arguments_size == "transformer":
+  if decoder.arguments_size == "extra_large":
     return transformer_inference(encoder, decoder, sources, targets, criterion)
+  if decoder.arguments_size == "tiny":
+    return basic_inference(encoder, decoder, sources, targets, criterion)
 
   loss = 0
   encoder_hidden = encoder.initHidden()
@@ -167,6 +175,18 @@ def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
       decoder_input = smart_variable(torch.LongTensor([[ni]]))
 
   return loss, predictions, visual
+
+def basic_inference(encoder, decoder, sources, targets, criterion):
+  encoder_hidden = encoder.initHidden()
+  encoder_length = len(sources)
+  encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
+
+  decoder_output = decoder(encoder_outputs[0])
+  topv, topi = decoder_output.data.topk(1)
+  pred = topi[0][0]
+
+  loss = criterion(decoder_output, targets)
+  return loss, pred, None
 
 def transformer_inference(encoder, decoder, sources, targets, criterion):
   loss = 0

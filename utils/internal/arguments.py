@@ -6,7 +6,7 @@ def solicit_args():
   parser.add_argument('-t', '--task-name', choices=['babi', 'in-car', 'woz2',
               'dstc2', 'dstc7', 'frames', 'multiwoz'], default='frames',
               help='Choose the task to train on', )
-  parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
+  parser.add_argument('-m', '--model-type', default='match', choices=['lstm', \
               'gru', 'attention', 'combined', 'copy', 'transformer', 'match'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
