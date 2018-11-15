@@ -18,12 +18,12 @@ from tqdm import tqdm as progress_bar
 
 use_cuda = cuda.is_available()
 
-def starting_checkpoint(iteration):
+def starting_checkpoint(iteration, epoch):
   if iteration == 0:
     if use_cuda:
-      print("Starting to train on GPUs ... ")
+      print("Starting to train on GPUs on epoch {}... ".format(epoch))
     else:
-      print("Start local CPU training ... ")
+      print("Start local CPU training on epoch {} ... ".format(epoch))
 
 def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
   if optimizer_type == 'SGD':

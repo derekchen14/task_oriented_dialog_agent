@@ -43,6 +43,8 @@ def solicit_args():
               help='Number of layers in each LSTM')
   parser.add_argument('--n-iters', default=30000, type=int,
               help='iterations to train')
+  parser.add_argument('-e', '--epochs', default=5, type=int,
+              help='Number of epochs to train, not compatible with n_iters')
   parser.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')
   parser.add_argument('--attn-method', default='luong', type=str,

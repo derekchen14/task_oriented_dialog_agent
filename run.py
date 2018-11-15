@@ -74,7 +74,7 @@ return avg_loss, bleu_score, all(turn_success)
 '''
 
 def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
-                  task, teacher_forcing=0.0, weight_decay=0.0):
+                  task, epochs, teacher_forcing=0.0, weight_decay=0.0):
   start = tm.time()
   bleu_scores, accuracy = [], []
   learner = LossTracker(args.early_stopping)
@@ -98,7 +98,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   enc_scheduler = StepLR(enc_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
   dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
-  for epoch in range(5):
+  for epoch in range(epochs):
     for iteration in range(n_iters):
       enc_scheduler.step()
       dec_scheduler.step()
@@ -107,7 +107,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
       input_variable = training_pair[0]
       output_variable = training_pair[1]
 
-      starting_checkpoint(iteration)
+      starting_checkpoint(iteration, epoch)
       loss = train(input_variable, output_variable, encoder, decoder, \
              enc_optimizer, dec_optimizer, criterion, teach_ratio=teacher_forcing)
       print_loss_total += loss
@@ -177,8 +177,8 @@ if __name__ == "__main__":
       args.hidden_size, args.attn_method, args.n_layers, args.drop_prob, max_length)
   # ---- TRAIN MODEL ----
   results = track_progress(args, encoder, decoder, args.verbose, args.debug,
-      train_variables, val_variables, task, teacher_forcing=args.teacher_forcing,
-      weight_decay=args.weight_decay)
+      train_variables, val_variables, task, args.epochs,
+      teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
   if args.save_model and results[0].completed_training:
     torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
