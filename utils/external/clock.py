@@ -9,7 +9,7 @@ def asMinutes(s):
 
 def timeSince(since, percent):
   now = tm.time()
-  seconds_passed = now - since
+  seconds_passed = now - (since+1)
   estimated_seconds = seconds_passed / (percent)
   remaining_seconds = estimated_seconds - seconds_passed
   return '(%s remaining)' % (asMinutes(remaining_seconds))

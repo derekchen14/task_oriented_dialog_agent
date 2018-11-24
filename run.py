@@ -54,7 +54,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
   targets = target_variable.data.tolist()
 
   # when task is not specified, it defaults to index_to_label
-  kind = "possible_only" # "full_enumeration"
+  kind = "ordered_values"  # "possible_only", "full_enumeration"
   predicted_tokens = [vocab.index_to_word(predictions, kind)]
   query_tokens = [vocab.index_to_word(y, task) for y in queries]
   target_tokens = [vocab.index_to_word(z, kind) for z in targets]
@@ -76,7 +76,6 @@ return avg_loss, bleu_score, all(turn_success)
 
 def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
                   task, epochs, teacher_forcing=0.0, weight_decay=0.0):
-  start = tm.time()
   bleu_scores, accuracy = [], []
   learner = LossTracker(args.early_stopping)
 
@@ -95,6 +94,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for epoch in range(epochs):
+    start = tm.time()
     starting_checkpoint(epoch, epochs)
     for iteration, training_pair in enumerate(train_data):
       enc_scheduler.step()
@@ -112,7 +112,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
         print_loss_avg = print_loss_total / print_every
         print_loss_total = 0  # reset the print loss
         print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
-            ((iteration + 1)/ n_iters * 100.0), timeSince(start, (iteration + 1)/ n_iters)))
+            (iteration/n_iters * 100.0), timeSince(start, iteration/n_iters )))
         learner.update_loss(print_loss_avg, "train")
 
       if iteration > 0 and iteration % val_every == 0:
