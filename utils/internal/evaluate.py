@@ -3,8 +3,9 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 # import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import random
 import pandas as pd
-import pdb
+import sys, pdb
 
 from utils.internal.bleu import BLEU
 import utils.internal.vocabulary as vocab
@@ -23,30 +24,37 @@ def plot(xs, ys, title, xlabel, ylabel):
   print('Performance plotted!')
 
 # Qualitative evalution of model performance
-def interpret_model(encoder, decoder):
+def qual_report(encoder, decoder, data, args):
+  samples = [random.choice(data) for i in range(10)]
+
   # TODO: allow sample sentences to be passed in rather than hard-coded
-  samples = ["i want european food",
-    "restaurant in the north part of town that serves korean food",
-    "whats the address and phone number",
-    "okay thank you good bye",
-    "i need cheap chinese food",
-    "i need chinese food",
-    "is there anything else"]
+  # samples = ["i want european food",
+  #   "restaurant in the north part of town that serves korean food",
+  #   "whats the address and phone number",
+  #   "okay thank you good bye",
+  #   "i need cheap chinese food",
+  #   "i need chinese food",
+  #   "is there anything else"]
 
-  for sample in samples:
-    tokens = [vocab.word_to_index(word, "dstc2") for word in sample.split()]
-    encoder_hidden = encoder.initHidden()
-    encoder_outputs, _ = encoder(var(tokens, "long"), encoder_hidden)
+  results_path = "results/{0}_{1}_qual.txt".format(args.results_path, args.suffix)
+  with open(results_path, "w") as file:
+    for sample in samples:
+      source, target = sample
+      encoder_hidden = encoder.initHidden()
+      encoder_outputs, _ = encoder(var(source, "long"), encoder_hidden)
 
-    decoder_output = decoder(encoder_outputs[0])
-    topv, topi = decoder_output.data.topk(1)
-    pred = topi[0][0]
-    human_readable = vocab.index_to_word(pred, "intents")
-    print("Input Source: {}".format(sample))
-    print("Predicted: {}".format(human_readable))
+      decoder_output = decoder(encoder_outputs[0])
+      topv, topi = decoder_output.data.topk(1)
+      pred = topi[0][0]
+      human_readable = vocab.index_to_word(pred, "full_enumeration")
+
+      input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in source])
+      file.write("Input: {}\n".format(input_text))
+      file.write("Predicted: {}\n".format(human_readable))
+    file.close()
 
 # Quantitative evalution of model performance
-def create_report(results, args, trial):
+def quant_report(results, args):
   learner, bleu, acc = results
   train_s, train_l = learner.train_steps, learner.train_losses
   val_s, val_l = learner.val_steps, learner.val_losses
@@ -58,7 +66,7 @@ def create_report(results, args, trial):
                 'weight-decay', 'decay-times', 'attention-method'],
       "Values": [args.hidden_size, args.learning_rate, args.drop_prob, args.model_type, \
                 args.weight_decay, args.decay_times, args.attn_method]})
-  results_path = "results/{0}_{1}.csv".format(args.results_path, trial)
+  results_path = "results/{0}_{1}.csv".format(args.results_path, args.suffix)
   loss_history = pd.concat([df_train, df_val, df_params], axis=1)
   loss_history.to_csv(results_path, index=False)
   print('Loss, BLEU and accuracy saved to {}!'.format(results_path))

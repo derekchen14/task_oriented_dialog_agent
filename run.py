@@ -80,7 +80,6 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   bleu_scores, accuracy = [], []
   learner = LossTracker(args.early_stopping)
 
-  v_iters = len(val_data)
   n_iters = 600 if debug else len(train_data)
   print_every, plot_every, val_every = print_frequency(verbose, debug)
   print_loss_total = 0  # Reset every print_every
@@ -96,15 +95,10 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
   dec_scheduler = StepLR(dec_optimizer, step_size=n_iters/(args.decay_times+1), gamma=0.2)
 
   for epoch in range(epochs):
-    if debug and epoch == 1:
-      print("exiting early due to debug")
-      sys.exit()
     starting_checkpoint(epoch, epochs)
-    for iteration in range(n_iters):
+    for iteration, training_pair in enumerate(train_data):
       enc_scheduler.step()
       dec_scheduler.step()
-
-      training_pair = train_data[iteration] # training_pairs[iter - 1]
       input_variable = training_pair[0]
       output_variable = training_pair[1]
 
@@ -124,10 +118,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
       if iteration > 0 and iteration % val_every == 0:
         learner.val_steps.append(iteration + 1)
         batch_val_loss, batch_bleu, batch_success = [], [], []
-        for j in range(v_iters):
-          val_pair = val_data[j]
-          val_input = val_pair[0]
-          val_output = val_pair[1]
+        for val_input, val_output in val_data:
           val_loss, bleu_score, turn_success = validate(val_input, \
                 val_output, encoder, decoder, criterion, task)
           batch_val_loss.append(val_loss)
@@ -156,16 +147,24 @@ if __name__ == "__main__":
     debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
     train_variables, val_variables, max_length = debug_data
   if args.test_mode:
-    test_data, candidates, max_length = data_io.load_dataset(args.task_name, "dev", args.debug)
-    test_variables = collect_dialogues(test_data, task=task)
+    test_data, max_length = data_io.load_dataset(args.task_name, "test", args.debug)
+    test_variables = prepare_examples(test_data, args.context, task=task)
 
-    encoder = torch.load("results/enc_vanilla_1b.pt")
-    decoder = torch.load("results/dec_vanilla_1b.pt")
-    show_dialogues(test_variables, encoder, decoder, task)
-    grab_attention(val_data, encoder, decoder, task, 3)
-    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
-    results = evaluate.test_mode_run(test_variables, encoder, decoder, task)
-    print("Done with visualizing.")
+    encoder = torch.load("results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
+    decoder = torch.load("results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
+    print("model loaded!")
+    # show_dialogues(test_variables, encoder, decoder, task)
+    # grab_attention(val_data, encoder, decoder, task, 3)
+    # evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+    # results = test_mode_run(test_variables, encoder, decoder, task)
+    # print("Done with visualizing.")
+    criterion = NegLL_Loss()
+    for iteration, data_pair in enumerate(test_data):
+      if iteration % 30 == 0:
+        test_input, test_output = data_pair
+        loss, _, success = validate(test_input, test_output, encoder, decoder, criterion, task)
+        print("Loss: {} and Success: {}".format(loss, success))
+    sys.exit()
   else:
     train_data, max_length = data_io.load_dataset(args.task_name, "train", args.debug)
     train_variables = prepare_examples(train_data, args.context, task=task)
@@ -180,13 +179,13 @@ if __name__ == "__main__":
       train_variables, val_variables, task, args.epochs,
       teacher_forcing=args.teacher_forcing, weight_decay=args.weight_decay)
   # --- MANAGE RESULTS ---
-  evaluate.interpret_model(encoder, decoder)
   if args.save_model and results[0].completed_training:
     torch.save(encoder, "results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
     torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
     print('Model saved at results/model_{}!'.format(args.model_path))
   if args.report_results and results[0].completed_training:
-    evaluate.create_report(results, args, args.suffix)
+    evaluate.qual_report(encoder, decoder, val_variables, args)
+    evaluate.quant_report(results, args)
   if args.plot_results and results[0].completed_training:
     evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
   if args.visualize > 0:
