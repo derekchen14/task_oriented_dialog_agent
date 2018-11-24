@@ -41,7 +41,7 @@ def qual_report(encoder, decoder, data, args):
     for sample in samples:
       source, target = sample
       encoder_hidden = encoder.initHidden()
-      encoder_outputs, _ = encoder(var(source, "long"), encoder_hidden)
+      encoder_outputs, _ = encoder(source, encoder_hidden)
 
       decoder_output = decoder(encoder_outputs[0])
       topv, topi = decoder_output.data.topk(1)

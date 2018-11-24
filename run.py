@@ -56,11 +56,11 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
   # when task is not specified, it defaults to index_to_label
   kind = "possible_only" # "full_enumeration"
   predicted_tokens = [vocab.index_to_word(predictions, kind)]
-  query_tokens = [vocab.index_to_word(y, kind) for y in queries]
+  query_tokens = [vocab.index_to_word(y, task) for y in queries]
   target_tokens = [vocab.index_to_word(z, kind) for z in targets]
 
   avg_loss = loss.item() / target_variable.shape[0]
-  bleu_score = 100 # BLEU.compute(predicted_tokens, target_tokens)
+  bleu_score = 1 # BLEU.compute(predicted_tokens, target_tokens)
   turn_success = (predictions.item() == targets[0])
 
   return avg_loss, bleu_score, turn_success

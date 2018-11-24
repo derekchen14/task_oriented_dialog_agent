@@ -50,7 +50,7 @@ def prepare_input(source, use_context, task):
   return var(tokens, "long")
 
 def prepare_output(target):
-  kind = "possible_only", # "full_enumeration", "ordered_values"
+  kind = "possible_only" #"full_enumeration", "ordered_values"
 
   if len(target) == 1:
     target_index = vocab.belief_to_index(target[0], kind)
