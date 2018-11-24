@@ -5,6 +5,7 @@ from scipy.stats import truncnorm
 import math
 import json
 import pandas as pd
+import pickle
 
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
@@ -37,6 +38,8 @@ def load_dataset(task, split, debug=False):
     max_length = 23
     return (examples, max_length)
 
+def pickle_loader(filename):
+  return pickle.load( open( "{}.pkl".format(filename), "rb" ) )
 
 def parse_dialogue(lines, tokenizer=True):
   '''

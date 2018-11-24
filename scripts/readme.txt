@@ -1,1 +1,0 @@
-This folder is for one-off scripts.  Common use cases include tokenizing text or creating visualizations.

@@ -1,28 +1,24 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division
-from utils.internal.arguments import solicit_args
-from io import open
-import unicodedata
-import string
-import re
 import random
-import json
 import pdb, sys
 import time as tm
-import pickle
 
 import torch
 from torch import optim
 from torch.nn import NLLLoss as NegLL_Loss
 from torch.optim.lr_scheduler import StepLR as StepLR
 
-import utils.internal.data_io as data_io
 import utils.internal.evaluate as evaluate
-# from utils.internal.evaluate import LossTracker, Evaluator
-from utils.internal.bleu import BLEU
-from utils.external.clock import *
-from utils.external.preprocessers import *
 from model.components import *
+from utils.external.preprocessers import *
+# from modules.preprocess import Preprocessor
+# from modules.learn import Builder, Learner
+# from modules.evaluate import LossTracker, Evaluator
+
+from utils.external.bleu import BLEU
+from utils.internal.arguments import solicit_args
+from utils.internal.data_io import load_dataset
+from utils.internal.clock import *
 
 MAX_LENGTH = 14
 torch.manual_seed(14)
@@ -95,7 +91,7 @@ def track_progress(args, encoder, decoder, verbose, debug, train_data, val_data,
 
   for epoch in range(epochs):
     start = tm.time()
-    starting_checkpoint(epoch, epochs)
+    starting_checkpoint(epoch, epochs, use_cuda)
     for iteration, training_pair in enumerate(train_data):
       enc_scheduler.step()
       dec_scheduler.step()
@@ -144,7 +140,7 @@ if __name__ == "__main__":
   task = args.task_name
   # ----- LOAD DATA -----
   if args.debug:
-    debug_data = pickle.load( open( "datasets/debug_data.pkl", "rb" ) )
+    debug_data = pickle_loader("datasets/debug_data")
     train_variables, val_variables, max_length = debug_data
   if args.test_mode:
     test_data, max_length = data_io.load_dataset(args.task_name, "test", args.debug)

@@ -7,7 +7,7 @@ import random
 import pandas as pd
 import sys, pdb
 
-from utils.internal.bleu import BLEU
+from utils.external.bleu import BLEU
 import utils.internal.vocabulary as vocab
 from model.components import var
 

@@ -9,7 +9,7 @@ def asMinutes(s):
 
 def timeSince(since, percent):
   now = tm.time()
-  seconds_passed = now - (since+1)
+  seconds_passed = now - since
   estimated_seconds = seconds_passed / (percent)
   remaining_seconds = estimated_seconds - seconds_passed
   return '(%s remaining)' % (asMinutes(remaining_seconds))
@@ -29,3 +29,11 @@ def print_frequency(verbose, debug):
     val_every /= 2
   return print_every, plot_every, val_every
 
+def starting_checkpoint(epoch, epochs, use_cuda):
+  if epoch == 0:
+    if use_cuda:
+      print("Starting to train on GPUs on epoch {}... ".format(epoch+1))
+    else:
+      print("Start local CPU training on epoch {} ... ".format(epoch+1))
+  else:
+    print("Continuing on epoch {} of {} ...".format(epoch+1, epochs))

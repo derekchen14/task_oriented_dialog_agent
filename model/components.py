@@ -5,7 +5,7 @@ from torch.nn import NLLLoss, parameter
 
 import utils.internal.vocabulary as vocab
 import utils.internal.data_io as data_io
-from utils.internal.bleu import BLEU
+from utils.external.bleu import BLEU
 
 import torch
 import random
@@ -15,15 +15,6 @@ from tqdm import tqdm as progress_bar
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-
-def starting_checkpoint(epoch, epochs):
-  if epoch == 0:
-    if use_cuda:
-      print("Starting to train on GPUs on epoch {}... ".format(epoch+1))
-    else:
-      print("Start local CPU training on epoch {} ... ".format(epoch+1))
-  else:
-    print("Continuing on epoch {} of {} ...".format(epoch+1, epochs))
 
 def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
   if optimizer_type == 'SGD':
@@ -41,7 +32,6 @@ def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
     encoder_optimizer = optim.RMSprop(enc_params, lr, weight_decay)
     decoder_optimizer = optim.RMSprop(dec_params, lr, weight_decay)
   return encoder_optimizer, decoder_optimizer
-
 
 def var(data, dtype="float"):
   if dtype == "float":
@@ -62,57 +52,59 @@ def clip_gradient(models, clip):
   for model in models:
     clip_grad_norm_(model.parameters(), clip)
 
+# from modules.learn import *
+
 def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob, max_length):
   if model_type == "basic":
-    from model.encoders import RNN_Encoder
-    from model.decoders import RNN_Decoder
+    from model.learn.encoders import RNN_Encoder
+    from model.learn.decoders import RNN_Decoder
     encoder = RNN_Decoder
     decoder = RNN_Decoder
   elif model_type == "gru":
-    from model.encoders import GRU_Encoder
-    from model.decoders import GRU_Decoder
+    from model.learn.encoders import GRU_Encoder
+    from model.learn.decoders import GRU_Decoder
     encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
     decoder = GRU_Decoder(vocab_size, hidden_size, n_layers)
   elif model_type == "lstm":
-    from model.encoders import LSTM_Encoder
-    from model.decoders import FF_Network
+    from model.learn.encoders import LSTM_Encoder
+    from model.learn.decoders import FF_Network
     encoder = LSTM_Encoder(vocab_size, hidden_size, n_layers)
     label_size = 140  # for full enumeration
     decoder = FF_Network(hidden_size, label_size)
   elif model_type == "attention":
-    from model.encoders import GRU_Encoder
-    from model.decoders import Attn_Decoder
+    from model.learn.encoders import GRU_Encoder
+    from model.learn.decoders import Attn_Decoder
     encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
     decoder = Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
   elif model_type == "bidirectional":
-    from model.encoders import Bid_Encoder
-    from model.decoders import Bid_Decoder
+    from model.learn.encoders import Bid_Encoder
+    from model.learn.decoders import Bid_Decoder
     encoder = Bid_Encoder(vocab_size, hidden_size)
     decoder = Bid_Decoder(vocab_size, hidden_size, method, drop_prob)
   elif model_type == "copy":
-    from model.encoders import Match_Encoder
-    from model.decoders import Copy_Without_Attn_Decoder
+    from model.learn.encoders import Match_Encoder
+    from model.learn.decoders import Copy_Without_Attn_Decoder
     encoder = Match_Encoder(vocab_size, hidden_size)
     decoder = Copy_Without_Attn_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
     zeros_tensor = torch.zeros(vocab_size, max_length)
     copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
     decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
   elif model_type == "combined":
-    from model.encoders import Match_Encoder
-    from model.decoders import Copy_Decoder
+    from model.learn.encoders import Match_Encoder
+    from model.learn.decoders import Copy_Decoder
     encoder = Match_Encoder(vocab_size, hidden_size)
     decoder = Copy_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
     zeros_tensor = torch.zeros(vocab_size, max_length)
     copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
     decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
   elif model_type == "transformer":
-    from model.encoders import Transformer_Encoder
-    from model.decoders import Transformer_Decoder
+    from model.learn.encoders import Transformer_Encoder
+    from model.learn.decoders import Transformer_Decoder
     encoder = Transformer_Encoder(vocab_size, hidden_size, n_layers)
     decoder = Transformer_Decoder(vocab_size, hidden_size, n_layers)
   elif model_type == "replica":
-    from model.encoders import Replica_Encoder
-    from model.decoders import Replica_Decoder
+    from model.learn.encoders import Replica_Encoder
+    from model.learn.decoders import Replica_Decoder
     encoder = Replica_Encoder(vocab_size, hidden_size)
     decoder = Replica_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
     zeros_tensor = torch.zeros(vocab_size, max_length)
