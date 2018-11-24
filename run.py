@@ -54,7 +54,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
   targets = target_variable.data.tolist()
 
   # when task is not specified, it defaults to index_to_label
-  kind = "full_enumeration"
+  kind = "possible_only" # "full_enumeration"
   predicted_tokens = [vocab.index_to_word(predictions, kind)]
   query_tokens = [vocab.index_to_word(y, kind) for y in queries]
   target_tokens = [vocab.index_to_word(z, kind) for z in targets]

@@ -77,7 +77,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.encoders import LSTM_Encoder
     from model.decoders import FF_Network
     encoder = LSTM_Encoder(vocab_size, hidden_size, n_layers)
-    label_size = 640  # for full enumeration
+    label_size = 140  # for full enumeration
     decoder = FF_Network(hidden_size, label_size)
   elif model_type == "attention":
     from model.encoders import GRU_Encoder
