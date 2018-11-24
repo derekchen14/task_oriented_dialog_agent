@@ -133,6 +133,7 @@ class LSTM_Encoder(nn.Module):
     # dimensions are timesteps, batch_size, input_size
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
     # for i in range(self.n_layers):
+    self.lstm.flatten_parameters()
     output, hidden_tuple = self.lstm(embedded, hidden_tuple)
     return output, hidden_tuple
 

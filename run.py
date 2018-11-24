@@ -60,7 +60,7 @@ def validate(input_variable, target_variable, encoder, decoder, criterion, task)
   target_tokens = [vocab.index_to_word(z, kind) for z in targets]
 
   avg_loss = loss.item() / target_variable.shape[0]
-  bleu_score = BLEU.compute(predicted_tokens, target_tokens)
+  bleu_score = 100 # BLEU.compute(predicted_tokens, target_tokens)
   turn_success = (predictions.item() == targets[0])
 
   return avg_loss, bleu_score, turn_success
@@ -149,7 +149,6 @@ if __name__ == "__main__":
   if args.test_mode:
     test_data, max_length = data_io.load_dataset(args.task_name, "test", args.debug)
     test_variables = prepare_examples(test_data, args.context, task=task)
-
     encoder = torch.load("results/enc_{0}_{1}.pt".format(args.model_path, args.suffix))
     decoder = torch.load("results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
     print("model loaded!")
@@ -159,11 +158,21 @@ if __name__ == "__main__":
     # results = test_mode_run(test_variables, encoder, decoder, task)
     # print("Done with visualizing.")
     criterion = NegLL_Loss()
-    for iteration, data_pair in enumerate(test_data):
-      if iteration % 30 == 0:
+    rate_of_success = []
+    rate_of_loss = []
+    for iteration, data_pair in enumerate(test_variables):
+      if iteration % 31 == 0:
         test_input, test_output = data_pair
         loss, _, success = validate(test_input, test_output, encoder, decoder, criterion, task)
-        print("Loss: {} and Success: {}".format(loss, success))
+        if success:
+          rate_of_success.append(1)
+        else:
+          rate_of_success.append(0)
+
+        rate_of_loss.append(loss)
+    ros = np.average(rate_of_success)
+    rol = np.average(rate_of_loss)
+    print("Loss: {} and Success: {:.3f}".format(rol, ros))
     sys.exit()
   else:
     train_data, max_length = data_io.load_dataset(args.task_name, "train", args.debug)
