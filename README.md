@@ -10,14 +10,14 @@ Model - major modules that fall into one of three categories:
       - preparing data by embedding them and tokenization
       - collecting data through crowdsourcing platforms
   * Learn - modules used to build dialogue models
-      - belief tracking
-      - policy management
-      - response generation
-      - encoders and decoders
+      - builder: these assemble modules for belief tracking, policy management and response generation, these are made up of:
+        - encode, decode, attend, embed, and transform modules
+      - learner: with train and validation components
+      - user simulator
   * Evaluate - functions used for qualitative and quantitative evaluation
       - qualitiative evaluation with text
       - quantitative measures like BLEU or accuracy or loss
-  * components.py - single file of shared model components used by others
+  * components.py - single file of shared model components used by others, such as running inference and variable creation
 
 Utils - various functionality that is resuable
   * external: most code written was imported from elsewwhere

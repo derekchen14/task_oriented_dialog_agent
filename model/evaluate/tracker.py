@@ -1,7 +1,7 @@
 import numpy as np
 
 class LossTracker(object):
-  def __init__(self, threshold):
+  def __init__(self, args):
     self.train_steps = []
     self.train_losses = []
     self.train_epoch = 0
@@ -12,13 +12,15 @@ class LossTracker(object):
 
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss
-    self.threshold = threshold
+    self.threshold = args.early_stopping
     self.absolute_range = 4
     # Trailing average storage for calculating relative loss
     self.trailing_average = []
     self.epochs_per_avg = 3
     self.lookback_range = 2
 
+    self.bleu_scores = []
+    self.accuracy = []
 
   def update_loss(self, loss, split):
     if split == "train":
@@ -27,6 +29,22 @@ class LossTracker(object):
     elif split == "val":
       self.val_losses.append(loss)
       self.val_epoch += 1
+
+  def update_stats(self, bleu, acc):
+    self.bleu_scores = bleu
+    self.accuracy = acc
+
+  def batch_processing(self, batch_val_loss, batch_bleu, batch_success):
+    avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)
+    avg_bleu = 100 * float(sum(batch_bleu)) / len(batch_bleu)
+    avg_success = 100 * float(sum(batch_success)) / len(batch_success)
+
+    print('Validation Loss: {0:2.4f}, BLEU Score: {1:.2f}, Per Turn Accuracy: {2:.2f}'.format(
+            avg_val_loss, avg_bleu, avg_success))
+
+    self.update_loss(avg_val_loss, "val")
+    self.bleu_scores.append(avg_bleu)
+    self.accuracy.append(avg_success)
 
   def should_early_stop(self):
     if self.threshold < 0:  # we turn off early stopping

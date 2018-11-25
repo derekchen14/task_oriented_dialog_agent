@@ -20,7 +20,9 @@ class Evaluator(object):
     self.verbose = args.verbose
     self.config = args
 
-  def plot(xs, ys, title, xlabel, ylabel):
+  def plot(xs, ys, title="Training Curve"):
+    xlabel = "Iterations"
+    ylabel = "Loss"
     assert len(xs) == len(ys)
     for i in range(len(xs)):
       plt.plot(xs[i], ys[i])
@@ -28,9 +30,8 @@ class Evaluator(object):
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend(['Train', "Validation"])
+    plt.legend(["Train", "Validation"])
     plt.show()
-    print('Performance plotted!')
 
   # Qualitative evalution of model performance
   def qual_report(self, model, data):
@@ -63,9 +64,11 @@ class Evaluator(object):
     print('Qualitative examples saved to {}'.format(self.qual_report_path))
 
   # Quantitative evalution of model performance
-  def quant_report(self, tracker, bleu, accuracy):
+  def quant_report(self, tracker):
     train_s, train_l = tracker.train_steps, tracker.train_losses
     val_s, val_l = tracker.val_steps, tracker.val_losses
+    bleu, accuracy = tracker.bleu_scores, tracker.accuracy
+
     df_train = pd.DataFrame(data={'train_steps':train_s, 'train_loss':train_l})
     df_val = pd.DataFrame(data={'validation_steps':val_s, 'validation_loss': val_l,
                       'bleu_score': bleu, 'per_turn_accuracy': accuracy})
@@ -122,16 +125,6 @@ class Evaluator(object):
       if self.verbose:
         plt.show()
       plt.close()
-
-  @staticmethod
-  def batch_processing(batch_val_loss, batch_bleu, batch_success):
-    avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)
-    avg_bleu = 100 * float(sum(batch_bleu)) / len(batch_bleu)
-    avg_success = 100 * float(sum(batch_success)) / len(batch_success)
-
-    print('Validation Loss: {0:2.4f}, BLEU Score: {1:.2f}, Per Turn Accuracy: {2:.2f}'.format(
-            avg_val_loss, avg_bleu, avg_success))
-    return avg_val_loss, avg_bleu, avg_success
 
   def test_mode_run(self, test_pairs, encoder, decoder, task):
     batch_test_loss, batch_bleu, batch_success = [], [], []
