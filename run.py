@@ -11,15 +11,12 @@ from torch.optim.lr_scheduler import StepLR as StepLR
 from utils.external.bleu import BLEU
 from utils.internal.arguments import solicit_args
 from utils.internal.clock import *
-import utils.internal.evaluate as evaluate
 
 from model.components import *
 from model.preprocess import PreProcessor
 # from modules.learn import Builder, Learner
-# from modules.evaluate import LossTracker, Evaluator
+from model.evaluate import LossTracker, Evaluator
 
-
-MAX_LENGTH = 14
 torch.manual_seed(14)
 
 def train(input_variable, target_variable, encoder, decoder,
@@ -72,7 +69,7 @@ return avg_loss, bleu_score, all(turn_success)
 def track_progress(args, encoder, decoder, verbose, debug, processor, task,
               epochs, weight_decay=0.0):
   bleu_scores, accuracy = [], []
-  learner = LossTracker(args.early_stopping)
+  tracker = LossTracker(args.early_stopping)
 
   n_iters = 600 if debug else len(processor.train_data)
   print_every, plot_every, val_every = print_frequency(verbose, debug)
@@ -103,15 +100,15 @@ def track_progress(args, encoder, decoder, verbose, debug, processor, task,
       plot_loss_total += loss
 
       if iteration > 0 and iteration % print_every == 0:
-        learner.train_steps.append(iteration + 1)
+        tracker.train_steps.append(iteration + 1)
         print_loss_avg = print_loss_total / print_every
         print_loss_total = 0  # reset the print loss
         print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
             (iteration/n_iters * 100.0), timeSince(start, iteration/n_iters )))
-        learner.update_loss(print_loss_avg, "train")
+        tracker.update_loss(print_loss_avg, "train")
 
       if iteration > 0 and iteration % val_every == 0:
-        learner.val_steps.append(iteration + 1)
+        tracker.val_steps.append(iteration + 1)
         batch_val_loss, batch_bleu, batch_success = [], [], []
         for val_input, val_output in processor.val_data:
           val_loss, bleu_score, turn_success = validate(val_input, \
@@ -120,18 +117,18 @@ def track_progress(args, encoder, decoder, verbose, debug, processor, task,
           batch_bleu.append(bleu_score)
           batch_success.append(turn_success)
 
-        avg_val_loss, avg_bleu, avg_success = evaluate.batch_processing(
+        avg_val_loss, avg_bleu, avg_success = Evaluator.batch_processing(
                                       batch_val_loss, batch_bleu, batch_success)
-        learner.update_loss(avg_val_loss, "val")
+        tracker.update_loss(avg_val_loss, "val")
         bleu_scores.append(avg_bleu)
         accuracy.append(avg_success)
-        if learner.should_early_stop():
-          print("Early stopped at val epoch {}".format(learner.val_epoch))
-          learner.completed_training = False
+        if tracker.should_early_stop():
+          print("Early stopped at val epoch {}".format(tracker.val_epoch))
+          tracker.completed_training = False
           break
 
   time_past(start)
-  return learner, bleu_scores, accuracy
+  return tracker, bleu_scores, accuracy
 
 if __name__ == "__main__":
   args = solicit_args()
@@ -139,7 +136,7 @@ if __name__ == "__main__":
   processor = PreProcessor(args)
   # builder = Builder(args)
   # learner = Learner(args)
-  # evaluator = Evaluator(args)
+  evaluator = Evaluator(args)
 
   if args.debug:
     debug_data = pickle_loader("datasets/debug_data")
@@ -160,13 +157,13 @@ if __name__ == "__main__":
     torch.save(decoder, "results/dec_{0}_{1}.pt".format(args.model_path, args.suffix))
     print('Model saved at results/model_{}!'.format(args.model_path))
   if args.report_results and results[0].completed_training:
-    evaluate.qual_report(encoder, decoder, processor.val_data, args)
-    evaluate.quant_report(results, args)
+    evaluator.quant_report(*results)
+    evaluator.qual_report(encoder, decoder, processor.val_data)
   if args.plot_results and results[0].completed_training:
-    evaluate.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
+    evaluator.plot([strain, sval], [ltrain, lval], 'Training curve', 'Iterations', 'Loss')
   if args.visualize > 0:
     visualizations = grab_attention(processor.val_data, encoder, decoder, args.task_name, args.visualize)
-    evaluate.show_save_attention(visualizations, args.attn_method, args.verbose)
+    evaluator.show_save_attention(visualizations, args.attn_method, args.verbose)
 
 '''
     criterion = NegLL_Loss()
