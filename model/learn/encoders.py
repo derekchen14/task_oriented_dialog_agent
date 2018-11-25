@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 from model.modules import Transformer
 from model.components import *
-from utils.external.preprocessers import match_embedding
 
 # ------- Encoders ----------
 # The encoder of a seq2seq network is a RNN that outputs some value for every

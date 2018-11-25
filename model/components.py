@@ -54,7 +54,9 @@ def clip_gradient(models, clip):
 
 # from modules.learn import *
 
-def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob, max_length):
+def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob):
+  max_length = 25
+
   if model_type == "basic":
     from model.learn.encoders import RNN_Encoder
     from model.learn.decoders import RNN_Decoder
@@ -85,7 +87,7 @@ def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_pro
     from model.learn.encoders import Match_Encoder
     from model.learn.decoders import Copy_Without_Attn_Decoder
     encoder = Match_Encoder(vocab_size, hidden_size)
-    decoder = Copy_Without_Attn_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
+    decoder = Copy_Without_Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
     zeros_tensor = torch.zeros(vocab_size, max_length)
     copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
     decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
@@ -239,6 +241,16 @@ def show_dialogues(val_data, encoder, decoder, task):
       print("Predicted Response: {0}".format(pred))
     print('')
 
+def match_embedding(vocab_size, hidden_size):
+  match_tensor = torch.load('datasets/restaurants/match_features.pt')
+  embed = torch.nn.Embedding(vocab_size, hidden_size)
+  # Extract just the tensor inside the Embedding
+  embed_tensor = embed.weight.data
+  extended_tensor = torch.cat([embed_tensor, match_tensor], dim=1)
+  # Set the weight of original embedding matrix with the new Parameter
+  embed.weight = torch.nn.parameter.Parameter(extended_tensor)
+  return embed
+
 class LossTracker(object):
   def __init__(self, threshold):
     self.train_steps = []
@@ -257,6 +269,7 @@ class LossTracker(object):
     self.trailing_average = []
     self.epochs_per_avg = 3
     self.lookback_range = 2
+
 
   def update_loss(self, loss, split):
     if split == "train":
