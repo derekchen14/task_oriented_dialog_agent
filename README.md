@@ -2,16 +2,20 @@
 
 To get started, you should create your own "datasets" and "results" directories and download the appropriate data
 
-### __Description__
+### Description
 Execute - shell scripts that kick off run.py with arguments filled in
+
 Run - starting point for all training and evaluation
 Model - major modules that fall into one of three categories:
   * Preprocess - functions used to preprocess data
       - preparing data by embedding them and tokenization
       - collecting data through crowdsourcing platforms
   * Learn - modules used to build dialogue models
-      - builder: these assemble modules for belief tracking, policy management and response generation, these are made up of:
-        - encode, decode, attend, embed, and transform modules
+      - builder: these assemble modules for:
+        - belief tracking
+        - policy management
+        - response generation
+      - these are made up of: encode, decode, attend, embed, and transform modules
       - learner: with train and validation components
       - user simulator
   * Evaluate - functions used for qualitative and quantitative evaluation
@@ -25,12 +29,13 @@ Utils - various functionality that is resuable
 
 Scripts - one-off methods that are sparingly used
 
-### __Order_of_Execution__
+### Order of Execution
   1. Utils should always load first since they are used everywhere
   2. Components will load next since they are shared across modules
   3. Preprocess, Learn and Evaluate modules import components
   4. Run.py comes last, it will inherit modules to perform its tasks
+
 As a result, utils should have very few imports, and components should only import from utils and never from modules
 
-### __Development_Strategy__
+### Development Strategy
 The process is that most work probably starts off as random scripts. If the same script is being used often, or if certain functions are being repeated, then they probably deserve to be placed into utils or components.  If there are a collection of utils that clearly fall into a theme, they should get placed into a module within the model folder.

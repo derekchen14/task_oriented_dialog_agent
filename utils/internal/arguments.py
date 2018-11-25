@@ -6,7 +6,7 @@ def solicit_args():
   parser.add_argument('-t', '--task-name', choices=['babi', 'in-car', 'woz2',
               'dstc2', 'dstc7', 'frames', 'multiwoz'], default='frames',
               help='Choose the task to train on', )
-  parser.add_argument('-m', '--model-type', default='match', choices=['lstm', \
+  parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
               'gru', 'attention', 'combined', 'copy', 'transformer', 'match'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
@@ -55,7 +55,7 @@ def solicit_args():
               help='when true, save model weights in a checkpoint')
   parser.add_argument('--use-existing', default=False, action='store_true',
               help='when true, we use an existing model rather than training a new one')
-  parser.add_argument('--model-path', default='default_path', type=str,
+  parser.add_argument('--model-path', default='remove_me', type=str,
               help='where in the results folder to save the encoder and decoder')
   parser.add_argument('--suffix', default='Nov_09', type=str,
               help='string appended to filenames to distinguish among trials')
@@ -69,7 +69,7 @@ def solicit_args():
   parser.add_argument('--visualize', default=0, type=int,
               help='randomly select x number of dialogues from validation set, \
               visualize the attention weights and store in results/visualize.png')
-  parser.add_argument('--results-path', default='report_path',
+  parser.add_argument('--report-path', default='remove_me',
               help='where to save error', type=str)
 
   return parser.parse_args()

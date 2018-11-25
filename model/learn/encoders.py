@@ -14,14 +14,14 @@ class Match_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Match_Encoder, self).__init__()
     self.hidden_size = hidden_size + 8  # extended dim for the match features
-    self.gru = nn.GRU(self.hidden_size, self.hidden_size // 2, \
+    self.rnn = nn.GRU(self.hidden_size, self.hidden_size // 2, \
       num_layers=n_layers, bidirectional=True)
     self.embedding = match_embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):
     seq_len = len(word_inputs)
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
-    output, hidden = self.gru(embedded, hidden)
+    output, hidden = self.rnn(embedded, hidden)
     return output, hidden
 
   def initHidden(self):
@@ -33,14 +33,14 @@ class Replica_Encoder(nn.Module):
     self.vocab_dim = 300
     self.hidden_size = hidden_size + 8  # extended dim for the match features
     # API for LSTM (input dimension, hidden_dimension, num_layers)
-    self.lstm = nn.LSTM(self.vocab_dim + 8, self.hidden_size, \
+    self.rnn = nn.LSTM(self.vocab_dim + 8, self.hidden_size, \
       num_layers=n_layers, bidirectional=True)
     self.embedding = match_embedding(vocab_size, self.vocab_dim)
 
   def forward(self, word_inputs, hidden_state):
     seq_len = len(word_inputs)
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
-    output, hidden_state = self.lstm(embedded, hidden_state)
+    output, hidden_state = self.rnn(embedded, hidden_state)
     # output: (seq_len, batch_size, 2 * hidden_size)
     # hidden_state, tuple of (hidden, cell), both are (2, batch_size, hidden_dim)
     return output, hidden_state
@@ -67,7 +67,7 @@ class Bid_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_Encoder, self).__init__()
     self.hidden_size = hidden_size
-    self.gru = nn.GRU(hidden_size, hidden_size // 2, \
+    self.rnn = nn.GRU(hidden_size, hidden_size // 2, \
       num_layers=n_layers, bidirectional=True)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
 
@@ -79,7 +79,7 @@ class Bid_Encoder(nn.Module):
     # hidden is num_layers * num_directions, batch, hidden_size: (2,1,132)
     # the two pieces in hidden are actually the bottom half of the last word
     #     and the top half of the *first* word since we are bidirectional
-    output, hidden = self.gru(embedded, hidden)
+    output, hidden = self.rnn(embedded, hidden)
     return output, hidden
 
   def initHidden(self):
@@ -99,7 +99,7 @@ class GRU_Encoder(nn.Module):
     self.input_size = hidden_size # serves double duty
     self.num_layers = n_layers
 
-    self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
+    self.rnn = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
 
   def forward(self, word_inputs, hidden):
@@ -108,7 +108,7 @@ class GRU_Encoder(nn.Module):
     # https://lirnli.wordpress.com/2017/09/03/one-hot-encoding-in-pytorch/
     # if we want to change into one-hot vectors
     # c = torch.eye(8)
-    output, hidden = self.gru(embedded, hidden)
+    output, hidden = self.rnn(embedded, hidden)
     return output, hidden
     # dimensions are timesteps, batch_size, input_size
     # timesteps = sequence_length, number of words in your sentence
@@ -125,15 +125,14 @@ class LSTM_Encoder(nn.Module):
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.lstm = nn.LSTM(hidden_size, hidden_size)
+    self.rnn = nn.LSTM(hidden_size, hidden_size)
 
   def forward(self, word_inputs, hidden_tuple):
     seq_len = len(word_inputs)
     # dimensions are timesteps, batch_size, input_size
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
     # for i in range(self.n_layers):
-    self.lstm.flatten_parameters()
-    output, hidden_tuple = self.lstm(embedded, hidden_tuple)
+    output, hidden_tuple = self.rnn(embedded, hidden_tuple)
     return output, hidden_tuple
 
   def initHidden(self):

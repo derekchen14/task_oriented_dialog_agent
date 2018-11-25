@@ -12,13 +12,13 @@ from model.evaluate import LossTracker, Evaluator, Tester
 if __name__ == "__main__":
   args = solicit_args()
   task = args.task_name
-  kind = args.results_path
+  kind = args.report_path
   # ----- INITIALIZE MODULES -----
   processor = PreProcessor(args, kind)
   builder = Builder(args)
   tracker = LossTracker(args)
   learner = Learner(args, processor, builder, tracker, kind)
-  evaluator = Evaluator(args)
+  evaluator = Evaluator(args, kind)
   # ---- LOAD AND PREPROCESS ------
   if args.debug:
     debug_data = pickle_loader("datasets/debug_data")

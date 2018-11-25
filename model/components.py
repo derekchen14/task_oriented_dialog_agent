@@ -6,7 +6,6 @@ import utils.internal.data_io as data_io
 from utils.external.bleu import BLEU
 
 import torch
-import random
 import pdb, sys
 from tqdm import tqdm as progress_bar
 
@@ -22,85 +21,51 @@ def var(data, dtype="float"):
     result = data
   return result.to(device)
 
-def clip_gradient(models, clip):
-  '''
-  models: a list, such as [encoder, decoder]
-  clip: amount to clip the gradients by
-  '''
-  if clip is None:
-    return
-  for model in models:
-    clip_grad_norm_(model.parameters(), clip)
+def clip_gradient(model, clip):
+  if clip is None: return
+  clip_grad_norm_(model.encoder.parameters(), clip)
+  clip_grad_norm_(model.decoder.parameters(), clip)
 
-def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
-  if decoder.arguments_size == "extra_large":
-    return transformer_inference(encoder, decoder, sources, targets, criterion)
-  if decoder.arguments_size == "tiny":
-    return basic_inference(encoder, decoder, sources, targets, criterion)
+def run_inference(model, sources, targets, criterion, teach_ratio):
+  if model.type == "basic":
+    return basic_inference(model, sources, targets, criterion)
+  elif model.type == "transformer":
+    return transformer_inference(model, sources, targets, criterion)
+  else:
+    assert(model.type == "seq2seq")
+
+  sources = var(sources, dtype="variable")
+  targets = var(targets, dtype="variable")
+  enc_hidden = model.encoder.initHidden()
+  enc_length = sources.shape[0]
+  dec_length = targets.shape[0]
 
   loss = 0
-  encoder_hidden = encoder.initHidden()
-  encoder_length = sources.size()[0]
-  cuda_sources = smart_variable(sources, dtype="var")
-  encoder_outputs, encoder_hidden = encoder(cuda_sources, encoder_hidden)
-
-  decoder_hidden = encoder_hidden
-  decoder_length = targets.size()[0]
-  targets = smart_variable(targets, dtype="var")
-  decoder_input = smart_variable([[vocab.SOS_token]], "list")
-  decoder_context = smart_variable(torch.zeros(1, 1, decoder.hidden_size))
-
-  visual = torch.zeros(encoder_length, decoder_length)
   predictions = []
-  for di in range(decoder_length):
-    use_teacher_forcing = random.random() < teach_ratio
-    if decoder.arguments_size == "large":
-      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-        decoder_input, decoder_context, decoder_hidden, encoder_outputs,
-        cuda_sources, targets, di, use_teacher_forcing)
-    elif decoder.arguments_size == "medium":
-      decoder_output, decoder_context, decoder_hidden, attn_weights = decoder(
-          decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-    elif decoder.arguments_size == "small":
-      decoder_output, decoder_context = decoder(decoder_input, decoder_context)
-      attn_weights, visual = False, False
+  visual = torch.zeros(enc_length, dec_length)
+  track = loss, predictions, visual, teach_ratio
 
-    # visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
-    loss += criterion(decoder_output, targets[di])
+  return model(sources, targets, enc_hidden, enc_length, dec_length, track)
 
-    if use_teacher_forcing:
-      decoder_input = targets[di]
-    else:       # Use the predicted word as the next input
-      topv, topi = decoder_output.data.topk(1)
-      ni = topi[0][0]
-      predictions.append(ni)
-      if ni == vocab.EOS_token:
-        break
-      decoder_input = smart_variable(torch.LongTensor([[ni]]))
-
-  return loss, predictions, visual
-
-def basic_inference(encoder, decoder, sources, targets, criterion):
-  encoder_hidden = encoder.initHidden()
-  encoder_outputs, encoder_hidden = encoder(sources, encoder_hidden)
-
-  decoder_output = decoder(encoder_outputs[0])
-  topv, topi = decoder_output.data.topk(1)
+def basic_inference(model, sources, targets, criterion):
+  hidden = model.encoder.initHidden()
+  output = model(sources, hidden)
+  topv, topi = output.data.topk(1)
   pred = topi[0][0]
 
-  loss = criterion(decoder_output, targets)
+  loss = 0 if criterion is None else criterion(output, targets)
   return loss, pred, None
 
-def transformer_inference(encoder, decoder, sources, targets, criterion):
+def transformer_inference(model, sources, targets, criterion):
   loss = 0
   predictions = []
-  encoder_outputs = encoder(smart_variable(sources, dtype="var"))
-  decoder_start = smart_variable([[vocab.SOS_token]], "list")
-  decoder_tokens = smart_variable(targets, dtype="var")
+  encoder_outputs = model.encoder(var(sources, dtype="variable"))
+  decoder_start = var([[vocab.SOS_token]], "list")
+  decoder_tokens = var(targets, dtype="variable")
   decoder_inputs = torch.cat([decoder_start, decoder_tokens], dim=0)
 
   for di in range(targets.size()[0]):
-    decoder_output = decoder(decoder_inputs, encoder_outputs, di)
+    decoder_output = model.decoder(decoder_inputs, encoder_outputs, di)
     # we need to index into the output now since output is (seq_len, vocab)
     loss += criterion(decoder_output[di].view(1,-1), decoder_tokens[di])
 

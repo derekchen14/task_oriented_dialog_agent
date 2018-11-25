@@ -28,27 +28,21 @@ class Learner(object):
     self.kind = kind
 
   def train(self, input_var, output_var, enc_optimizer, dec_optimizer):
-    encoder, decoder = self.model
-    encoder.train()   # affects the performance of dropout
-    decoder.train()
-    enc_optimizer.zero_grad()
-    dec_optimizer.zero_grad()
+    self.model.train()   # affects the performance of dropout
+    self.model.zero_grad()
 
-    loss, _, _ = run_inference(encoder, decoder, input_var, output_var, \
+    loss, _, _ = run_inference(self.model, input_var, output_var, \
                           self.criterion, self.teach_ratio)
     loss.backward()
-    clip_gradient([encoder, decoder], clip=10)
+    clip_gradient(self.model, clip=10)
     enc_optimizer.step()
     dec_optimizer.step()
 
     return loss.item() / output_var.shape[0]
 
   def validate(self, input_var, output_var, task):
-    encoder, decoder = self.model
-    encoder.eval()  # affects the performance of dropout
-    decoder.eval()
-
-    loss, predictions, visual = run_inference(encoder, decoder, input_var, \
+    self.model.eval()  # val period has no training, so teach ratio is 0
+    loss, predictions, visual = run_inference(self.model, input_var, \
                       output_var, self.criterion, teach_ratio=0)
 
     queries = input_var.data.tolist()

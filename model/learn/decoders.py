@@ -41,7 +41,7 @@ class Copy_Decoder(nn.Module):
 
     # max_length is added to help train the location based addressing
     self.embedding = nn.Embedding(vocab_size, self.hidden_size + max_length)
-    self.gru = nn.GRU(self.input_size + max_length, self.hidden_size)
+    self.rnn = nn.GRU(self.input_size + max_length, self.hidden_size)
     self.attn = Attention(attn_method, self.hidden_size)
     self.out = nn.Linear(self.input_size, vocab_size) # will be replaced
 
@@ -75,7 +75,7 @@ class Copy_Decoder(nn.Module):
 
     # 1a) Calculate basic decoder output
     rnn_input = torch.cat((embedded, prev_context), dim=2)
-    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+    rnn_output, current_hidden = self.rnn(rnn_input, prev_hidden)
     # 1b) Apply attention score to encoder outputs to get attention context
     decoder_hidden = current_hidden.squeeze(0)
     attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
@@ -145,7 +145,7 @@ class Copy_Without_Attn_Decoder(nn.Module):
     self.arguments_size = "large"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size + max_length)
-    self.gru = nn.GRU(self.input_size + max_length, self.hidden_size)
+    self.rnn = nn.GRU(self.input_size + max_length, self.hidden_size)
     self.attn = Attention(attn_method, self.hidden_size)
     self.out = nn.Linear(self.input_size, vocab_size) # will be replaced
 
@@ -171,7 +171,7 @@ class Copy_Without_Attn_Decoder(nn.Module):
     embedded[:, :, :len(locations)] = F.normalize(locations, p=2, dim=0)
 
     rnn_input = torch.cat((embedded, prev_context), dim=2)
-    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+    rnn_output, current_hidden = self.rnn(rnn_input, prev_hidden)
     decoder_hidden = current_hidden.squeeze(0)
 
     score_g = self.generate_mode(decoder_hidden)              # (b x vocab_size)
@@ -206,7 +206,7 @@ class Match_Decoder(nn.Module):
     self.arguments_size = "medium"
 
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.gru = nn.GRU(self.input_size, self.hidden_size)
+    self.rnn = nn.GRU(self.input_size, self.hidden_size)
     self.attn = Attention(method, self.hidden_size)
     self.out = nn.Linear(self.input_size, vocab_size)
 
@@ -217,7 +217,7 @@ class Match_Decoder(nn.Module):
     embedded = self.embedding(word_input).view(1, 1, -1)        # 1 x 1 x N
     embedded = self.dropout(embedded)
     rnn_input = torch.cat((embedded, last_context), dim=2)
-    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+    rnn_output, current_hidden = self.rnn(rnn_input, prev_hidden)
 
     decoder_hidden = current_hidden.squeeze(0)
     attn_weights = self.attn(decoder_hidden, encoder_outputs)  # 1 x 1 x S
@@ -244,7 +244,7 @@ class Bid_Decoder(nn.Module):
     self.arguments_size = "medium"
     # num_layers is removed since decoder always has one layer
     self.embedding = nn.Embedding(vocab_size, self.hidden_size) # will be replaced
-    self.gru = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
+    self.rnn = nn.GRU(self.input_size, self.hidden_size) # dropout=drop_prob)
     self.attn = Attention(method, self.hidden_size)  # adds W_a matrix
     self.out = nn.Linear(self.hidden_size * 2, vocab_size)
     # we need "* 2" since we concat hidden state and attention context vector
@@ -258,7 +258,7 @@ class Bid_Decoder(nn.Module):
     embedded = self.dropout(embedded)
     # Combine input word embedding and previous hidden state, run through RNN
     rnn_input = torch.cat((embedded, last_context), dim=2)
-    rnn_output, current_hidden = self.gru(rnn_input, prev_hidden)
+    rnn_output, current_hidden = self.rnn(rnn_input, prev_hidden)
 
     # Calculate attention from current RNN state and encoder outputs, then apply
     # Drop first dimension to line up with single encoder_output
@@ -341,7 +341,7 @@ class LSTM_Decoder(nn.Module):
     self.arguments_size = "tiny"
 
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.lstm = nn.LSTM(hidden_size, hidden_size)
+    self.rnn = nn.LSTM(hidden_size, hidden_size)
     self.out = nn.Linear(hidden_size, vocab_size)
     self.softmax = nn.LogSoftmax()
 
@@ -349,7 +349,7 @@ class LSTM_Decoder(nn.Module):
     output = self.embedding(input).view(1, 1, -1)
     for i in range(self.n_layers):
       output = F.relu(output)
-      output, hidden = self.lstm(output, hidden)
+      output, hidden = self.rnn(output, hidden)
     output = self.softmax(self.out(output[0]))
     return output, hidden
 

@@ -12,13 +12,14 @@ import utils.internal.data_io as data_io
 from model.components import var, run_inference
 
 class Evaluator(object):
-  def __init__(self, args):
-    self.qual_report_path = "results/{0}_{1}_qual.txt".format(args.results_path, args.suffix)
-    self.quant_report_path = "results/{0}_{1}_quant.csv".format(args.results_path, args.suffix)
+  def __init__(self, args, kind):
+    self.qual_report_path = "results/{0}_{1}_qual.txt".format(args.report_path, args.suffix)
+    self.quant_report_path = "results/{0}_{1}_quant.csv".format(args.report_path, args.suffix)
 
     self.method = args.attn_method
     self.verbose = args.verbose
     self.config = args
+    self.kind = kind
 
   def plot(xs, ys, title="Training Curve"):
     xlabel = "Iterations"
@@ -35,30 +36,15 @@ class Evaluator(object):
 
   # Qualitative evalution of model performance
   def qual_report(self, model, data):
-    encoder, decoder = model
     samples = [random.choice(data) for i in range(10)]
-
-    # TODO: allow sample sentences to be passed in rather than hard-coded
-    # samples = ["i want european food",
-    #   "restaurant in the north part of town that serves korean food",
-    #   "whats the address and phone number",
-    #   "okay thank you good bye",
-    #   "i need cheap chinese food",
-    #   "i need chinese food",
-    #   "is there anything else"]
-
+    task = self.config.task_name
     with open(self.qual_report_path, "w") as file:
       for sample in samples:
         source, target = sample
-        encoder_hidden = encoder.initHidden()
-        encoder_outputs, _ = encoder(source, encoder_hidden)
+        _, pred, _ = run_inference(model, source, target, None, 0)
+        human_readable = vocab.index_to_word(pred, self.kind)
 
-        decoder_output = decoder(encoder_outputs[0])
-        topv, topi = decoder_output.data.topk(1)
-        pred = topi[0][0]
-        human_readable = vocab.index_to_word(pred, "full_enumeration")
-
-        input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in source])
+        input_text = " ".join([vocab.index_to_word(token, task) for token in source])
         file.write("Input: {}\n".format(input_text))
         file.write("Predicted: {}\n".format(human_readable))
     print('Qualitative examples saved to {}'.format(self.qual_report_path))
@@ -84,16 +70,14 @@ class Evaluator(object):
     print('Loss, BLEU and accuracy saved to {}'.format(self.quant_report_path))
 
   def visual_report(self, val_data, model, task, vis_count):
-    encoder, decoder = model
-    encoder.eval()
-    decoder.eval()
+    model.eval()
     dialogues = data_io.select_consecutive_pairs(val_data, vis_count)
 
     visualizations = []
     for dialog in dialogues:
       for turn in dialog:
         input_variable, output_variable = turn
-        _, responses, visual = run_inference(encoder, decoder, input_variable, \
+        _, responses, visual = run_inference(model, input_variable, \
                         output_variable, criterion=NLLLoss(), teach_ratio=0)
         queries = input_variable.data.tolist()
         query_tokens = [vocab.index_to_word(q[0], task) for q in queries]
@@ -126,18 +110,15 @@ class Evaluator(object):
         plt.show()
       plt.close()
 
-  def test_mode_run(self, test_pairs, encoder, decoder, task):
+  def test_mode_run(self, test_pairs, model, task):
     batch_test_loss, batch_bleu, batch_success = [], [], []
     bleu_scores, accuracy = [], []
-    learner = LossTracker(-1)
-
-    encoder.eval()
-    decoder.eval()
+    model.eval()
 
     for test_pair in progress_bar(test_pairs):
       test_input = test_pair[0]
       test_output = test_pair[1]
-      loss, predictions, visual = run_inference(encoder, decoder, test_input, \
+      loss, predictions, visual = run_inference(model, test_input, \
                         test_output, criterion=NLLLoss(), teach_ratio=0)
 
       targets = test_output.data.tolist()

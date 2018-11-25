@@ -1,4 +1,6 @@
+import random
 import torch
+import torch.nn as nn
 from torch.nn.parameter import Parameter
 from torch import optim
 
@@ -25,15 +27,10 @@ class Builder(object):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
-    if self.model_type == "basic":
-      encoder = enc.RNN_Encoder
-      decoder = dec.RNN_Decoder
-    elif self.model_type == "gru":
-      encoder = enc.GRU_Encoder(vocab_size, self.hidden_size, self.n_layers)
-      decoder = dec.GRU_Decoder(output_size, self.hidden_size, self.n_layers)
-    elif self.model_type == "lstm":
+    elif self.model_type == "basic":
       encoder = enc.LSTM_Encoder(vocab_size, self.hidden_size, self.n_layers)
-      decoder = dec.FF_Network(self.hidden_size, output_size)
+      ff_network = dec.FF_Network(self.hidden_size, output_size)
+      return BasicClassifer(encoder, ff_network)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(vocab_size, self.hidden_size, self.n_layers)
       decoder = dec.Attn_Decoder(output_size, self.hidden_size, self.method, self.drop_prob)
@@ -65,11 +62,10 @@ class Builder(object):
       copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
       decoder.embedding.weight = Parameter(torch.cat(copy_tensor, dim=1))
 
-    return encoder.to(device), decoder.to(device)
+    return Seq2Seq(encoder, decoder)
 
   def init_optimizers(self, model):
-    encoder, decoder = model
-    enc_params, dec_params = encoder.parameters(), decoder.parameters()
+    enc_params, dec_params = model.encoder.parameters(), model.decoder.parameters()
 
     if self.optimizer == 'SGD':
       enc_optimizer = optim.SGD(enc_params, self.lr, self.weight_decay)
@@ -89,51 +85,63 @@ class Builder(object):
     return enc_optimizer, dec_optimizer
 
 
-""" Standard sequence-to-sequence architecture with configurable encoder
-class Seq2seq(nn.Module):
-    and decoder.
-    Args:
-        encoder (EncoderRNN): object of EncoderRNN
-        decoder (DecoderRNN): object of DecoderRNN
-        decode_function (func, optional): function to generate symbols from output hidden states (default: F.log_softmax)
-    Inputs: input_variable, input_lengths, target_variable, teacher_forcing_ratio
-        - **input_variable** (list, option): list of sequences, whose length is the batch size and within which
-          each sequence is a list of token IDs. This information is forwarded to the encoder.
-        - **input_lengths** (list of int, optional): A list that contains the lengths of sequences
-            in the mini-batch, it must be provided when using variable length RNN (default: `None`)
-        - **target_variable** (list, optional): list of sequences, whose length is the batch size and within which
-          each sequence is a list of token IDs. This information is forwarded to the decoder.
-        - **teacher_forcing_ratio** (int, optional): The probability that teacher forcing will be used. A random number
-          is drawn uniformly from 0-1 for every decoding token, and if the sample is smaller than the given value,
-          teacher forcing would be used (default is 0)
-    Outputs: decoder_outputs, decoder_hidden, ret_dict
-        - **decoder_outputs** (batch): batch-length list of tensors with size (max_length, hidden_size) containing the
-          outputs of the decoder.
-        - **decoder_hidden** (num_layers * num_directions, batch, hidden_size): tensor containing the last hidden
-          state of the decoder.
-        - **ret_dict**: dictionary containing additional information as follows {*KEY_LENGTH* : list of integers
-          representing lengths of output sequences, *KEY_SEQUENCE* : list of sequences, where each sequence is a list of
-          predicted token IDs, *KEY_INPUT* : target outputs if provided for decoding, *KEY_ATTN_SCORE* : list of
-          sequences, where each list is of attention weights }.
+class Seq2Seq(nn.Module):
+  def __init__(self, encoder, decoder):
+    super(Seq2Seq, self).__init__()
+    self.encoder = encoder.to(device)
+    self.decoder = decoder.to(device)
+    self.type = "seq2seq"
+    self.arguments_size = decoder.arguments_size
+
+  def flatten_parameters(self):
+    self.encoder.rnn.flatten_parameters()
+    self.decoder.rnn.flatten_parameters()
+
+  def forward(self, sources, targets, enc_hidden, enc_length, dec_length, track):
+    loss, predictions, visual, teach_ratio = track
+    self.flatten_parameters()
+    encoder_outputs, enc_hidden = self.encoder(sources, enc_hidden)
+
+    dec_hidden = enc_hidden
+    decoder_input = var([[vocab.SOS_token]], "long")
+    decoder_context = var(torch.zeros(1, 1, decoder.hidden_size))
+
+    for di in range(dec_length):
+      use_teacher_forcing = random.random() < teach_ratio
+      if self.arguments_size == "large":
+        dec_output, dec_context, dec_hidden, attn_weights = self.decoder(
+          decoder_input, dec_context, dec_hidden, encoder_outputs,
+          sources, targets, di, use_teacher_forcing)
+      elif self.arguments_size == "medium":
+        dec_output, dec_context, dec_hidden, attn_weights = self.decoder(
+            decoder_input, dec_context, dec_hidden, encoder_outputs)
+      elif self.arguments_size == "small":
+        dec_output, dec_context = self.decoder(decoder_input, dec_context)
+        attn_weights, visual = False, False
+
+      # visual[:, di] = attn_weights.squeeze(0).squeeze(0).cpu().data
+      loss += criterion(dec_output, targets[di])
+
+      if use_teacher_forcing:
+        decoder_input = targets[di]
+      else:       # Use the predicted word as the next input
+        topv, topi = dec_output.data.topk(1)
+        ni = topi[0][0]
+        predictions.append(ni)
+        if ni == vocab.EOS_token:
+          break
+        decoder_input = var([[ni]], "long")
+
+    return loss, predictions, visual
 
 
-    def __init__(self, encoder, decoder, decode_function=F.log_softmax):
-        super(Seq2seq, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.decode_function = decode_function
-
-    def flatten_parameters(self):
-        self.encoder.rnn.flatten_parameters()
-        self.decoder.rnn.flatten_parameters()
-
-    def forward(self, input_variable, input_lengths=None, target_variable=None,
-                teacher_forcing_ratio=0):
-        encoder_outputs, encoder_hidden = self.encoder(input_variable, input_lengths)
-        result = self.decoder(inputs=target_variable,
-                              encoder_hidden=encoder_hidden,
-                              encoder_outputs=encoder_outputs,
-                              function=self.decode_function,
-                              teacher_forcing_ratio=teacher_forcing_ratio)
-        return result
-"""
+class BasicClassifer(nn.Module):
+  def __init__(self, encoder, ff_network):
+    super(BasicClassifer, self).__init__()
+    self.encoder = encoder.to(device)
+    self.decoder = ff_network.to(device)
+    self.type = "basic"
+  def forward(self, sources, hidden):
+    self.encoder.rnn.flatten_parameters()
+    encoder_outputs, hidden = self.encoder(sources, hidden)
+    return self.decoder(encoder_outputs[0])
