@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.modules import Transformer
+from model.learn.modules import Transformer
 from model.components import *
 
 # ------- Encoders ----------

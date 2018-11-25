@@ -8,13 +8,17 @@ import sys, pdb
 
 from utils.external.bleu import BLEU
 import utils.internal.vocabulary as vocab
-from model.components import var
+import utils.internal.data_io as data_io
+from model.components import var, run_inference
 
 class Evaluator(object):
   def __init__(self, args):
-    self.config = args
     self.qual_report_path = "results/{0}_{1}_qual.txt".format(args.results_path, args.suffix)
     self.quant_report_path = "results/{0}_{1}_quant.csv".format(args.results_path, args.suffix)
+
+    self.method = args.attn_method
+    self.verbose = args.verbose
+    self.config = args
 
   def plot(xs, ys, title, xlabel, ylabel):
     assert len(xs) == len(ys)
@@ -29,7 +33,8 @@ class Evaluator(object):
     print('Performance plotted!')
 
   # Qualitative evalution of model performance
-  def qual_report(self, encoder, decoder, data):
+  def qual_report(self, model, data):
+    encoder, decoder = model
     samples = [random.choice(data) for i in range(10)]
 
     # TODO: allow sample sentences to be passed in rather than hard-coded
@@ -75,18 +80,28 @@ class Evaluator(object):
     loss_history.to_csv(self.quant_report_path, index=False)
     print('Loss, BLEU and accuracy saved to {}'.format(self.quant_report_path))
 
-  @staticmethod
-  def batch_processing(batch_val_loss, batch_bleu, batch_success):
-    avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)
-    avg_bleu = 100 * float(sum(batch_bleu)) / len(batch_bleu)
-    avg_success = 100 * float(sum(batch_success)) / len(batch_success)
+  def visual_report(self, val_data, model, task, vis_count):
+    encoder, decoder = model
+    encoder.eval()
+    decoder.eval()
+    dialogues = data_io.select_consecutive_pairs(val_data, vis_count)
 
-    print('Validation Loss: {0:2.4f}, BLEU Score: {1:.2f}, Per Turn Accuracy: {2:.2f}'.format(
-            avg_val_loss, avg_bleu, avg_success))
-    return avg_val_loss, avg_bleu, avg_success
+    visualizations = []
+    for dialog in dialogues:
+      for turn in dialog:
+        input_variable, output_variable = turn
+        _, responses, visual = run_inference(encoder, decoder, input_variable, \
+                        output_variable, criterion=NLLLoss(), teach_ratio=0)
+        queries = input_variable.data.tolist()
+        query_tokens = [vocab.index_to_word(q[0], task) for q in queries]
+        response_tokens = [vocab.index_to_word(r, task) for r in responses]
 
-  def show_save_attention(self, visualizations, method, verbose):
-    for i, viz in enumerate(visualizations):
+        visualizations.append((visual, query_tokens, response_tokens))
+    self.show_save_attention(visualizations)
+
+
+  def show_save_attention(self, visualizations):
+    for i, viz in enumerate(self.visualizations):
       visual, query_tokens, response_tokens = viz
       visual[-1,:] = 0
       # Set up figure with colorbar
@@ -103,10 +118,20 @@ class Evaluator(object):
       plt.ylabel("User Query")
       plt.xlabel("Agent Response")
       # pdb.set_trace()
-      plt.savefig("results/visualize_{0}{1}.png".format(method, i))
-      if verbose:
+      plt.savefig("results/visualize_{0}{1}.png".format(self.method, i))
+      if self.verbose:
         plt.show()
       plt.close()
+
+  @staticmethod
+  def batch_processing(batch_val_loss, batch_bleu, batch_success):
+    avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)
+    avg_bleu = 100 * float(sum(batch_bleu)) / len(batch_bleu)
+    avg_success = 100 * float(sum(batch_success)) / len(batch_success)
+
+    print('Validation Loss: {0:2.4f}, BLEU Score: {1:.2f}, Per Turn Accuracy: {2:.2f}'.format(
+            avg_val_loss, avg_bleu, avg_success))
+    return avg_val_loss, avg_bleu, avg_success
 
   def test_mode_run(self, test_pairs, encoder, decoder, task):
     batch_test_loss, batch_bleu, batch_success = [], [], []

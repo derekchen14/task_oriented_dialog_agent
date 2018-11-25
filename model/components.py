@@ -1,5 +1,3 @@
-from torch import optim
-from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 from torch.nn import NLLLoss, parameter
 
@@ -14,23 +12,6 @@ from tqdm import tqdm as progress_bar
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-
-def init_optimizers(optimizer_type, weight_decay, enc_params, dec_params, lr):
-  if optimizer_type == 'SGD':
-    encoder_optimizer = optim.SGD(enc_params, lr, weight_decay)
-    decoder_optimizer = optim.SGD(dec_params, lr, weight_decay)
-  elif optimizer_type == 'Adam':
-    # warmup = step_num * math.pow(4000, -1.5)
-    # lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
-    lr = 0.0158
-    encoder_optimizer = optim.Adam(enc_params, lr, betas=(0.9, 0.98), eps=1e-9)
-    decoder_optimizer = optim.Adam(dec_params, lr, betas=(0.9, 0.98), eps=1e-9)
-    # encoder_optimizer = optim.Adam(enc_params, lr * 0.01, weight_decay=weight_decay)
-    # decoder_optimizer = optim.Adam(dec_params, lr * 0.01, weight_decay=weight_decay)
-  else:
-    encoder_optimizer = optim.RMSprop(enc_params, lr, weight_decay)
-    decoder_optimizer = optim.RMSprop(dec_params, lr, weight_decay)
-  return encoder_optimizer, decoder_optimizer
 
 def var(data, dtype="float"):
   if dtype == "float":
@@ -50,69 +31,6 @@ def clip_gradient(models, clip):
     return
   for model in models:
     clip_grad_norm_(model.parameters(), clip)
-
-# from modules.learn import *
-
-def choose_model(model_type, vocab_size, hidden_size, method, n_layers, drop_prob):
-  max_length = 25
-
-  if model_type == "basic":
-    from model.learn.encoders import RNN_Encoder
-    from model.learn.decoders import RNN_Decoder
-    encoder = RNN_Decoder
-    decoder = RNN_Decoder
-  elif model_type == "gru":
-    from model.learn.encoders import GRU_Encoder
-    from model.learn.decoders import GRU_Decoder
-    encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
-    decoder = GRU_Decoder(vocab_size, hidden_size, n_layers)
-  elif model_type == "lstm":
-    from model.learn.encoders import LSTM_Encoder
-    from model.learn.decoders import FF_Network
-    encoder = LSTM_Encoder(vocab_size, hidden_size, n_layers)
-    label_size = 140  # for full enumeration
-    decoder = FF_Network(hidden_size, label_size)
-  elif model_type == "attention":
-    from model.learn.encoders import GRU_Encoder
-    from model.learn.decoders import Attn_Decoder
-    encoder = GRU_Encoder(vocab_size, hidden_size, n_layers)
-    decoder = Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
-  elif model_type == "bidirectional":
-    from model.learn.encoders import Bid_Encoder
-    from model.learn.decoders import Bid_Decoder
-    encoder = Bid_Encoder(vocab_size, hidden_size)
-    decoder = Bid_Decoder(vocab_size, hidden_size, method, drop_prob)
-  elif model_type == "copy":
-    from model.learn.encoders import Match_Encoder
-    from model.learn.decoders import Copy_Without_Attn_Decoder
-    encoder = Match_Encoder(vocab_size, hidden_size)
-    decoder = Copy_Without_Attn_Decoder(vocab_size, hidden_size, method, drop_prob)
-    zeros_tensor = torch.zeros(vocab_size, max_length)
-    copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
-    decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
-  elif model_type == "combined":
-    from model.learn.encoders import Match_Encoder
-    from model.learn.decoders import Copy_Decoder
-    encoder = Match_Encoder(vocab_size, hidden_size)
-    decoder = Copy_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
-    zeros_tensor = torch.zeros(vocab_size, max_length)
-    copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
-    decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
-  elif model_type == "transformer":
-    from model.learn.encoders import Transformer_Encoder
-    from model.learn.decoders import Transformer_Decoder
-    encoder = Transformer_Encoder(vocab_size, hidden_size, n_layers)
-    decoder = Transformer_Decoder(vocab_size, hidden_size, n_layers)
-  elif model_type == "replica":
-    from model.learn.encoders import Replica_Encoder
-    from model.learn.decoders import Replica_Decoder
-    encoder = Replica_Encoder(vocab_size, hidden_size)
-    decoder = Replica_Decoder(vocab_size, hidden_size, method, drop_prob, max_length)
-    zeros_tensor = torch.zeros(vocab_size, max_length)
-    copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
-    decoder.embedding.weight = parameter.Parameter(torch.cat(copy_tensor, dim=1))
-
-  return encoder.to(device), decoder.to(device)
 
 def run_inference(encoder, decoder, sources, targets, criterion, teach_ratio):
   if decoder.arguments_size == "extra_large":
@@ -194,25 +112,6 @@ def transformer_inference(encoder, decoder, sources, targets, criterion):
       break
 
   return loss, predictions, None
-
-def grab_attention(val_data, encoder, decoder, task, vis_count):
-  encoder.eval()
-  decoder.eval()
-  dialogues = data_io.select_consecutive_pairs(val_data, vis_count)
-
-  visualizations = []
-  for dialog in dialogues:
-    for turn in dialog:
-      input_variable, output_variable = turn
-      _, responses, visual = run_inference(encoder, decoder, input_variable, \
-                      output_variable, criterion=NLLLoss(), teach_ratio=0)
-      queries = input_variable.data.tolist()
-      query_tokens = [vocab.index_to_word(q[0], task) for q in queries]
-      response_tokens = [vocab.index_to_word(r, task) for r in responses]
-
-      visualizations.append((visual, query_tokens, response_tokens))
-
-  return visualizations
 
 def show_dialogues(val_data, encoder, decoder, task):
   encoder.eval()

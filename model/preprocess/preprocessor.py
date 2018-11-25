@@ -3,7 +3,8 @@ from model.components import var
 from utils.internal.data_io import load_dataset
 
 class PreProcessor(object):
-  def __init__(self, args):
+  def __init__(self, args, kind):
+    self.kind = kind
     use_context, debug, task = args.context, args.debug, args.task_name
     if args.test_mode:
       self.prepare_examples("test", use_context, debug, task)
@@ -49,15 +50,13 @@ class PreProcessor(object):
     return var(tokens, "long")
 
   def prepare_output(self, target):
-    kind = "ordered_values" # "full_enumeration", "possible_only"
-
     if len(target) == 1:
-      target_index = vocab.belief_to_index(target[0], kind)
+      target_index = vocab.belief_to_index(target[0], self.kind)
       output_var = var([target_index], "long")
       return output_var, False
     elif len(target) == 2:
-      target_index = vocab.beliefs_to_index(target, kind)
-      if kind == "full_enumeration":
+      target_index = vocab.beliefs_to_index(target, self.kind)
+      if self.kind == "full_enumeration":
         output_var = var([target_index], "long")
         return output_var, False
       else:
