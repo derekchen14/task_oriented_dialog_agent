@@ -55,7 +55,7 @@ def solicit_args():
               help='when true, save model weights in a checkpoint')
   parser.add_argument('--use-existing', default=False, action='store_true',
               help='when true, we use an existing model rather than training a new one')
-  parser.add_argument('--model-path', default='remove_me', type=str,
+  parser.add_argument('--model-name', default='remove_me', type=str,
               help='where in the results folder to save the encoder and decoder')
   parser.add_argument('--suffix', default='Nov_09', type=str,
               help='string appended to filenames to distinguish among trials')

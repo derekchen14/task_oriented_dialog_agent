@@ -19,7 +19,7 @@ class Learner(object):
 
     self.decay_times = args.decay_times
     self.teach_ratio = args.teacher_forcing
-    self.model_name = "{0}_{1}".format(args.model_path, args.suffix)
+    self.model_path = "results/{0}_{1}.pt".format(args.model_name, args.suffix)
 
     self.processor = processor
     self.builder = builder
@@ -49,13 +49,16 @@ class Learner(object):
     targets = output_var.data.tolist()
 
     # when task is not specified, it defaults to index_to_label
-    predicted_tokens = [vocab.index_to_word(predictions, self.kind)]
+    predicted_tokens = [vocab.index_to_word(pred, self.kind) for pred in predictions]
+    # predicted_tokens = [vocab.index_to_word(predictions)]
     query_tokens = [vocab.index_to_word(y, task) for y in queries]
     target_tokens = [vocab.index_to_word(z, self.kind) for z in targets]
 
+
     avg_loss = loss.item() / output_var.shape[0]
-    bleu_score = BLEU.compute(predicted_tokens, target_tokens)
-    turn_success = (predictions.item() == targets[0])
+    bleu_score = 1 # BLEU.compute(predicted_tokens, target_tokens)
+    turn_success = targets[0] in predictions
+    # (predictions.item() == targets[0])
 
     return avg_loss, bleu_score, turn_success
 
@@ -68,8 +71,10 @@ class Learner(object):
   return avg_loss, bleu_score, all(turn_success)
   '''
 
-  def learn(self, model, task):
-    self.model = model
+  def learn(self, task):
+    self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(kind))
+    print("Running model {}".format(self.model_path))
+
     self.learn_start = tm.time()
     n_iters = 600 if self.debug else len(self.processor.train_data)
     print_every, plot_every, val_every = print_frequency(self.verbose, self.debug)
@@ -122,6 +127,5 @@ class Learner(object):
     time_past(self.learn_start)
 
   def save_model(self):
-    model_path = "results/{}.pt".format(self.model_name)
-    save(self.model, model_path)
-    print('Model saved at {}!'.format(model_path))
+    save(self.model, self.model_path)
+    print('Model saved at {}!'.format(self.model_path))

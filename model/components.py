@@ -51,7 +51,8 @@ def basic_inference(model, sources, targets, criterion):
   hidden = model.encoder.initHidden()
   output = model(sources, hidden)
   topv, topi = output.data.topk(1)
-  pred = topi[0][0]
+  # preds = topi[0]  # returns full list of predictions as a tensor
+  pred = topi[0][0] # instead to select just the first
 
   loss = 0 if criterion is None else criterion(output, targets)
   return loss, pred, None

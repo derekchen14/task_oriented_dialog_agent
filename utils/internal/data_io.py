@@ -5,12 +5,12 @@ from scipy.stats import truncnorm
 import math
 import json
 import pandas as pd
-import pickle
+import pickle as pkl
 
 from nltk import word_tokenize
 import utils.internal.vocabulary as vocab
 
-def load_dataset(task, split, debug=False):
+def load_dataset(task, split):
   if task in ['1', '2', '3', '4', '5']:
     dataset_name = "dialog-babi-task{0}-{1}.txt".format(task, split)
     restaurants, kb = read_restaurant_data(dataset_name)
@@ -20,7 +20,6 @@ def load_dataset(task, split, debug=False):
   elif task in ['schedule','navigate','weather']:
     paths = {'trn': 'in_car/train.json', 'dev': 'in_car/dev.json', 'tst': 'in_car/test.json'}
     data = load_json_dataset(paths[split])
-    data = data[0:20] if debug else data
     navigations, weathers, schedules, kbs = load_incar_data(data)
     tasks = {'navigate': navigations, 'weather': weathers, 'schedule': schedules}
     max_length = 42
@@ -33,13 +32,15 @@ def load_dataset(task, split, debug=False):
     return (restaurants, candidates, max_length)
   elif task == "dstc2":
     dataset_name = "{0}/cleaned/{1}_v3.json".format(task, split)
-    data = vocab.load_vocab(dataset_name)  # actually used to load json
-    examples = data[0:20] if debug else data
+    dataset = vocab.load_vocab(dataset_name)  # actually used to load json
     max_length = 23
-    return (examples, max_length)
+    return (dataset, max_length)
 
-def pickle_loader(filename):
-  return pickle.load( open( "{}.pkl".format(filename), "rb" ) )
+def pickle_io(filename, process, data=None):
+  if process == "load":
+    return pkl.load( open( "{}.pkl".format(filename), "rb" ) )
+  elif process == "save":
+    pkl.dump(data, open( "{}.pkl".format(filename), "wb") )
 
 def parse_dialogue(lines, tokenizer=True):
   '''

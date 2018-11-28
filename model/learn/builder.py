@@ -84,6 +84,15 @@ class Builder(object):
 
     return enc_optimizer, dec_optimizer
 
+  def make_system(self, input_size, output_size):
+    mods = 1
+    if mods == 1:
+      model = self.create_model(input_size, output_size)
+      return model
+    else:
+      models = [self.create_model(input_size, output_size) for i in range(mods)]
+      return models
+
 
 class Seq2Seq(nn.Module):
   def __init__(self, encoder, decoder):

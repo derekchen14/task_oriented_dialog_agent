@@ -22,6 +22,8 @@ class Evaluator(object):
     self.kind = kind
 
   def plot(xs, ys, title="Training Curve"):
+  # if args.plot_results:
+  #   evaluator.plot([strain, sval], [ltrain, lval])
     xlabel = "Iterations"
     ylabel = "Loss"
     assert len(xs) == len(ys)
@@ -109,28 +111,3 @@ class Evaluator(object):
       if self.verbose:
         plt.show()
       plt.close()
-
-  def test_mode_run(self, test_pairs, model, task):
-    batch_test_loss, batch_bleu, batch_success = [], [], []
-    bleu_scores, accuracy = [], []
-    model.eval()
-
-    for test_pair in progress_bar(test_pairs):
-      test_input = test_pair[0]
-      test_output = test_pair[1]
-      loss, predictions, visual = run_inference(model, test_input, \
-                        test_output, criterion=NLLLoss(), teach_ratio=0)
-
-      targets = test_output.data.tolist()
-      predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]
-      target_tokens = [vocab.index_to_word(z[0], task) for z in targets]
-
-      test_loss = loss.data[0] / test_output.size()[0]
-      bleu_score = BLEU.compute(predicted_tokens, target_tokens)
-      turn_success = all([pred == tar[0] for pred, tar in zip(predictions, targets)])
-
-      batch_test_loss.append(test_loss)
-      batch_bleu.append(bleu_score)
-      batch_success.append(turn_success)
-
-    return batch_processing(batch_test_loss, batch_bleu, batch_success)

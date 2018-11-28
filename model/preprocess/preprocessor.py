@@ -1,25 +1,35 @@
 import utils.internal.vocabulary as vocab
 from model.components import var
-from utils.internal.data_io import load_dataset
+from utils.internal.data_io import load_dataset, pickle_io
+from os.path import join as join_path
 
 class PreProcessor(object):
   def __init__(self, args, kind):
     self.kind = kind
-    use_context, debug, task = args.context, args.debug, args.task_name
+    use_context, task = args.context, args.task_name
     if args.test_mode:
-      self.prepare_examples("test", use_context, debug, task)
-    else:
-      self.prepare_examples("train", use_context, debug, task)
-      self.prepare_examples("val", use_context, debug, task)
+      self.prepare_examples("test", use_context, task)
+    elif args.debug:
+      self.load_debug_examples(task)
+    else: # normal training mode
+      self.prepare_examples("train", use_context, task)
+      self.prepare_examples("val", use_context, task)
+      self.make_cache(task)
 
-  def prepare_examples(self, split, use_context, debug, task):
+  def load_debug_examples(self, task):
+    data_path = join_path("datasets", task, "debug", "cache")
+    debug_data = pickle_io(data_path, "load")
+    self.train_data = debug_data["train"]
+    self.val_data = debug_data["val"]
+
+  def prepare_examples(self, split, use_context, task):
     ''' For DSTC2, format is
     Example is dict with keys
       {"input_source": [utterance, context, id]}
       {"output_target": [list of labels]}
     where each label is (high level intent, low level intent, slot, value)
     '''
-    dataset, max_length = load_dataset(task, split, debug)
+    dataset, max_length = load_dataset(task, split)
 
     variables = []
     for example in dataset:
@@ -62,6 +72,13 @@ class PreProcessor(object):
       else:
         output_vars = [var([ti], "long") for ti in target_index]
         return output_vars, True
+
+  def make_cache(self, task):
+    data_path = join_path("datasets", task, "debug", "cache")
+    if not os.path.exists(data_path):
+      cache = { "train": self.train_data[0:14], "val": self.val_data[0:7] }
+      pickle_io(data_path, "save", cache)
+      print("{} saved successfully!".format(data_path))
 
   def dialog_to_variable(self, dialog, task):
     # example is list of tuples, where each tuple is utterance and response
