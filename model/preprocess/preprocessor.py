@@ -1,7 +1,7 @@
 import utils.internal.vocabulary as vocab
 from model.components import var
 from utils.internal.data_io import load_dataset, pickle_io
-from os.path import join as join_path
+import os
 
 class PreProcessor(object):
   def __init__(self, args, kind):
@@ -17,7 +17,7 @@ class PreProcessor(object):
       self.make_cache(task)
 
   def load_debug_examples(self, task):
-    data_path = join_path("datasets", task, "debug", "cache")
+    data_path = os.path.join("datasets", task, "debug", "cache.pkl")
     debug_data = pickle_io(data_path, "load")
     self.train_data = debug_data["train"]
     self.val_data = debug_data["val"]
@@ -61,6 +61,26 @@ class PreProcessor(object):
 
   def prepare_output(self, target):
     if len(target) == 1:
+      dual_index = vocab.belief_to_index(target[0])
+      if self.kind == "intent":
+        output_var = var([dual_index[0]], "long")
+      elif self.kind == "sv":
+        output_var = var([dual_index[1]], "long")
+      return output_var, False
+
+    elif len(target) == 2:
+      dual_indexes = [vocab.belief_to_index(b) for b in target]
+      output_vars = []
+      for di in dual_indexes:
+        if self.kind == "intent":
+          output_vars.append(var([di[0]], "long"))
+        elif self.kind == "sv":
+          output_vars.append(var([di[1]], "long"))
+
+      return output_vars, True
+  '''
+  def prepare_output(self, target):
+    if len(target) == 1:
       target_index = vocab.belief_to_index(target[0], self.kind)
       output_var = var([target_index], "long")
       return output_var, False
@@ -72,9 +92,10 @@ class PreProcessor(object):
       else:
         output_vars = [var([ti], "long") for ti in target_index]
         return output_vars, True
+  '''
 
   def make_cache(self, task):
-    data_path = join_path("datasets", task, "debug", "cache")
+    data_path = os.path.join("datasets", task, "debug", "cache.pkl")
     if not os.path.exists(data_path):
       cache = { "train": self.train_data[0:14], "val": self.val_data[0:7] }
       pickle_io(data_path, "save", cache)
@@ -88,4 +109,5 @@ class PreProcessor(object):
       utterance, wop = variable_from_sentence(turn[0], [t_idx+1], task)
       response, dop = variable_from_sentence(turn[1], [], task)
       dialog_pairs.append((utterance, response))
+
     return dialog_pairs

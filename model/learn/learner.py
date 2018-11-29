@@ -49,16 +49,15 @@ class Learner(object):
     targets = output_var.data.tolist()
 
     # when task is not specified, it defaults to index_to_label
-    predicted_tokens = [vocab.index_to_word(pred, self.kind) for pred in predictions]
-    # predicted_tokens = [vocab.index_to_word(predictions)]
+    predicted_tokens = [vocab.index_to_word(predictions, self.kind)]
     query_tokens = [vocab.index_to_word(y, task) for y in queries]
     target_tokens = [vocab.index_to_word(z, self.kind) for z in targets]
 
 
     avg_loss = loss.item() / output_var.shape[0]
     bleu_score = 1 # BLEU.compute(predicted_tokens, target_tokens)
-    turn_success = targets[0] in predictions
-    # (predictions.item() == targets[0])
+    turn_success = (predictions.item() == targets[0])
+    # targets[0] in predictions
 
     return avg_loss, bleu_score, turn_success
 
@@ -72,7 +71,7 @@ class Learner(object):
   '''
 
   def learn(self, task):
-    self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(kind))
+    self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(self.kind))
     print("Running model {}".format(self.model_path))
 
     self.learn_start = tm.time()

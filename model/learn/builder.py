@@ -27,7 +27,7 @@ class Builder(object):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
-    elif self.model_type == "basic":
+    elif self.model_type in ["basic", "dual"]:
       encoder = enc.LSTM_Encoder(vocab_size, self.hidden_size, self.n_layers)
       ff_network = dec.FF_Network(self.hidden_size, output_size)
       return BasicClassifer(encoder, ff_network)
@@ -84,14 +84,9 @@ class Builder(object):
 
     return enc_optimizer, dec_optimizer
 
-  def make_system(self, input_size, output_size):
-    mods = 1
-    if mods == 1:
-      model = self.create_model(input_size, output_size)
-      return model
-    else:
-      models = [self.create_model(input_size, output_size) for i in range(mods)]
-      return models
+  def make_system(self, input_size, *output_size):
+    models = [self.create_model(input_size, outs) for outs in output_size]
+    return models[0] if len(models) == 1 else models
 
 
 class Seq2Seq(nn.Module):

@@ -38,9 +38,11 @@ def load_dataset(task, split):
 
 def pickle_io(filename, process, data=None):
   if process == "load":
-    return pkl.load( open( "{}.pkl".format(filename), "rb" ) )
+    # return pkl.load( open( "{}.pkl".format(filename), "rb" ) )
+    return pkl.load( open( filename, "rb" ) )
   elif process == "save":
-    pkl.dump(data, open( "{}.pkl".format(filename), "wb") )
+    # pkl.dump(data, open( "{}.pkl".format(filename), "wb") )
+    pkl.dump(data, open( filename, "wb") )
 
 def parse_dialogue(lines, tokenizer=True):
   '''

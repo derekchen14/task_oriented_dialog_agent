@@ -1,11 +1,9 @@
 # CUDA_VISIBLE_DEVICES=1 
-# python run.py --task dstc2 --model-type basic \
-#   --suffix Nov_28 -lr 0.03 --epochs 2 --report-path full_enumeration \
-#   --report-results --save-model
+python run.py --task dstc2 --model-type dual --model-name dual \
+  --suffix Nov_28 -lr 0.03 --epochs 1 --report-path intent_slot
+  # --debug
 
-python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
-  --report-path full_enumeration --model-name fe
-python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
-  --report-path ordered_values --model-name ov
-python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
-  --report-path possible_only --model-name po
+# python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
+#   --report-path intent_slot --model-name is
+# python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
+#   --report-path per_intent --model-name pi

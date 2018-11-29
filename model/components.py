@@ -27,7 +27,7 @@ def clip_gradient(model, clip):
   clip_grad_norm_(model.decoder.parameters(), clip)
 
 def run_inference(model, sources, targets, criterion, teach_ratio):
-  if model.type == "basic":
+  if model.type in ["basic", "dual", "multi"]:
     return basic_inference(model, sources, targets, criterion)
   elif model.type == "transformer":
     return transformer_inference(model, sources, targets, criterion)

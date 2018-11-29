@@ -36,6 +36,54 @@ class Evaluator(object):
     plt.legend(["Train", "Validation"])
     plt.show()
 
+  def report(self, intent_learner, sv_learner):
+    datapoint_count = len(intent_learner.processor.val_data)
+    i_model = intent_learner.model
+    sv_model = sv_learner.model
+
+    success, rank_success =  0, 0
+    display = []
+    for idx in range(datapoint_count):
+      utterance = intent_learner.processor.val_data[idx][0]
+      intent_target = intent_learner.processor.val_data[idx][1]
+      sv_target = sv_learner.processor.val_data[idx][1]
+
+      intent_hidden = i_model.encoder.initHidden()
+      intent_output = i_model(utterance, intent_hidden)
+      _, i_top = intent_output.data.topk(1)
+      i_pred = i_top[0][0]
+      _, i_rank = intent_output.data.topk(2)
+      i_preds = i_rank[0]
+
+      slot_value_hidden = sv_model.encoder.initHidden()
+      slot_value_output = sv_model(utterance, slot_value_hidden)
+      _, slot_value_top = slot_value_output.data.topk(1)
+      sv_pred = slot_value_top[0][0]
+      _, sv_rank = slot_value_output.data.topk(2)
+      sv_preds = sv_rank[0]
+
+      if (i_pred == intent_target) and (sv_pred == sv_target):
+        success += 1
+      if (intent_target in i_preds) and (sv_target in sv_preds):
+        rank_success += 1
+      if random.random() < 0.01:
+        input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in utterance])
+        post_intent_target = vocab.index_to_word(intent_target, "intent")
+        post_sv_target = vocab.index_to_word(sv_target, "sv")
+        post_i_pred = vocab.index_to_word(i_pred, "intent")
+        post_sv_pred = vocab.index_to_word(sv_pred, "sv")
+
+        display.append(input_text)
+        display.append("Target: {0}({1})".format(post_intent_target, post_sv_target))
+        display.append("Predicted: {0}({1})".format(post_i_pred, post_sv_pred))
+        display.append(" ----- ")
+
+    rank_accuracy = rank_success / float(datapoint_count)
+    print("Overall accuracy: {:.4f}, rank accuracy {:.4f}".format(
+      success / float(datapoint_count), rank_accuracy) )
+    for line in display:
+      print(line)
+
   # Qualitative evalution of model performance
   def qual_report(self, model, data):
     samples = [random.choice(data) for i in range(10)]

@@ -7,7 +7,7 @@ def solicit_args():
               'dstc2', 'dstc7', 'frames', 'multiwoz'], default='frames',
               help='Choose the task to train on', )
   parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
-              'gru', 'attention', 'combined', 'copy', 'transformer', 'match'],
+              'gru', 'attention', 'combined', 'dual', 'transformer', 'match'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')
