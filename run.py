@@ -20,7 +20,7 @@ if __name__ == "__main__":
   # ---- TRAIN OR TEST MODELS  ----
   if args.test_mode:
     tester = Tester(args, processor, kind)
-    tester.test("macro_f1", "accuracy") # "micro_f1", "bleu", "just_loss"
+    tester.test("macro_f1", "micro_f1") # "accuracy", "bleu", "just_loss"
   else:
     learner = Learner(args, processor, builder, tracker, kind)
     learner.learn(task)

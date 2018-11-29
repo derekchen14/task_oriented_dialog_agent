@@ -5,7 +5,7 @@
 
 python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
   --report-path full_enumeration --model-name fe
-# python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
-#   --report-path ordered_values --model-name ov
-# python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
-#   --report-path possible_only --model-name po
+python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
+  --report-path ordered_values --model-name ov
+python run.py --test-mode --task-name dstc2 --suffix Nov_28 \
+  --report-path possible_only --model-name po

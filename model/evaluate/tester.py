@@ -2,42 +2,31 @@ import pdb, sys, os
 import torch
 from tqdm import tqdm as progress_bar
 from model.components import var, run_inference
+import numpy as np
 
 # Used for testing, as opposed to training or validation
 class Tester(object):
   def __init__(self, args, processor, kind):
     self.test_data = processor.test_data
-    self.kind = kind
+    print(kind)
 
     model_path = "results/{0}_{1}.pt".format(args.model_name, args.suffix)
     if os.path.exists(model_path):
       self.model = torch.load(model_path)
       self.model.eval()
-      print("model type should be basic:", self.model.type)
     else:
       raise FileNotFoundError('Please train and save a dialogue model first.')
 
   def test(self, *metrics):
     predictions, targets = [], []
-    for test_pair in progress_bar(self.test_data):
+    for test_pair in self.test_data: #progress_bar(self.test_data):
       test_input, test_output = test_pair
       _, pred, _ = run_inference(self.model, test_input, \
                         test_output, criterion=None, teach_ratio=0)
-      tar = test_output.data.tolist()
-
-      print(pred.item())
-      print(tar.item())
-      pdb.set_trace()
-
+      targets.append(test_output.tolist()[0])
       predictions.append(pred.item())
-      targets.append(tar)
 
-    classes = set()
-    for cls in predictions:
-      classes.add(cls)
-    for cls in targets:
-      classes.add(cls)
-    classes = list(classes)
+    classes = list(set(targets))
 
     for metric in metrics:
       getattr(self, metric)(classes, predictions, targets)
@@ -86,7 +75,7 @@ class Tester(object):
 
   def macro_f1(self, classes, predictions, targets):
     total_f1 = []
-    for cls in classes:
+    for cls in progress_bar(classes):
 
       true_positive, false_positive, false_negative, true_negative = 0,0,0,0
       for pred, tar in zip(predictions, targets):
@@ -100,7 +89,8 @@ class Tester(object):
           true_negative += 1
 
       f1 = Tester.single_f1(true_positive, false_positive, false_negative)
-      total_f1.append(f1)
+      if f1 >= 0:
+        total_f1.append(f1)
 
     macro = np.average(total_f1)
     print("Macro average is {:.3f}".format(macro))
@@ -109,7 +99,7 @@ class Tester(object):
   def micro_f1(self, classes, predictions, targets):
     true_positive, false_positive, false_negative, true_negative = 0,0,0,0
 
-    for cls in classes:
+    for cls in progress_bar(classes):
       for pred, tar in zip(predictions, targets):
         if pred == cls and tar == cls:
           true_positive += 1
@@ -126,7 +116,30 @@ class Tester(object):
 
   @staticmethod
   def single_f1(true_positive, false_positive, false_negative):
-    precision = true_positive / (true_positive + false_positive)
-    recall = true_positive / (true_positive + false_negative)
-    f1 = 2 * ((precision * recall) / (precision + recall))
-    return f1
+    precision_total = max(1, true_positive + false_positive)
+    precision = true_positive / precision_total
+    recall_total = max(1, true_positive + false_negative)
+    recall = true_positive / recall_total
+    if (true_positive + false_positive + false_negative == 0):
+      return -1
+    elif (precision + recall == 0):
+      return 0
+    else:
+      return  2 * ((precision * recall) / (precision + recall))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
