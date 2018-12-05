@@ -7,7 +7,9 @@ import pandas as pd
 import sys, pdb
 
 from utils.external.bleu import BLEU
-import utils.internal.vocabulary as vocab
+# import utils.internal.vocabulary as vocab
+# import utils.internal.dual_vocab as vocab
+import utils.internal.per_slot_vocab as vocab
 import utils.internal.data_io as data_io
 from model.components import var, run_inference
 
@@ -36,7 +38,7 @@ class Evaluator(object):
     plt.legend(["Train", "Validation"])
     plt.show()
 
-  def report(self, intent_learner, sv_learner):
+  def dual_report(self, intent_learner, sv_learner):
     datapoint_count = len(intent_learner.processor.val_data)
     i_model = intent_learner.model
     sv_model = sv_learner.model
@@ -81,6 +83,61 @@ class Evaluator(object):
     rank_accuracy = rank_success / float(datapoint_count)
     print("Overall accuracy: {:.4f}, rank accuracy {:.4f}".format(
       success / float(datapoint_count), rank_accuracy) )
+    for line in display:
+      print(line)
+
+
+  def per_slot_report(self, learners):
+    data = learners[0].processor.val_data
+    exact_success, rank_success = 0, 0
+    display = []
+    use_display = False
+    for example in data:
+      utterance, targets = example
+
+      if random.random() < 0.01:
+        display.append(" ----- ")
+        input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in utterance])
+        display.append(input_text)
+        use_display = True
+        target_words = ["Target: "]
+        pred_words = ["Prediction: "]
+
+      exact_correct = True
+      rank_correct = True
+      for idx, learner in enumerate(learners):
+        target = targets[idx]
+        category = vocab.categories[idx]
+
+        hidden_state = learner.model.encoder.initHidden()
+        output = learner.model(utterance, hidden_state)
+        _, top1 = output.data.topk(1)
+        exact_pred = top1[0][0]
+        _, top2 = output.data.topk(2)
+        rank_preds = top2[0]
+
+        if exact_pred is not target:
+          exact_correct = False
+        if target not in rank_preds:
+          rank_correct = False
+
+        if use_display and target != 0:
+          target_words.append(vocab.index_to_word(target, category))
+        if use_display and exact_pred != 0:
+          pred_words.append(vocab.index_to_word(exact_pred, category))
+
+      if exact_correct:
+        exact_success += 1
+      if rank_correct:
+        rank_success += 1
+      if use_display:
+        display.append(" ".join(target_words))
+        display.append(" ".join(pred_words))
+        use_display = False
+
+    exact_accuracy = float(exact_success) / len(data)
+    rank_accuracy = float(rank_success) / len(data)
+    print("Exact accuracy: {:.4f}, Rank accuracy {:.4f}".format(exact_accuracy, rank_accuracy) )
     for line in display:
       print(line)
 

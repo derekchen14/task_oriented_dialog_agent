@@ -7,7 +7,6 @@ from torch.nn import NLLLoss as NegLL_Loss
 from torch.optim.lr_scheduler import StepLR
 
 from utils.external.bleu import BLEU
-from utils.internal import vocabulary as vocab
 from utils.internal.clock import *
 from model.components import *
 
@@ -26,6 +25,10 @@ class Learner(object):
     self.tracker = tracker
 
     self.kind = kind
+    self.model_type = args.model_type
+    categories = ["intent", "food", "area", "price", "name", "answer", "request"]
+    if self.model_type == "per_slot":
+      self.model_idx = categories.index(kind)   # order matters, do not switch
 
   def train(self, input_var, output_var, enc_optimizer, dec_optimizer):
     self.model.train()   # affects the performance of dropout
@@ -94,8 +97,9 @@ class Learner(object):
       for iteration, training_pair in enumerate(self.processor.train_data):
         enc_scheduler.step()
         dec_scheduler.step()
-        input_var = training_pair[0]
-        output_var = training_pair[1]
+        input_var, output_var = training_pair
+        if self.model_type == "per_slot":
+          output_var = output_var[self.model_idx]
 
         loss = self.train(input_var, output_var, enc_optimizer, dec_optimizer)
         print_loss_total += loss
@@ -113,14 +117,16 @@ class Learner(object):
           self.tracker.val_steps.append(iteration + 1)
           batch_val_loss, batch_bleu, batch_success = [], [], []
           for val_input, val_output in self.processor.val_data:
+            if self.model_type == "per_slot":
+              val_output = val_output[self.model_idx]
             val_loss, bs, ts = self.validate(val_input, val_output, task)
             batch_val_loss.append(val_loss)
             batch_bleu.append(bs)
             batch_success.append(ts)
 
           self.tracker.batch_processing(batch_val_loss, batch_bleu, batch_success)
-          if self.tracker.should_early_stop():
-            print("Early stopped at val epoch {}".format(tracker.val_epoch))
+          if self.tracker.should_early_stop(iteration):
+            print("Early stopped at val epoch {}".format(self.tracker.val_epoch))
             self.tracker.completed_training = False
             break
     time_past(self.learn_start)

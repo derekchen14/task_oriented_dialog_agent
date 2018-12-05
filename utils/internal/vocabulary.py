@@ -11,11 +11,9 @@ def load_vocab(path):
 # car_vocab = load_vocab("car_vocab.json")
 # babi_vocab = load_vocab("babi_vocab.json")
 dstc2_vocab = load_vocab("dstc2/cleaned/vocab.json")
-# label_vocab = load_vocab("dstc2/cleaned/label_vocab.json")
+label_vocab = load_vocab("dstc2/cleaned/label_vocab.json")
 # woz2_vocab = load_vocab("woz2/cleaned/vocab.json")
 # frames_vocab = load_vocab("frames/cleaned/vocab.json")
-intent_vocab = load_vocab("dstc2/cleaned/intent_vocab.json")
-sv_vocab = load_vocab("dstc2/cleaned/sv_vocab.json")
 
 
 # special_tokens = ["<SILENCE>", "<T01>","<T02>","<T03>", ... , "<T14>",
@@ -44,53 +42,14 @@ def word_to_index(token, task):
   elif task == "dstc2":
     return dstc2_vocab.index(token)
 
-# def index_to_word(idx, task):
-#   if task == "in-car":
-#     return car_vocab[idx]
-#   elif task == "babi":
-#     return res_vocab[idx]
-#   elif task == "dstc2":
-#     return dstc2_vocab[idx]
-
-def belief_to_index(belief):
-  high, low, slot, value = belief
-  intent_idx = intent_vocab.index(high)
-  if slot is None:
-    if value is None:
-      sv = "None"
-    else:
-      sv = value
-  else:
-    sv = "{}={}".format(slot, value)
-
-  sv_idx = sv_vocab.index(sv)
-  return [intent_idx, sv_idx]
-
-def index_to_word(idx, kind):
-  if kind == "intent":
-    return intent_vocab[idx]
-  elif kind == "sv":
-    return sv_vocab[idx]
-  elif kind == "dstc2":
+def index_to_word(idx, task):
+  if task == "in-car":
+    return car_vocab[idx]
+  elif task == "babi":
+    return res_vocab[idx]
+  elif task == "dstc2":
     return dstc2_vocab[idx]
 
-def ulary_size(task):
-  if task == "in-car":
-    return len(car_vocab)
-  elif task == "babi":
-    return len(res_vocab)
-  elif task == "dstc2":
-    return len(dstc2_vocab)
-
-def label_size(kind):
-  if kind == "intent":
-    return len(intent_vocab)
-  elif kind == "sv":
-    return len(sv_vocab)
-  else:
-    return len(label_vocab[kind])
-
-'''
 def belief_to_index(belief, task):
   labels = label_vocab[task]
   high, low, slot, value = belief
@@ -135,4 +94,14 @@ def index_to_word(idx, task):
     return dstc2_vocab[idx]
   else:
     return label_vocab[task][idx]
-'''
+
+def ulary_size(task):
+  if task == "in-car":
+    return len(car_vocab)
+  elif task == "babi":
+    return len(res_vocab)
+  elif task == "dstc2":
+    return len(dstc2_vocab)
+
+def label_size(kind):
+  return len(label_vocab[kind])

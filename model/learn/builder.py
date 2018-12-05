@@ -27,7 +27,7 @@ class Builder(object):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
-    elif self.model_type in ["basic", "dual"]:
+    elif self.model_type in ["basic", "dual", "per_slot"]:
       encoder = enc.LSTM_Encoder(vocab_size, self.hidden_size, self.n_layers)
       ff_network = dec.FF_Network(self.hidden_size, output_size)
       return BasicClassifer(encoder, ff_network)
