@@ -1,4 +1,4 @@
-import utils.internal.per_slot_vocab as vocab
+import utils.internal.vocabulary as vocab
 from model.components import var
 from utils.internal.data_io import load_dataset, pickle_io
 import os

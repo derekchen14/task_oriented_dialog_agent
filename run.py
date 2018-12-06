@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import torch
-torch.manual_seed(14)
+torch.manual_seed(15)
 
 from utils.internal.arguments import solicit_args
 from utils.internal import vocabulary as vocab

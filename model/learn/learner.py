@@ -52,17 +52,17 @@ class Learner(object):
     targets = output_var.data.tolist()
 
     # when task is not specified, it defaults to index_to_label
-    predicted_tokens = [vocab.index_to_word(predictions, self.kind)]
+    predicted_tokens = [vocab.index_to_word(predictions[0], self.kind)]
     query_tokens = [vocab.index_to_word(y, task) for y in queries]
     target_tokens = [vocab.index_to_word(z, self.kind) for z in targets]
 
 
     avg_loss = loss.item() / output_var.shape[0]
-    bleu_score = 1 # BLEU.compute(predicted_tokens, target_tokens)
-    turn_success = (predictions.item() == targets[0])
-    # targets[0] in predictions
-
-    return avg_loss, bleu_score, turn_success
+    # bleu_score = 1 BLEU.compute(predicted_tokens, target_tokens)
+    exact_success = (predictions[0].item() == targets[0])
+    rank_success = targets[0] in predictions
+    # return avg_loss, bleu_score, turn_success
+    return avg_loss, exact_success, rank_success
 
   ''' Modified since predictions are now single classes rather than sentences
   predicted_tokens = [vocab.index_to_word(x, task) for x in predictions]

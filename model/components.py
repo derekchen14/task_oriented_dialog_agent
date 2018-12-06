@@ -1,9 +1,9 @@
 from torch.nn.utils import clip_grad_norm_
 from torch.nn import NLLLoss, parameter
 
-# import utils.internal.vocabulary as vocab
+import utils.internal.vocabulary as vocab
 # import utils.internal.dual_vocab as vocab
-import utils.internal.per_slot_vocab as vocab
+# import utils.internal.per_slot_vocab as vocab
 import utils.internal.data_io as data_io
 from utils.external.bleu import BLEU
 
@@ -52,9 +52,9 @@ def run_inference(model, sources, targets, criterion, teach_ratio):
 def basic_inference(model, sources, targets, criterion):
   hidden = model.encoder.initHidden()
   output = model(sources, hidden)
-  topv, topi = output.data.topk(1)
-  # preds = topi[0]  # returns full list of predictions as a tensor
-  pred = topi[0][0] # instead to select just the first
+  topv, topi = output.data.topk(2)
+  pred = topi[0]  # returns full list of predictions as a tensor
+  # pred = topi[0][0] # instead to select just the first
 
   loss = 0 if criterion is None else criterion(output, targets)
   return loss, pred, None

@@ -7,9 +7,9 @@ import pandas as pd
 import sys, pdb
 
 from utils.external.bleu import BLEU
-# import utils.internal.vocabulary as vocab
+import utils.internal.vocabulary as vocab
 # import utils.internal.dual_vocab as vocab
-import utils.internal.per_slot_vocab as vocab
+# import utils.internal.per_slot_vocab as vocab
 import utils.internal.data_io as data_io
 from model.components import var, run_inference
 
