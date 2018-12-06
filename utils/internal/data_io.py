@@ -8,8 +8,9 @@ import pandas as pd
 import pickle as pkl
 
 from nltk import word_tokenize
-# import utils.internal.vocabulary as vocab
-import utils.internal.per_slot_vocab as vocab
+import utils.internal.vocabulary as vocab
+# import utils.internal.per_slot_vocab as vocab
+# import utils.internal.dual_vocab as vocab
 
 def load_dataset(task, split):
   if task in ['1', '2', '3', '4', '5']:

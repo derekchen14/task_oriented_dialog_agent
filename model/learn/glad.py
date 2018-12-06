@@ -4,7 +4,7 @@ from torch import optim
 from torch.nn import functional as F
 import numpy as np
 import logging
-import os
+import os, pdb, sys
 import re
 import json
 from collections import defaultdict
@@ -167,8 +167,10 @@ class Model(nn.Module):
             # compute the utterance score
             y_utts = []
             q_utts = []
-            for c_val in C_vals:
+            for j, c_val in enumerate(C_vals):
                 q_utt, _ = attend(H_utt, c_val.unsqueeze(0).expand(len(batch), *c_val.size()), lens=utterance_len)
+                if j == 0:
+                    print("q_utt: {}".format(q_utt.shape))
                 q_utts.append(q_utt)
             y_utts = self.utt_scorer(torch.stack(q_utts, dim=1)).squeeze(2)
 
@@ -176,11 +178,20 @@ class Model(nn.Module):
             q_acts = []
             for i, C_act in enumerate(C_acts):
                 q_act, _ = attend(C_act.unsqueeze(0), c_utt[i].unsqueeze(0), lens=[C_act.size(0)])
+                if i == 0:
+                    print("q_act: {}".format(q_act.shape))
                 q_acts.append(q_act)
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
 
             # combine the scores
-            ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
+            foo = torch.sigmoid(y_utts + self.score_weight * y_acts)
+            print("y_acts: {}".format(y_acts.shape))
+            print("y_utts: {}".format(y_utts.shape))
+            print("foo: {}".format(foo.shape))
+            pdb.set_trace()
+            sys.exit()
+            ys[s] = foo
+
 
         if self.training:
             # create label variable and compute loss
