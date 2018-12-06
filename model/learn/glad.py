@@ -171,26 +171,22 @@ class Model(nn.Module):
                 q_utt, _ = attend(H_utt, c_val.unsqueeze(0).expand(len(batch), *c_val.size()), lens=utterance_len)
                 if j == 0:
                     print("q_utt: {}".format(q_utt.shape))
-                q_utts.append(q_utt)
+                q_utts.append(q_utt)   # torch.Size([50, 400])
             y_utts = self.utt_scorer(torch.stack(q_utts, dim=1)).squeeze(2)
 
             # compute the previous action score
+            '''
             q_acts = []
             for i, C_act in enumerate(C_acts):
                 q_act, _ = attend(C_act.unsqueeze(0), c_utt[i].unsqueeze(0), lens=[C_act.size(0)])
-                if i == 0:
-                    print("q_act: {}".format(q_act.shape))
-                q_acts.append(q_act)
+                q_acts.append(q_act)  # torch.Size([1, 400])
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
+            '''
 
             # combine the scores
-            foo = torch.sigmoid(y_utts + self.score_weight * y_acts)
-            print("y_acts: {}".format(y_acts.shape))
-            print("y_utts: {}".format(y_utts.shape))
-            print("foo: {}".format(foo.shape))
-            pdb.set_trace()
-            sys.exit()
-            ys[s] = foo
+            # y_acts: torch.Size([50, 7])
+            # y_utts: torch.Size([50, 7])
+            ys[s] = y_utts  # torch.sigmoid(y_utts + self.score_weight * y_acts)
 
 
         if self.training:
