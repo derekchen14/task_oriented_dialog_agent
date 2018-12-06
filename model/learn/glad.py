@@ -115,6 +115,13 @@ class GLADEncoder(nn.Module):
         h = F.dropout(local_h, self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(global_h, self.dropout.get('global', default_dropout), self.training) * (1-beta)
         c = F.dropout(local_selfattn(h, x_len), self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(self.global_selfattn(h, x_len), self.dropout.get('global', default_dropout), self.training) * (1-beta)
         return h, c
+    '''
+    def forward(self, x, x_len, slot, default_dropout=0.2):
+        global_h = run_rnn(self.global_rnn, x, x_len)
+        h = F.dropout(global_h, self.dropout.get('global', default_dropout), self.training)
+        c = F.dropout(self.global_selfattn(h, x_len), self.dropout.get('global', default_dropout), self.training)
+        return h, c
+    '''
 
 
 class Model(nn.Module):
@@ -163,7 +170,7 @@ class Model(nn.Module):
             H_utt, c_utt = self.utt_encoder(utterance, utterance_len, slot=s)
             # H_utt: torch.Size([50, 30, 400])  batch_size x seq_len x embed_dim
             # c_utt: torch.Size([50, 400])
-            _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
+            # _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
             _, C_vals = self.ont_encoder(ontology[s][0], ontology[s][1], slot=s)
             # C_acts is list of length 50, a single c_act is size([1, 400])
             # C_vals is list of length 7, a single c_val is size([400])
@@ -182,10 +189,7 @@ class Model(nn.Module):
             for j, C_act in enumerate(C_acts):
                 q_act, _ = attend(C_act.unsqueeze(0), c_utt[j].unsqueeze(0), lens=[C_act.size(0)])
                 q_acts.append(q_act)  # torch.Size([1, 400])
-            foo = torch.cat(q_acts, dim=0)
-            print("foo: {}".format(foo.shape))
-            bar = C_vals.transpose(0, 1)
-            print("bar: {}".format(bar.shape))
+            # (50x7) =         (50, 400)       x    (400, 7)
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
             '''
 
@@ -194,7 +198,6 @@ class Model(nn.Module):
             # y_utts: torch.Size([50, 7])
             # ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
             ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
-
 
         if self.training:
             # create label variable and compute loss

@@ -39,7 +39,7 @@ def run(args):
 
 def get_args():
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--dexp', help='root experiment folder', default='exp')
+    parser.add_argument('--dexp', help='root experiment folder', default='results')
     parser.add_argument('--model', help='which model to use', default='glad')
     parser.add_argument('--epoch', help='max epoch to run for', default=50, type=int)
     parser.add_argument('--demb', help='word embedding size', default=400, type=int)
