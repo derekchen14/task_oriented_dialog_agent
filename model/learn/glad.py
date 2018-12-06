@@ -161,32 +161,39 @@ class Model(nn.Module):
         for s in self.ontology.slots:
             # for each slot, compute the scores for each value
             H_utt, c_utt = self.utt_encoder(utterance, utterance_len, slot=s)
+            # H_utt: torch.Size([50, 30, 400])  batch_size x seq_len x embed_dim
+            # c_utt: torch.Size([50, 400])
             _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
             _, C_vals = self.ont_encoder(ontology[s][0], ontology[s][1], slot=s)
+            # C_acts is list of length 50, a single c_act is size([1, 400])
+            # C_vals is list of length 7, a single c_val is size([400])
 
+            '''
             # compute the utterance score
             y_utts = []
             q_utts = []
-            for j, c_val in enumerate(C_vals):
+            for i, c_val in enumerate(C_vals):
                 q_utt, _ = attend(H_utt, c_val.unsqueeze(0).expand(len(batch), *c_val.size()), lens=utterance_len)
-                if j == 0:
-                    print("q_utt: {}".format(q_utt.shape))
                 q_utts.append(q_utt)   # torch.Size([50, 400])
             y_utts = self.utt_scorer(torch.stack(q_utts, dim=1)).squeeze(2)
 
             # compute the previous action score
-            '''
             q_acts = []
-            for i, C_act in enumerate(C_acts):
-                q_act, _ = attend(C_act.unsqueeze(0), c_utt[i].unsqueeze(0), lens=[C_act.size(0)])
+            for j, C_act in enumerate(C_acts):
+                q_act, _ = attend(C_act.unsqueeze(0), c_utt[j].unsqueeze(0), lens=[C_act.size(0)])
                 q_acts.append(q_act)  # torch.Size([1, 400])
+            foo = torch.cat(q_acts, dim=0)
+            print("foo: {}".format(foo.shape))
+            bar = C_vals.transpose(0, 1)
+            print("bar: {}".format(bar.shape))
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
             '''
 
             # combine the scores
             # y_acts: torch.Size([50, 7])
             # y_utts: torch.Size([50, 7])
-            ys[s] = y_utts  # torch.sigmoid(y_utts + self.score_weight * y_acts)
+            # ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
+            ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
 
 
         if self.training:
