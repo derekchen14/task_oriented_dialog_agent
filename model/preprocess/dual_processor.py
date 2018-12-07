@@ -37,6 +37,9 @@ class DualProcessor(object):
     setattr(self, "{}_data".format(split), variables)
 
   def prepare_input(self, source, use_context, task):
+    tokens = [vocab.word_to_index(word, task) for word in source]
+    return var(tokens, "long")
+    '''
     tokens = []
     if "turn" in source.keys():
       # vocab is designed so that the first 14 tokens are turn indicators
@@ -49,24 +52,26 @@ class DualProcessor(object):
     for word in source["utterance"].split():
       tokens.append(vocab.word_to_index(word, task))
     return var(tokens, "long")
+    '''
 
   def prepare_output(self, target):
     if len(target) == 1:
-      dual_index = vocab.belief_to_index(target[0])
-      if self.kind == "intent":
-        output_var = var([dual_index[0]], "long")
-      elif self.kind == "sv":
-        output_var = var([dual_index[1]], "long")
+      dual_index = vocab.belief_to_index(target[0], self.kind)
+      output_var = var([dual_index], "long")
+      # if self.kind == "intent":
+      #   output_var = var([dual_index[0]], "long")
+      # elif self.kind == "sv":
+      #   output_var = var([dual_index[1]], "long")
       return output_var, False
 
     elif len(target) == 2:
-      dual_indexes = [vocab.belief_to_index(b) for b in target]
-      output_vars = []
-      for di in dual_indexes:
-        if self.kind == "intent":
-          output_vars.append(var([di[0]], "long"))
-        elif self.kind == "sv":
-          output_vars.append(var([di[1]], "long"))
+      dual_indexes = [vocab.belief_to_index(b, self.kind) for b in target]
+      output_vars = [var([di], "long") for di in dual_indexes]
+      # for di in dual_indexes:
+      #   if self.kind == "intent":
+      #     output_vars.append(var([di[0]], "long"))
+      #   elif self.kind == "sv":
+      #     output_vars.append(var([di[1]], "long"))
 
       return output_vars, True
 

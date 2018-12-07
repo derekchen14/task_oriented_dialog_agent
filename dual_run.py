@@ -14,8 +14,8 @@ if __name__ == "__main__":
   task = args.task_name
   kind = args.report_path
   # ---- LOAD AND PREPROCESS ------
-  processor = DualProcessor(args, "intent")
-  sv_processor = DualProcessor(args, "sv")
+  slot_processor = DualProcessor(args, "slot")
+  value_processor = DualProcessor(args, "value")
   tracker = LossTracker(args)
   builder = Builder(args)
   # ---- TRAIN OR TEST MODELS  ----
@@ -23,10 +23,10 @@ if __name__ == "__main__":
     tester = Tester(args, processor, kind)
     tester.test("macro_f1", "micro_f1") # "accuracy", "bleu", "just_loss"
   else:
-    sv_learner = Learner(args, sv_processor, builder, tracker, "sv")
-    sv_learner.learn(task)
-    intent_learner = Learner(args, processor, builder, tracker, "intent")
-    intent_learner.learn(task)
+    slot_learner = Learner(args, slot_processor, builder, tracker, "slot")
+    slot_learner.learn(task)
+    value_learner = Learner(args, value_processor, builder, tracker, "value")
+    value_learner.learn(task)
   # ------- MANAGE RESULTS -------
   evaluator = Evaluator(args, kind)
-  evaluator.dual_report(intent_learner, sv_learner)
+  evaluator.report([slot_learner, value_learner])

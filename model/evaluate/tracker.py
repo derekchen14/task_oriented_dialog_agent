@@ -47,8 +47,8 @@ class LossTracker(object):
     self.accuracy.append(avg_success)
 
   def should_early_stop(self, iteration):
-    # if iteration > 2000:
-    #   return True
+    if iteration > 800:
+      return True
     if self.threshold < 0:  # we turn off early stopping
       return False
 

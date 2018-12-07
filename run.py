@@ -25,8 +25,9 @@ if __name__ == "__main__":
     learner = Learner(args, processor, builder, tracker, kind)
     learner.learn(task)
   # ------- MANAGE RESULTS -------
-  if not learner.tracker.completed_training: sys.exit()
+  # if not learner.tracker.completed_training: sys.exit()
   evaluator = Evaluator(args, kind)
+  evaluator.report([learner])
   if args.save_model:
     learner.save_model()
   if args.report_results:

@@ -33,19 +33,19 @@ class PreProcessor(object):
 
     variables = []
     for example in dataset:
-      if task in ["in-car", "babi"]:
-        input_output_vars = self.dialog_to_variable(example, task)
-      elif task == "dstc2":
-        input_var = self.prepare_input(example["input_source"], use_context, task)
-        output_var, double = self.prepare_output(example["output_target"])
-        if double:
-          variables.append((input_var, output_var[0]))  # append extra example
-          output_var = output_var[1]      # set output to be the second label
+      input_var = self.prepare_input(example["input_source"], use_context, task)
+      output_var, double = self.prepare_output(example["output_target"])
+      if double:
+        variables.append((input_var, output_var[0]))  # append extra example
+        output_var = output_var[1]      # set output to be the second label
       variables.append((input_var, output_var))
 
     setattr(self, "{}_data".format(split), variables)
 
   def prepare_input(self, source, use_context, task):
+    tokens = [vocab.word_to_index(word, task) for word in source]
+    return var(tokens, "long")
+    '''
     tokens = []
     if "turn" in source.keys():
       # vocab is designed so that the first 14 tokens are turn indicators
@@ -58,7 +58,7 @@ class PreProcessor(object):
     for word in source["utterance"].split():
       tokens.append(vocab.word_to_index(word, task))
     return var(tokens, "long")
-
+    '''
   def prepare_output(self, target):
     if len(target) == 1:
       target_index = vocab.belief_to_index(target[0], self.kind)

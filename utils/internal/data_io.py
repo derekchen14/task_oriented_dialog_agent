@@ -19,6 +19,14 @@ def load_dataset(task, split):
     candidates = read_restaurant_data("dialog-babi-candidates.txt")
     max_length = 22
     return (restaurants, candidates, max_length)
+  elif task == "woz2":
+    dataset_name = "{0}/clean_{1}_4.json".format(task, split)
+    dataset = vocab.load_vocab(dataset_name)
+    return (dataset, 14)
+  elif task == "dstc2":
+    dataset_name = "{0}/cleaned/{1}_v3.json".format(task, split)
+    dataset = vocab.load_vocab(dataset_name)  # actually used to load json
+    return (dataset, 14)
   elif task in ['schedule','navigate','weather']:
     paths = {'trn': 'in_car/train.json', 'dev': 'in_car/dev.json', 'tst': 'in_car/test.json'}
     data = load_json_dataset(paths[split])
@@ -32,11 +40,6 @@ def load_dataset(task, split):
     candidates = read_restaurant_data("dialog-dstc-candidates.txt")
     max_length = 30
     return (restaurants, candidates, max_length)
-  elif task == "dstc2":
-    dataset_name = "{0}/cleaned/{1}_v3.json".format(task, split)
-    dataset = vocab.load_vocab(dataset_name)  # actually used to load json
-    max_length = 23
-    return (dataset, max_length)
 
 def pickle_io(filename, process, data=None):
   if process == "load":

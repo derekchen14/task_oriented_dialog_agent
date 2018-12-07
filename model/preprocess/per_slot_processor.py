@@ -26,10 +26,12 @@ class PerSlotProcessor(object):
     setattr(self, "{}_data".format(split), variables)
 
   def prepare_input(self, source):
-    tokens = []
-    for word in source["utterance"].split():
-      tokens.append(vocab.word_to_index(word))
+    tokens = [vocab.word_to_index(word) for word in source]
     return var(tokens, "long")
+    # tokens = []
+    # for word in source["utterance"].split():
+    #   tokens.append(vocab.word_to_index(word))
+    # return var(tokens, "long")
 
   def prepare_output(self, target):
     if len(target) == 1:

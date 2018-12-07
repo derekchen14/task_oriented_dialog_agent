@@ -26,9 +26,8 @@ class Learner(object):
 
     self.kind = kind
     self.model_type = args.model_type
-    categories = ["intent", "food", "area", "price", "name", "answer", "request"]
     if self.model_type == "per_slot":
-      self.model_idx = categories.index(kind)   # order matters, do not switch
+      self.model_idx = vocab.categories.index(kind)   # order matters, do not switch
 
   def train(self, input_var, output_var, enc_optimizer, dec_optimizer):
     self.model.train()   # affects the performance of dropout
@@ -74,7 +73,8 @@ class Learner(object):
   '''
 
   def learn(self, task):
-    self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(self.kind))
+    # self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(self.kind))
+    self.model = self.builder.create_model(vocab.ulary_size(task), vocab.label_size(self.kind))
     print("Running model {}".format(self.model_path))
 
     self.learn_start = tm.time()

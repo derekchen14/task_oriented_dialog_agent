@@ -6,10 +6,10 @@ import random
 import pandas as pd
 import sys, pdb
 
-from utils.external.bleu import BLEU
 import utils.internal.vocabulary as vocab
 # import utils.internal.dual_vocab as vocab
 # import utils.internal.per_slot_vocab as vocab
+from utils.external.bleu import BLEU
 import utils.internal.data_io as data_io
 from model.components import var, run_inference
 
@@ -22,6 +22,7 @@ class Evaluator(object):
     self.verbose = args.verbose
     self.config = args
     self.kind = kind
+    self.task = args.task_name
 
   def plot(xs, ys, title="Training Curve"):
   # if args.plot_results:
@@ -38,56 +39,56 @@ class Evaluator(object):
     plt.legend(["Train", "Validation"])
     plt.show()
 
-  def dual_report(self, intent_learner, sv_learner):
-    datapoint_count = len(intent_learner.processor.val_data)
-    i_model = intent_learner.model
-    sv_model = sv_learner.model
+  def dual_report(self, slot_learner, value_learner):
+    datapoint_count = len(slot_learner.processor.val_data)
+    slot_model = slot_learner.model
+    value_model = value_learner.model
 
     success, rank_success =  0, 0
     display = []
     for idx in range(datapoint_count):
-      utterance = intent_learner.processor.val_data[idx][0]
-      intent_target = intent_learner.processor.val_data[idx][1]
-      sv_target = sv_learner.processor.val_data[idx][1]
+      utterance = slot_learner.processor.val_data[idx][0]
+      slot_target = slot_learner.processor.val_data[idx][1]
+      value_target = value_learner.processor.val_data[idx][1]
 
-      intent_hidden = i_model.encoder.initHidden()
-      intent_output = i_model(utterance, intent_hidden)
+      intent_hidden = slot_model.encoder.initHidden()
+      intent_output = slot_model(utterance, intent_hidden)
       _, i_top = intent_output.data.topk(1)
       i_pred = i_top[0][0]
       _, i_rank = intent_output.data.topk(2)
       i_preds = i_rank[0]
 
-      slot_value_hidden = sv_model.encoder.initHidden()
-      slot_value_output = sv_model(utterance, slot_value_hidden)
+      slot_value_hidden = value_model.encoder.initHidden()
+      slot_value_output = value_model(utterance, slot_value_hidden)
       _, slot_value_top = slot_value_output.data.topk(1)
       sv_pred = slot_value_top[0][0]
       _, sv_rank = slot_value_output.data.topk(2)
       sv_preds = sv_rank[0]
 
-      if (i_pred == intent_target) and (sv_pred == sv_target):
+      if (i_pred == slot_target) and (sv_pred == value_target):
         success += 1
-      if (intent_target in i_preds) and (sv_target in sv_preds):
+      if (slot_target in i_preds) and (value_target in sv_preds):
         rank_success += 1
       if random.random() < 0.01:
-        input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in utterance])
-        post_intent_target = vocab.index_to_word(intent_target, "intent")
-        post_sv_target = vocab.index_to_word(sv_target, "sv")
-        post_i_pred = vocab.index_to_word(i_pred, "intent")
-        post_sv_pred = vocab.index_to_word(sv_pred, "sv")
+        input_text = " ".join([vocab.index_to_word(token, self.task) for token in utterance])
+        post_slot_target = vocab.index_to_word(slot_target, "slot")
+        post_value_target = vocab.index_to_word(value_target, "value")
+        post_slot_pred = vocab.index_to_word(i_pred, "slot")
+        post_value_pred = vocab.index_to_word(sv_pred, "value")
 
         display.append(input_text)
-        display.append("Target: {0}({1})".format(post_intent_target, post_sv_target))
-        display.append("Predicted: {0}({1})".format(post_i_pred, post_sv_pred))
+        display.append("Target: {0}({1})".format(post_slot_target, post_value_target))
+        display.append("Predicted: {0}({1})".format(post_slot_pred, post_value_pred))
         display.append(" ----- ")
 
     rank_accuracy = rank_success / float(datapoint_count)
-    print("Overall accuracy: {:.4f}, rank accuracy {:.4f}".format(
+    print("Exact accuracy: {:.4f}, rank accuracy {:.4f}".format(
       success / float(datapoint_count), rank_accuracy) )
     for line in display:
       print(line)
 
 
-  def per_slot_report(self, learners):
+  def report(self, learners):
     data = learners[0].processor.val_data
     exact_success, rank_success = 0, 0
     display = []
@@ -97,7 +98,7 @@ class Evaluator(object):
 
       if random.random() < 0.01:
         display.append(" ----- ")
-        input_text = " ".join([vocab.index_to_word(token, "dstc2") for token in utterance])
+        input_text = " ".join([vocab.index_to_word(token, self.task) for token in utterance])
         display.append(input_text)
         use_display = True
         target_words = ["Target: "]
@@ -106,8 +107,7 @@ class Evaluator(object):
       exact_correct = True
       rank_correct = True
       for idx, learner in enumerate(learners):
-        target = targets[idx]
-        category = vocab.categories[idx]
+        target = targets[idx] if learner.model_type == "per_slot" else targets
 
         hidden_state = learner.model.encoder.initHidden()
         output = learner.model(utterance, hidden_state)
@@ -122,9 +122,9 @@ class Evaluator(object):
           rank_correct = False
 
         if use_display and target != 0:
-          target_words.append(vocab.index_to_word(target, category))
+          target_words.append(vocab.index_to_word(target, learner.kind))
         if use_display and exact_pred != 0:
-          pred_words.append(vocab.index_to_word(exact_pred, category))
+          pred_words.append(vocab.index_to_word(exact_pred, learner.kind))
 
       if exact_correct:
         exact_success += 1

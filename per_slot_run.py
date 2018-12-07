@@ -27,4 +27,4 @@ if __name__ == "__main__":
 
   # ------- MANAGE RESULTS -------
   evaluator = Evaluator(args, kind)
-  evaluator.per_slot_report(all_learners)
+  evaluator.report(all_learners)
