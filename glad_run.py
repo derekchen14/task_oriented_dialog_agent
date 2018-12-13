@@ -18,7 +18,7 @@ def run(args):
 
     dataset, ontology, vocab, Eword = load_dataset()
 
-    model = load_model(args.model, args, ontology, vocab, Eword)
+    model = load_model(args.model_type, args, ontology, vocab, Eword)
     model.save_config()
 
     model = model.to(model.device)
@@ -33,7 +33,7 @@ def run(args):
     model = model.to(model.device)
     logging.info('Running dev evaluation')
     dev_out = model.run_eval(dataset['dev'], args)
-    pprint(dev_out)
+    print(dev_out)
 
 if __name__ == '__main__':
     args = solicit_args()

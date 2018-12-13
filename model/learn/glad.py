@@ -241,8 +241,8 @@ class Model(nn.Module):
             summary.update({'eval_dev_{}'.format(k): v for k, v in self.run_eval(dev, args).items()})
 
             # do early stopping saves
-            stop_key = 'eval_dev_{}'.format(args.stop)
-            train_key = 'eval_train_{}'.format(args.stop)
+            stop_key = 'eval_dev_{}'.format(args.stop_early)
+            train_key = 'eval_train_{}'.format(args.stop_early)
             if best.get(stop_key, 0) <= summary[stop_key]:
                 best_dev = '{:f}'.format(summary[stop_key])
                 best_train = '{:f}'.format(summary[train_key])
@@ -250,7 +250,7 @@ class Model(nn.Module):
                 self.save(
                     best,
                     identifier='epoch={epoch},iter={iteration},train_{key}={train},dev_{key}={dev}'.format(
-                        epoch=epoch, iteration=iteration, train=best_train, dev=best_dev, key=args.stop,
+                        epoch=epoch, iteration=iteration, train=best_train, dev=best_dev, key=args.stop_early,
                     )
                 )
                 self.prune_saves()
@@ -328,7 +328,7 @@ class Model(nn.Module):
         files = [f for f in os.listdir(directory) if f.endswith('.t7')]
         scores = []
         for fname in files:
-            re_str = r'dev_{}=([0-9\.]+)'.format(self.args.stop)
+            re_str = r'dev_{}=([0-9\.]+)'.format(self.args.stop_early)
             dev_acc = re.findall(re_str, fname)
             if dev_acc:
                 score = float(dev_acc[0].strip('.'))

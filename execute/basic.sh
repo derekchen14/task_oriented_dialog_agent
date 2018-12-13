@@ -13,9 +13,9 @@
 # python per_slot_run.py --task-name woz2 --model-type per_slot --epochs 3 \
 #         --suffix Dec_4 --optimizer rmsprop
 
-CUDA_VISIBLE_DEVICES=1 python glad_run.py --gpu=1 --suffix utterance_only2 \
-    --model-type glad --hidden-size 200 --embedding-size 400 --seed 42 \
-    --learning-rate 1e-3
+CUDA_VISIBLE_DEVICES=1 python glad_run.py --gpu=1 --suffix utterance_only3 \
+    --model-type glad --hidden-size 200 --embedding-size 400 --seed 40 \
+    --learning-rate 1e-3 --epochs 50
 
 
 # Manual updates: vocab on components and evaluator, preprocess init file
