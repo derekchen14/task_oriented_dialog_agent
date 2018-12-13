@@ -63,7 +63,7 @@ class Transformer_Encoder(nn.Module):
     final_output = self.transformer(embedded)
     return final_output
 
-class Bid_Encoder(nn.Module):
+class BiGRU_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Bid_Encoder, self).__init__()
     self.hidden_size = hidden_size
@@ -119,13 +119,13 @@ class GRU_Encoder(nn.Module):
     # args are (num_layers * num_directions, batch_size, hidden_size)
     return torch.zeros(self.num_layers, 1, self.hidden_size).to(device)
 
-class LSTM_Encoder(nn.Module):
+class BiLSTM_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(LSTM_Encoder, self).__init__()
+    super(BiLSTM_Encoder, self).__init__()
     self.n_layers = n_layers
     self.hidden_size = hidden_size
     self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.rnn = nn.LSTM(hidden_size, hidden_size)
+    self.rnn = nn.LSTM(hidden_size, hidden_size, bidirectional=True)
 
   def forward(self, word_inputs, hidden_tuple):
     seq_len = len(word_inputs)
@@ -139,8 +139,8 @@ class LSTM_Encoder(nn.Module):
     # you need two variables since LSTMs have
     # (1) hidden state and (2) candidate cell state
     # whereas GRU have only the hidden state which does both
-    hidden = torch.zeros(1, 1, self.hidden_size).to(device)
-    cell = torch.zeros(1, 1, self.hidden_size).to(device)
+    hidden = torch.zeros(2, 1, self.hidden_size).to(device)
+    cell = torch.zeros(2, 1, self.hidden_size).to(device)
     return (hidden, cell)
 
 class RNN_Encoder(nn.Module):

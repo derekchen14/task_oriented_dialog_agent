@@ -381,7 +381,7 @@ class FF_Network(nn.Module):
   def __init__(self, input_size, target_size):
     super(FF_Network, self).__init__()
     # for DSTC2, target is 140 or 640
-    self.out = nn.Linear(input_size, target_size)
+    self.out = nn.Linear(input_size * 2, target_size)
     self.softmax = nn.LogSoftmax(dim=1)
     self.arguments_size = "tiny"
 

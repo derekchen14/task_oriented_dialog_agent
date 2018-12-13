@@ -90,13 +90,14 @@ class Evaluator(object):
 
   def report(self, learners):
     data = learners[0].processor.val_data
-    exact_success, rank_success = 0, 0
+    # data = learners[0].processor.test_data
+    scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
     display = []
     use_display = False
     for example in data:
       utterance, targets = example
 
-      if random.random() < 0.01:
+      if random.random() < -1:
         display.append(" ----- ")
         input_text = " ".join([vocab.index_to_word(token, self.task) for token in utterance])
         display.append(input_text)
@@ -104,8 +105,7 @@ class Evaluator(object):
         target_words = ["Target: "]
         pred_words = ["Prediction: "]
 
-      exact_correct = True
-      rank_correct = True
+      corrects = {"inform": True, "request": True, "exact": True, "rank": True}
       for idx, learner in enumerate(learners):
         target = targets[idx] if learner.model_type == "per_slot" else targets
 
@@ -116,28 +116,48 @@ class Evaluator(object):
         _, top2 = output.data.topk(2)
         rank_preds = top2[0]
 
-        if exact_pred is not target:
-          exact_correct = False
+        target_word = vocab.index_to_word(target, learner.kind)
+
+        if exact_pred != target:
+          corrects["exact"] = False
+
         if target not in rank_preds:
-          rank_correct = False
+          corrects["rank"] = False
+          if learner.kind in ["area", "food", "price"]:
+            corrects["inform"] = False
+          elif learner.kind == "request":
+            corrects["request"] = False
+          elif learner.kind == "slot" and idx < 3:  # indexes 0, 1, 2 refer to area, food, price
+            corrects["inform"] = False
+          elif learner.kind == "slot" and idx == 3:  # index 3 refers to question
+            corrects["request"] = False
+          elif learner.kind == "value" and target < 87:  # indexes 1 to 86 refer values of area, food, price
+            corrects["inform"] = False
+          elif learner.kind == "value" and target >= 87:  # index 3 refers to values of request
+            corrects["request"] = False
+          elif learner.kind in ["full_enumeration", "possible_only", "ordered_values"]:
+            slot_type = target_word.split("=")
+            if slot_type[0] in ["area", "food", "price"]:
+              corrects["inform"] = False
+            else:
+              corrects["request"] = False
 
         if use_display and target != 0:
-          target_words.append(vocab.index_to_word(target, learner.kind))
+          target_words.append(target_word)
         if use_display and exact_pred != 0:
           pred_words.append(vocab.index_to_word(exact_pred, learner.kind))
 
-      if exact_correct:
-        exact_success += 1
-      if rank_correct:
-        rank_success += 1
+      for success, status in corrects.items():
+        if status:
+          scores[success] += 1
       if use_display:
         display.append(" ".join(target_words))
         display.append(" ".join(pred_words))
         use_display = False
 
-    exact_accuracy = float(exact_success) / len(data)
-    rank_accuracy = float(rank_success) / len(data)
-    print("Exact accuracy: {:.4f}, Rank accuracy {:.4f}".format(exact_accuracy, rank_accuracy) )
+    for success, score in scores.items():
+      accuracy = float(score) / len(data)
+      print("{} accuracy: {:.4f}".format(success, accuracy))
     for line in display:
       print(line)
 
