@@ -16,7 +16,8 @@ def pad(seqs, emb, device, pad=0):
     max_len = max(lens)
     padded = torch.LongTensor([s + (max_len-l) * [pad] for s, l in zip(seqs, lens)])
     return emb(padded.to(device)), lens
-
+    # out = F.dropout(emb(padded.to(device)), drop_rate)
+    # return out, lens
 
 def run_rnn(rnn, inputs, lens):
     # sort by lens
@@ -24,7 +25,10 @@ def run_rnn(rnn, inputs, lens):
     reindexed = inputs.index_select(0, inputs.data.new(order).long())
     reindexed_lens = [lens[i] for i in order]
     packed = nn.utils.rnn.pack_padded_sequence(reindexed, reindexed_lens, batch_first=True)
+    print("packed: {}".format(packed.shape))
     outputs, _ = rnn(packed)
+    print("outputs: {}".format(outputs.shape))
+    pdb.set_trace()
     padded, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True, padding_value=0.)
     reverse_order = np.argsort(order).tolist()
     recovered = padded.index_select(0, inputs.data.new(reverse_order).long())
@@ -46,21 +50,6 @@ def attend(seq, cond, lens):
     scores = F.softmax(scores, dim=1)
     context = scores.unsqueeze(2).expand_as(seq).mul(seq).sum(1)
     return context, scores
-
-
-class FixedEmbedding(nn.Embedding):
-    """
-    this is the same as `nn.Embedding` but detaches the result from the graph and has dropout after lookup.
-    """
-
-    def __init__(self, *args, dropout=0, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.dropout = dropout
-
-    def forward(self, *args, **kwargs):
-        out = super().forward(*args, **kwargs)
-        out.detach_()
-        return F.dropout(out, self.dropout, self.training)
 
 
 class SelfAttention(nn.Module):
@@ -129,13 +118,14 @@ class Model(nn.Module):
     the GLAD model described in https://arxiv.org/abs/1805.09655.
     """
 
-    def __init__(self, args, ontology, vocab):
+    def __init__(self, args, ontology, vocab, Eword):
         super().__init__()
         self.optimizer = None
         self.args = args
         self.vocab = vocab
         self.ontology = ontology
-        self.emb_fixed = FixedEmbedding(len(vocab), args.demb, dropout=args.dropout.get('emb', 0.2))
+        # self.embedding = nn.Embedding(len(vocab), args.demb)  # (num_embeddings, embedding_dim)
+        self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
 
         self.utt_encoder = GLADEncoder(args.demb, args.dhid, self.ontology.slots, dropout=args.dropout)
         self.act_encoder = GLADEncoder(args.demb, args.dhid, self.ontology.slots, dropout=args.dropout)
@@ -153,16 +143,12 @@ class Model(nn.Module):
     def set_optimizer(self):
         self.optimizer = optim.Adam(self.parameters(), lr=self.args.lr)
 
-    def load_emb(self, Eword):
-        new = self.emb_fixed.weight.data.new
-        self.emb_fixed.weight.data.copy_(new(Eword))
-
     def forward(self, batch):
         # convert to variables and look up embeddings
         eos = self.vocab.word2index('<eos>')
-        utterance, utterance_len = pad([e.num['transcript'] for e in batch], self.emb_fixed, self.device, pad=eos)
-        acts = [pad(e.num['system_acts'], self.emb_fixed, self.device, pad=eos) for e in batch]
-        ontology = {s: pad(v, self.emb_fixed, self.device, pad=eos) for s, v in self.ontology.num.items()}
+        utterance, utterance_len = pad([e.num['transcript'] for e in batch], self.embedding, self.device, pad=eos)
+        acts = [pad(e.num['system_acts'], self.embedding, self.device, pad=eos) for e in batch]
+        ontology = {s: pad(v, self.embedding, self.device, pad=eos) for s, v in self.ontology.num.items()}
 
         ys = {}
         for s in self.ontology.slots:
@@ -170,12 +156,11 @@ class Model(nn.Module):
             H_utt, c_utt = self.utt_encoder(utterance, utterance_len, slot=s)
             # H_utt: torch.Size([50, 30, 400])  batch_size x seq_len x embed_dim
             # c_utt: torch.Size([50, 400])
-            # _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
+            _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
             _, C_vals = self.ont_encoder(ontology[s][0], ontology[s][1], slot=s)
             # C_acts is list of length 50, a single c_act is size([1, 400])
             # C_vals is list of length 7, a single c_val is size([400])
 
-            '''
             # compute the utterance score
             y_utts = []
             q_utts = []
@@ -191,13 +176,12 @@ class Model(nn.Module):
                 q_acts.append(q_act)  # torch.Size([1, 400])
             # (50x7) =         (50, 400)       x    (400, 7)
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
-            '''
 
             # combine the scores
             # y_acts: torch.Size([50, 7])
             # y_utts: torch.Size([50, 7])
-            # ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
-            ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
+            ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
+            # ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
 
         if self.training:
             # create label variable and compute loss

@@ -19,9 +19,8 @@ def run(args):
 
     dataset, ontology, vocab, Eword = load_dataset()
 
-    model = load_model(args.model, args, ontology, vocab)
+    model = load_model(args.model, args, ontology, vocab, Eword)
     model.save_config()
-    model.load_emb(Eword)
 
     model = model.to(model.device)
     if not args.test:
