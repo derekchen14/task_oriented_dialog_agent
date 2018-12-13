@@ -11,6 +11,7 @@ def load_vocab(path):
 # car_vocab = load_vocab("car_vocab.json")
 # babi_vocab = load_vocab("babi_vocab.json")
 # dstc2_vocab = load_vocab("dstc2/cleaned/vocab.json")
+"""
 woz2_vocab = load_vocab("woz2/vocab/vocabulary.json")
 fe_vocab = load_vocab("woz2/vocab/full_enumeration.json")
 po_vocab = load_vocab("woz2/vocab/possible_only.json")
@@ -22,7 +23,7 @@ label_vocab = {
   "possible_only": po_vocab,
   "ordered_values": ov_vocab
 }
-
+"""
 # special_tokens = ["<SILENCE>", "<T01>","<T02>","<T03>", ... , "<T14>",
 #           "UNK", "SOS", "EOS", "api_call","poi", "addr"]
 UNK_token = 15

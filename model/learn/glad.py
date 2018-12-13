@@ -25,10 +25,10 @@ def run_rnn(rnn, inputs, lens):
     reindexed = inputs.index_select(0, inputs.data.new(order).long())
     reindexed_lens = [lens[i] for i in order]
     packed = nn.utils.rnn.pack_padded_sequence(reindexed, reindexed_lens, batch_first=True)
-    print("packed: {}".format(packed.shape))
+    # print("packed: {}".format(packed.shape))
     outputs, _ = rnn(packed)
-    print("outputs: {}".format(outputs.shape))
-    pdb.set_trace()
+    # print("outputs: {}".format(outputs.shape))
+    # pdb.set_trace()
     padded, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True, padding_value=0.)
     reverse_order = np.argsort(order).tolist()
     recovered = padded.index_select(0, inputs.data.new(reverse_order).long())
@@ -127,10 +127,14 @@ class Model(nn.Module):
         # self.embedding = nn.Embedding(len(vocab), args.demb)  # (num_embeddings, embedding_dim)
         self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
 
-        self.utt_encoder = GLADEncoder(args.demb, args.dhid, self.ontology.slots, dropout=args.dropout)
-        self.act_encoder = GLADEncoder(args.demb, args.dhid, self.ontology.slots, dropout=args.dropout)
-        self.ont_encoder = GLADEncoder(args.demb, args.dhid, self.ontology.slots, dropout=args.dropout)
-        self.utt_scorer = nn.Linear(2 * args.dhid, 1)
+        demb = args.embedding_size    # aka embedding dimension
+        dhid = args.hidden_size       # aka hidden dimension
+        slots = self.ontology.slots
+
+        self.utt_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
+        self.act_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
+        self.ont_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
+        self.utt_scorer = nn.Linear(2 * dhid, 1)
         self.score_weight = nn.Parameter(torch.Tensor([0.5]))
 
     @property
@@ -141,7 +145,7 @@ class Model(nn.Module):
             return torch.device('cpu')
 
     def set_optimizer(self):
-        self.optimizer = optim.Adam(self.parameters(), lr=self.args.lr)
+        self.optimizer = optim.Adam(self.parameters(), lr=self.args.learning_rate)
 
     def forward(self, batch):
         # convert to variables and look up embeddings
@@ -156,7 +160,7 @@ class Model(nn.Module):
             H_utt, c_utt = self.utt_encoder(utterance, utterance_len, slot=s)
             # H_utt: torch.Size([50, 30, 400])  batch_size x seq_len x embed_dim
             # c_utt: torch.Size([50, 400])
-            _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
+            # _, C_acts = list(zip(*[self.act_encoder(a, a_len, slot=s) for a, a_len in acts]))
             _, C_vals = self.ont_encoder(ontology[s][0], ontology[s][1], slot=s)
             # C_acts is list of length 50, a single c_act is size([1, 400])
             # C_vals is list of length 7, a single c_val is size([400])
@@ -169,6 +173,7 @@ class Model(nn.Module):
                 q_utts.append(q_utt)   # torch.Size([50, 400])
             y_utts = self.utt_scorer(torch.stack(q_utts, dim=1)).squeeze(2)
 
+            """
             # compute the previous action score
             q_acts = []
             for j, C_act in enumerate(C_acts):
@@ -176,11 +181,12 @@ class Model(nn.Module):
                 q_acts.append(q_act)  # torch.Size([1, 400])
             # (50x7) =         (50, 400)       x    (400, 7)
             y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
+            """
 
             # combine the scores
             # y_acts: torch.Size([50, 7])
             # y_utts: torch.Size([50, 7])
-            ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
+            ys[s] = torch.sigmoid(y_utts) # + self.score_weight * y_acts)
             # ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
 
         if self.training:
@@ -214,7 +220,7 @@ class Model(nn.Module):
         if self.optimizer is None:
             self.set_optimizer()
 
-        for epoch in range(args.epoch):
+        for epoch in range(args.epochs):
             logger.info('starting epoch {}'.format(epoch))
 
             # train and update parameters
