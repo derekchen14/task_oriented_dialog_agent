@@ -29,7 +29,7 @@ def get_models():
     return [m.replace('.py', '') for m in os.listdir('models') if not m.startswith('_') and m != 'model']
 
 def load_model(model, *args, **kwargs):
-    Model = import_module('model.learn.{}'.format(model)).Model
+    Model = import_module('model.learn.{}'.format(model)).GlobalLocalModel
     model = Model(*args, **kwargs)
     logging.info('loaded model {}'.format(Model))
     return model

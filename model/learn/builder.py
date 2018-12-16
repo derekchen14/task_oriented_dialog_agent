@@ -13,22 +13,25 @@ from model.learn import modules
 # from model.learn.text_generator import TextGenerator
 
 class Builder(object):
-  def __init__(self, args):
+  def __init__(self, args, embeddings):
     self.model_type = args.model_type
     self.hidden_size = args.hidden_size
+    self.embed_size = args.embedding_size
     self.method = args.attn_method
     self.n_layers = args.n_layers
     self.drop_prob = args.drop_prob
     self.optimizer = args.optimizer
     self.weight_decay = args.weight_decay
     self.lr = args.learning_rate
+    self.embeddings = embeddings
 
   def create_model(self, vocab_size, output_size=None, max_length=25):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
     elif self.model_type in ["basic", "dual", "per_slot"]:
-      encoder = enc.BiLSTM_Encoder(vocab_size, self.hidden_size, self.n_layers)
+      encoder = enc.BiLSTM_Encoder(vocab_size, self.hidden_size, self.embed_size,
+                        self.drop_prob, self.embeddings, self.n_layers)
       ff_network = dec.FF_Network(self.hidden_size, output_size)
       return BasicClassifer(encoder, ff_network)
     elif self.model_type == "attention":

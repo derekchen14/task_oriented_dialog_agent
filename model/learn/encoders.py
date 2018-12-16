@@ -3,16 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.learn.modules import Transformer
+from model.learn.modules import Transformer, SelfAttention
 from model.components import *
 
-# ------- Encoders ----------
-# The encoder of a seq2seq network is a RNN that outputs some value for every
-# word from the input sentence. For every input word the encoder outputs a vector
-# and a hidden state, and uses the hidden state for the next input word.
 class Match_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
-    super(Match_Encoder, self).__init__()
+    super().__init__()
     self.hidden_size = hidden_size + 8  # extended dim for the match features
     self.rnn = nn.GRU(self.hidden_size, self.hidden_size // 2, \
       num_layers=n_layers, bidirectional=True)
@@ -26,6 +22,33 @@ class Match_Encoder(nn.Module):
 
   def initHidden(self):
     return torch.zeros(2, 1, self.hidden_size // 2).to(device)
+
+# the GLAD encoder described in https://arxiv.org/abs/1805.09655.
+class GLADEncoder(nn.Module):
+  def __init__(self, din, dhid, slots, dropout=None):
+    super().__init__()
+    self.dropout = dropout or {}
+    self.global_rnn = nn.LSTM(din, dhid, bidirectional=True, batch_first=True)
+    self.global_selfattn = SelfAttention(2 * dhid, dropout=self.dropout.get('selfattn', 0.))
+    for s in slots:
+      setattr(self, '{}_rnn'.format(s), nn.LSTM(din, dhid, bidirectional=True, batch_first=True, dropout=self.dropout.get('rnn', 0.)))
+      setattr(self, '{}_selfattn'.format(s), SelfAttention(din, dropout=self.dropout.get('selfattn', 0.)))
+    self.slots = slots
+    self.beta_raw = nn.Parameter(torch.Tensor(len(slots)))
+    nn.init.uniform_(self.beta_raw, -0.01, 0.01)
+
+  def beta(self, slot):
+    return torch.sigmoid(self.beta_raw[self.slots.index(slot)])
+
+  def forward(self, x, x_len, slot, default_dropout=0.2):
+    local_rnn = getattr(self, '{}_rnn'.format(slot))
+    local_selfattn = getattr(self, '{}_selfattn'.format(slot))
+    beta = self.beta(slot)
+    local_h = run_rnn(local_rnn, x, x_len)
+    global_h = run_rnn(self.global_rnn, x, x_len)
+    h = F.dropout(local_h, self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(global_h, self.dropout.get('global', default_dropout), self.training) * (1-beta)
+    c = F.dropout(local_selfattn(h, x_len), self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(self.global_selfattn(h, x_len), self.dropout.get('global', default_dropout), self.training) * (1-beta)
+    return h, c
 
 class Replica_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
@@ -120,12 +143,18 @@ class GRU_Encoder(nn.Module):
     return torch.zeros(self.num_layers, 1, self.hidden_size).to(device)
 
 class BiLSTM_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
+  def __init__(self, vocab_len, hidden_size, embed_size=None, drop_prob=0, pretained=None, n_layers=1):
     super(BiLSTM_Encoder, self).__init__()
     self.n_layers = n_layers
+    self.embed_size = hidden_size if embed_size is None else embed_size
     self.hidden_size = hidden_size
-    self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.rnn = nn.LSTM(hidden_size, hidden_size, bidirectional=True)
+    if pretained is not None:
+        pre_embed = torch.FloatTensor(pretained)
+        self.embedding = nn.Embedding.from_pretrained(pre_embed, freeze=False)
+    else:
+        self.embedding = nn.Embedding(vocab_len, self.embed_size)
+    self.rnn = nn.LSTM(self.embed_size, hidden_size, bidirectional=True)
+    self.dropout = nn.Dropout(drop_prob)
 
   def forward(self, word_inputs, hidden_tuple):
     seq_len = len(word_inputs)
@@ -133,6 +162,7 @@ class BiLSTM_Encoder(nn.Module):
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
     # for i in range(self.n_layers):
     output, hidden_tuple = self.rnn(embedded, hidden_tuple)
+    output = self.dropout(output)
     return output, hidden_tuple
 
   def initHidden(self):

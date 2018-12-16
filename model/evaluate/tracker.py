@@ -12,7 +12,7 @@ class LossTracker(object):
 
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss
-    self.threshold = args.early_stopping
+    self.threshold = args.early_stop
     self.absolute_range = 4
     # Trailing average storage for calculating relative loss
     self.trailing_average = []

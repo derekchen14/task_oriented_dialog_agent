@@ -8,6 +8,30 @@ from model.components import var
 import sys, pdb  # set_trace
 import numpy as np
 
+class SelfAttention(nn.Module):
+    """
+    scores each element of the sequence with a linear layer and uses
+    the normalized scores to compute a context over the sequence.
+    """
+    def __init__(self, d_hid, dropout=0.):
+        super().__init__()
+        self.scorer = nn.Linear(d_hid, 1)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, inp, lens):
+        batch_size, seq_len, hidden_dim = inp.size()
+        inp = self.dropout(inp)
+        raw_scores = self.scorer(inp.contiguous().view(-1, hidden_dim))
+        scores = raw_scores.view(batch_size, seq_len)
+        max_len = max(lens)
+        for i, l in enumerate(lens):
+            if l < max_len:
+                scores.data[i, l:] = -np.inf
+        scores = F.softmax(scores, dim=1)
+        context = scores.unsqueeze(2).expand_as(inp).mul(inp).sum(1)
+        return context
+
+
 class Attention(nn.Module):
   def __init__(self, method, hidden_size):
     super(Attention, self).__init__()

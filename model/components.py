@@ -1,4 +1,5 @@
 from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils import rnn as rnn_utils
 from torch.nn import NLLLoss, parameter
 
 import utils.internal.vocabulary as vocab
@@ -8,6 +9,7 @@ import utils.internal.data_io as data_io
 from utils.external.bleu import BLEU
 
 import torch
+import numpy as np
 import pdb, sys
 from tqdm import tqdm as progress_bar
 
@@ -80,6 +82,24 @@ def transformer_inference(model, sources, targets, criterion):
       break
 
   return loss, predictions, None
+
+def run_rnn(rnn, inputs, lens):
+    # sort by lens, argsort gives smallest to largest, [::-1] gives largest to smallest
+    order = np.argsort(lens)[::-1].tolist()
+    reindexed = inputs.index_select(0, inputs.data.new(order).long())
+    reindexed_lens = [lens[i] for i in order]
+    packed = rnn_utils.pack_padded_sequence(reindexed, reindexed_lens, batch_first=True)
+    # print("packed: {}".format(packed.shape))
+    outputs, _ = rnn(packed)
+    # print("outputs: {}".format(outputs.shape))
+    # pdb.set_trace()
+    padded, _ = rnn_utils.pad_packed_sequence(outputs, batch_first=True, padding_value=0.)
+    reverse_order = np.argsort(order).tolist()
+    recovered = padded.index_select(0, inputs.data.new(reverse_order).long())
+    # reindexed_lens = [lens[i] for i in order]
+    # recovered_lens = [reindexed_lens[i] for i in reverse_order]
+    # assert recovered_lens == lens
+    return recovered
 
 def show_dialogues(val_data, encoder, decoder, task):
   encoder.eval()
