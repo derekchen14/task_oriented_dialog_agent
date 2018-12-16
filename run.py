@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import torch
-torch.manual_seed(14)
 
 from utils.internal.arguments import solicit_args
 from utils.internal import vocabulary as vocab
@@ -13,10 +12,11 @@ if __name__ == "__main__":
   args = solicit_args()
   task = args.task_name
   kind = args.report_path
+  torch.manual_seed(args.seed)
   # ---- LOAD AND PREPROCESS ------
   processor = PreProcessor(args, kind)
   tracker = LossTracker(args)
-  builder = Builder(args)
+  builder = Builder(args, vocab.embeddings)
   # ---- TRAIN OR TEST MODELS  ----
   if args.test_mode:
     tester = Tester(args, processor, kind)
