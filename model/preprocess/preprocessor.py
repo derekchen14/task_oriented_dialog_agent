@@ -4,17 +4,15 @@ from utils.internal.data_io import load_dataset, pickle_io
 import os
 
 class PreProcessor(object):
-  def __init__(self, args, kind):
-    self.kind = kind
-    use_context, task = args.context, args.task_name
+  def __init__(self, args):
     if args.test_mode:
-      self.prepare_examples("test", use_context, task)
+      self.prepare_examples("test", args.context, args.task)
     elif args.debug:
-      self.load_debug_examples(task)
+      self.load_debug_examples(args.task)
     else: # normal training mode
-      self.prepare_examples("train", use_context, task)
-      self.prepare_examples("val", use_context, task)
-      self.make_cache(task)
+      self.prepare_examples("train", args.context, args.task)
+      self.prepare_examples("val", args.context, args.task)
+      self.make_cache(args.task)
 
   def load_debug_examples(self, task):
     data_path = os.path.join("datasets", task, "debug", "cache.pkl")
@@ -61,17 +59,13 @@ class PreProcessor(object):
     '''
   def prepare_output(self, target):
     if len(target) == 1:
-      target_index = vocab.belief_to_index(target[0], self.kind)
+      target_index = vocab.belief_to_index(target[0])
       output_var = var([target_index], "long")
       return output_var, False
     elif len(target) == 2:
-      target_index = vocab.beliefs_to_index(target, self.kind)
-      if self.kind == "full_enumeration":
-        output_var = var([target_index], "long")
-        return output_var, False
-      else:
-        output_vars = [var([ti], "long") for ti in target_index]
-        return output_vars, True
+      target_index = vocab.beliefs_to_index(target)
+      output_vars = [var([ti], "long") for ti in target_index]
+      return output_vars, True
 
   def make_cache(self, task):
     data_path = os.path.join("datasets", task, "debug", "cache.pkl")

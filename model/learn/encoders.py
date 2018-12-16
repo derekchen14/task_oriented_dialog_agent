@@ -153,14 +153,13 @@ class BiLSTM_Encoder(nn.Module):
         self.embedding = nn.Embedding.from_pretrained(pre_embed, freeze=False)
     else:
         self.embedding = nn.Embedding(vocab_len, self.embed_size)
-    self.rnn = nn.LSTM(self.embed_size, hidden_size, bidirectional=True)
+    self.rnn = nn.LSTM(self.embed_size, hidden_size, bidirectional=True, num_layers=n_layers)
     self.dropout = nn.Dropout(drop_prob)
 
   def forward(self, word_inputs, hidden_tuple):
     seq_len = len(word_inputs)
-    # dimensions are timesteps, batch_size, input_size
+    # dimensions are seq_len, batch_size, hidden_dim
     embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
-    # for i in range(self.n_layers):
     output, hidden_tuple = self.rnn(embedded, hidden_tuple)
     output = self.dropout(output)
     return output, hidden_tuple
@@ -174,21 +173,19 @@ class BiLSTM_Encoder(nn.Module):
     return (hidden, cell)
 
 class RNN_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, n_layers=1):
+  def __init__(self, vocab_size, hidden_size, embed_size):
     super(RNN_Encoder, self).__init__()
-    self.n_layers = n_layers
     self.input_size = hidden_size
     self.hidden_size = hidden_size
 
-    self.embedding = nn.Embedding(vocab_size, hidden_size)
-    self.rnn = nn.RNN(self.input_size, self.hidden_size)
+    self.embedding = nn.Embedding(vocab_size, embed_size)
+    self.rnn = nn.RNN(embed_size, self.hidden_size)
 
-  def forward(self, input, hidden):
-    embedded = self.embedding(input).view(1, 1, -1)
-    output = embedded
-    for i in range(self.n_layers):
-      output = self.rnn(output)
-    return output
+  def forward(self, word_inputs, hidden_state):
+    seq_len = len(word_inputs)
+    embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+    output, hidden_state = self.rnn(embedded, hidden_state)
+    return output, hidden_state
 
   def initHidden(self):
     return torch.zeros(1, 1, self.hidden_size).to(device)

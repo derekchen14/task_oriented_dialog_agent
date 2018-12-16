@@ -6,9 +6,8 @@ import numpy as np
 
 # Used for testing, as opposed to training or validation
 class Tester(object):
-  def __init__(self, args, processor, kind):
+  def __init__(self, args, processor):
     self.test_data = processor.test_data
-    print(kind)
 
     model_path = "results/{0}_{1}.pt".format(args.model_name, args.suffix)
     if os.path.exists(model_path):

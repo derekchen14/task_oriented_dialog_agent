@@ -3,12 +3,12 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 def solicit_args():
   parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
   parser.add_argument('--seed', help='Random seed', type=int, default=14)
-  parser.add_argument('-t', '--task-name', choices=['babi', 'in-car', 'woz2',
+  parser.add_argument('-t', '--task', choices=['babi', 'in-car', 'woz2',
               'dstc2', 'dstc7', 'frames', 'multiwoz'], default='frames',
               help='Choose the task to train on', )
-  parser.add_argument('-m', '--model-type', default='match', choices=['basic', \
+  parser.add_argument('-m', '--model', default='match', choices=['basic', \
               'gru', 'attention', 'combined', 'dual', 'transformer', 'match',
-              'lstm', 'per_slot', 'glad'],
+              'bilstm', 'per_slot', 'glad'],
               help='Choose the model type used',)
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')

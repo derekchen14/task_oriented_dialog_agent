@@ -148,6 +148,9 @@ class ModelTemplate(nn.Module):
                 self.optimizer.step()
                 track['loss'].append(loss.item())
 
+                if iteration == 3:
+                    sys.exit()
+
             # evalute on train and dev
             summary = {'iteration': iteration, 'epoch': epoch}
             for k, v in track.items():

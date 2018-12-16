@@ -13,8 +13,8 @@ from model.learn import modules
 # from model.learn.text_generator import TextGenerator
 
 class Builder(object):
-  def __init__(self, args, embeddings):
-    self.model_type = args.model_type
+  def __init__(self, args, embeddings=None):
+    self.model_type = args.model
     self.hidden_size = args.hidden_size
     self.embed_size = args.embedding_size
     self.method = args.attn_method
@@ -29,10 +29,14 @@ class Builder(object):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
-    elif self.model_type in ["basic", "dual", "per_slot"]:
+    if self.model_type == "basic":
+      encoder = enc.RNN_Encoder(vocab_size, self.hidden_size, self.embed_size)
+      ff_network = dec.FF_Network(self.hidden_size, output_size, self.model_type)
+      return BasicClassifer(encoder, ff_network)
+    if self.model_type in ["bilstm", "dual", "per_slot"]:
       encoder = enc.BiLSTM_Encoder(vocab_size, self.hidden_size, self.embed_size,
                         self.drop_prob, self.embeddings, self.n_layers)
-      ff_network = dec.FF_Network(self.hidden_size, output_size)
+      ff_network = dec.FF_Network(self.hidden_size, output_size, self.model_type)
       return BasicClassifer(encoder, ff_network)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(vocab_size, self.hidden_size, self.n_layers)

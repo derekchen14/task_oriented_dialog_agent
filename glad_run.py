@@ -2,20 +2,20 @@
 import os
 import logging
 import torch
-from random import seed
-import pdb, sys
 
 from model.components import device
 from utils.internal.arguments import solicit_args
 from utils.external.glad_utils import load_dataset, get_models, load_model
 
-def run(args):
+if __name__ == '__main__':
+    args = solicit_args()
+    args.dout = os.path.join(args.report_path, args.model_type, args.suffix)
+    if not os.path.isdir(args.dout):
+        os.makedirs(args.dout)
+    args.dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
+
     logging.basicConfig(level=logging.INFO)
     logging.info(args)
-
-    # np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    seed(args.seed)
 
     dataset, ontology, vocab, Eword = load_dataset()
 
@@ -36,10 +36,3 @@ def run(args):
     dev_out = model.run_eval(dataset['dev'], args)
     print(dev_out)
 
-if __name__ == '__main__':
-    args = solicit_args()
-    args.dout = os.path.join(args.report_path, args.model_type, args.suffix)
-    if not os.path.isdir(args.dout):
-        os.makedirs(args.dout)
-    args.dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
-    run(args)

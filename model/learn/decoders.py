@@ -378,16 +378,19 @@ class RNN_Decoder(nn.Module):
     return output, hidden
 
 class FF_Network(nn.Module):
-  def __init__(self, input_size, target_size):
+  def __init__(self, input_size, target_size, model_type):
     super(FF_Network, self).__init__()
     # for DSTC2, target is 140 or 640
-    self.out = nn.Linear(input_size * 2, target_size)
+    if model_type == "basic":
+        self.out = nn.Linear(input_size, target_size)
+    else:
+        self.out = nn.Linear(input_size * 2, target_size)
     self.softmax = nn.LogSoftmax(dim=1)
     self.arguments_size = "tiny"
 
-  def forward(self, lstm_output):
-    # lstm_output is batch_size, hidden size
-    resized = self.out(lstm_output)
+  def forward(self, rnn_output):
+    # rnn_output is batch_size, hidden size
+    resized = self.out(rnn_output)
     # resized is batch_size, vocab_size (or num dialog acts)
     final_output = self.softmax(resized)
     return final_output

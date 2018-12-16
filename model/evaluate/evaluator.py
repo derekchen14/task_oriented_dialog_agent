@@ -14,15 +14,14 @@ import utils.internal.data_io as data_io
 from model.components import var, run_inference
 
 class Evaluator(object):
-  def __init__(self, args, kind):
+  def __init__(self, args):
     self.qual_report_path = "results/{0}_{1}_qual.txt".format(args.report_path, args.suffix)
     self.quant_report_path = "results/{0}_{1}_quant.csv".format(args.report_path, args.suffix)
 
     self.method = args.attn_method
     self.verbose = args.verbose
     self.config = args
-    self.kind = kind
-    self.task = args.task_name
+    self.task = args.task
 
   def plot(xs, ys, title="Training Curve"):
   # if args.plot_results:
@@ -116,8 +115,7 @@ class Evaluator(object):
         _, top2 = output.data.topk(2)
         rank_preds = top2[0]
 
-        target_word = vocab.index_to_word(target, learner.kind)
-
+        target_word = vocab.index_to_word(target, "label")
         if exact_pred != target:
           corrects["exact"] = False
 
@@ -145,7 +143,7 @@ class Evaluator(object):
         if use_display and target != 0:
           target_words.append(target_word)
         if use_display and exact_pred != 0:
-          pred_words.append(vocab.index_to_word(exact_pred, learner.kind))
+          pred_words.append(vocab.index_to_word(exact_pred))
 
       for success, status in corrects.items():
         if status:
@@ -169,7 +167,7 @@ class Evaluator(object):
       for sample in samples:
         source, target = sample
         _, pred, _ = run_inference(model, source, target, None, 0)
-        human_readable = vocab.index_to_word(pred, self.kind)
+        human_readable = vocab.index_to_word(pred)
 
         input_text = " ".join([vocab.index_to_word(token, task) for token in source])
         file.write("Input: {}\n".format(input_text))

@@ -12,17 +12,14 @@ def load_vocab(path):
 # babi_vocab = load_vocab("babi_vocab.json")
 # dstc2_vocab = load_vocab("dstc2/cleaned/vocab.json")
 woz2_vocab = load_vocab("woz2/vocab/vocabulary.json")
-embeddings = load_vocab("woz2/vocab/embeddings.json")
-fe_vocab = load_vocab("woz2/vocab/full_enumeration.json")
-po_vocab = load_vocab("woz2/vocab/possible_only.json")
-ov_vocab = load_vocab("woz2/vocab/ordered_values.json")
+# embeddings = load_vocab("woz2/vocab/embeddings.json")
 # frames_vocab = load_vocab("frames/cleaned/vocab.json")
 
-label_vocab = {
-  "full_enumeration": fe_vocab,
-  "possible_only": po_vocab,
-  "ordered_values": ov_vocab
-}
+# fe_vocab = load_vocab("woz2/vocab/full_enumeration.json")
+# po_vocab = load_vocab("woz2/vocab/possible_only.json")
+ov_vocab = load_vocab("woz2/vocab/ordered_values.json")
+label_vocab = ov_vocab
+
 # special_tokens = ["<SILENCE>", "<T01>","<T02>","<T03>", ... , "<T14>",
 #           "UNK", "SOS", "EOS", "api_call","poi", "addr"]
 UNK_token = 15
@@ -51,41 +48,14 @@ def word_to_index(token, task):
   elif task == "woz2":
     return woz2_vocab.index(token)
 
-def index_to_word(idx, task):
-  if task == "woz2":
-    return woz2_vocab[idx]
-  elif task == "in-car":
-    return car_vocab[idx]
-  elif task == "babi":
-    return res_vocab[idx]
-  elif task == "dstc2":
-    return dstc2_vocab[idx]
-
-def belief_to_index(belief, task):
+def belief_to_index(belief):
   intent, slot, value = belief
   token = "{}={}".format(slot, value)
-  return label_vocab[task].index(token)
-  # high, low, slot, value = belief
+  return label_vocab.index(token)
 
-  # if high in ["inform", "request", "answer", "question"]:
-  #   if slot is None:
-  #     token = "{0}({1})".format(high, value)
-  #   else:
-  #     token = "{0}({1}={2})".format(high, slot, value)
-  # else:
-  #   token = high
-  # return labels.index(token)
-
-def beliefs_to_index(beliefs, kind):
-  labels = label_vocab[kind]
-
+def beliefs_to_index(beliefs):
   intents = ["{}={}".format(slot, value) for _, slot, value in beliefs]
-  if kind == "full_enumeration":
-    # intents.sort()
-    joined = "+".join(intents)
-    return labels.index(joined)
-  else:
-    return [labels.index(x) for x in intents]
+  return [label_vocab.index(x) for x in intents]
 
 def index_to_word(idx, task):
   if task == "woz2":
@@ -96,8 +66,8 @@ def index_to_word(idx, task):
     return res_vocab[idx]
   elif task == "dstc2":
     return dstc2_vocab[idx]
-  else:
-    return label_vocab[task][idx]
+  elif task == "label":
+    return label_vocab[idx]
 
 def ulary_size(task):
   if task == "woz2":
@@ -109,5 +79,5 @@ def ulary_size(task):
   elif task == "dstc2":
     return len(dstc2_vocab)
 
-def label_size(kind):
-  return len(label_vocab[kind])
+def label_size():
+  return len(label_vocab)

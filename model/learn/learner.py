@@ -11,7 +11,7 @@ from utils.internal.clock import *
 from model.components import *
 
 class Learner(object):
-  def __init__(self, args, processor, builder, tracker, kind):
+  def __init__(self, args, processor, builder, tracker, kind=None):
     self.verbose = args.verbose
     self.debug = args.debug
     self.epochs = args.epochs
@@ -24,10 +24,10 @@ class Learner(object):
     self.builder = builder
     self.tracker = tracker
 
-    self.kind = kind
-    self.model_type = args.model_type
+    self.model_type = args.model
+    self.kind = "ordered_values" if kind is None else kind
     if self.model_type == "per_slot":
-      self.model_idx = vocab.categories.index(kind)   # order matters, do not switch
+      self.model_idx = vocab.categories.index(self.kind)   # order matters, do not switch
 
   def train(self, input_var, output_var, enc_optimizer, dec_optimizer):
     self.model.train()   # affects the performance of dropout
@@ -51,9 +51,9 @@ class Learner(object):
     targets = output_var.data.tolist()
 
     # when task is not specified, it defaults to index_to_label
-    predicted_tokens = [vocab.index_to_word(predictions[0], self.kind)]
+    predicted_tokens = [vocab.index_to_word(predictions[0], "label")]
     query_tokens = [vocab.index_to_word(y, task) for y in queries]
-    target_tokens = [vocab.index_to_word(z, self.kind) for z in targets]
+    target_tokens = [vocab.index_to_word(z, "label") for z in targets]
 
 
     avg_loss = loss.item() / output_var.shape[0]
@@ -73,8 +73,7 @@ class Learner(object):
   '''
 
   def learn(self, task):
-    # self.model = self.builder.make_system(vocab.ulary_size(task), vocab.label_size(self.kind))
-    self.model = self.builder.create_model(vocab.ulary_size(task), vocab.label_size(self.kind))
+    self.model = self.builder.create_model(vocab.ulary_size(task), vocab.label_size())
     print("Running model {}".format(self.model_path))
 
     self.learn_start = tm.time()
