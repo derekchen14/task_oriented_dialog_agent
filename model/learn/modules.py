@@ -228,9 +228,6 @@ class ModelTemplate(nn.Module):
         self.optimizer.step()
         track['loss'].append(loss.item())
 
-        if iteration == 3:
-          sys.exit()
-
       # evalute on train and dev
       summary = {'iteration': iteration, 'epoch': epoch}
       for k, v in track.items():
@@ -412,8 +409,8 @@ class GlobalLocalModel(ModelTemplate):
       y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))
 
       # combine the scores
-      # y_acts: torch.Size([50, 7])
-      # y_utts: torch.Size([50, 7])
+      # y_acts: torch.Size([50, 7])  batch size, num of values for slot 's'
+      # y_utts: torch.Size([50, 7])  for slot==area, there are 7 values
       ys[s] = torch.sigmoid(y_utts + self.score_weight * y_acts)
       # ys[s] = torch.sigmoid(c_utt.mm(C_vals.transpose(0, 1)))
 
