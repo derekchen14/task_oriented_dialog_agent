@@ -13,7 +13,7 @@ from model.learn import modules
 # from model.learn.text_generator import TextGenerator
 
 class Builder(object):
-  def __init__(self, args, embeddings=None):
+  def __init__(self, args, loader=None, embeddings=None):
     self.model_type = args.model
     self.hidden_size = args.hidden_size
     self.embed_size = args.embedding_size
@@ -23,6 +23,9 @@ class Builder(object):
     self.optimizer = args.optimizer
     self.weight_decay = args.weight_decay
     self.lr = args.learning_rate
+    self.args = args
+
+    self.loader = loader
     self.embeddings = embeddings
 
   def create_model(self, vocab_size, output_size=None, max_length=25):
@@ -38,6 +41,11 @@ class Builder(object):
                         self.drop_prob, self.embeddings, self.n_layers)
       ff_network = dec.FF_Network(self.hidden_size, output_size, self.model_type)
       return BasicClassifer(encoder, ff_network)
+    elif self.model_type == "glad":
+      glad_model = modules.GlobalLocalModel(self.args, self.loader.ontology,
+                    self.loader.vocab, self.embeddings, enc.GLADEncoder)
+      glad_model.save_config()
+      return glad_model.to(device)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(vocab_size, self.hidden_size, self.n_layers)
       decoder = dec.Attn_Decoder(output_size, self.hidden_size, self.method, self.drop_prob)

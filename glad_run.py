@@ -4,12 +4,14 @@ import logging
 import torch
 
 from model.components import device
+from model.preprocess import DataLoader
+from model.learn import Builder
+
 from utils.internal.arguments import solicit_args
-from utils.external.glad_utils import load_dataset, get_models, load_model
 
 if __name__ == '__main__':
     args = solicit_args()
-    args.dout = os.path.join(args.report_path, args.model_type, args.suffix)
+    args.dout = os.path.join(args.report_path, args.model, args.suffix)
     if not os.path.isdir(args.dout):
         os.makedirs(args.dout)
     args.dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
@@ -17,22 +19,20 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logging.info(args)
 
-    dataset, ontology, vocab, Eword = load_dataset()
+    loader = DataLoader(args)
+    builder = Builder(args, loader, loader.embeddings)
+    glad_model = builder.create_model(len(loader.vocab))
 
-    model = load_model(args.model_type, args, ontology, vocab, Eword)
-    model.save_config()
-
-    model = model.to(device)
     if not args.test_mode:
         logging.info('Starting train')
-        model.run_train(dataset['train'], dataset['dev'], args)
+        glad_model.run_train(loader.dataset['train'], loader.dataset['dev'], args)
     if args.use_existing:
-        resume_path = os.path.join(args.report_path, args.model_type, args.prefix)
-        model.load_best_save(directory=resume_path)
+        resume_path = os.path.join(args.report_path, args.model, args.prefix)
+        glad_model.load_best_save(directory=resume_path)
     else:
-        model.load_best_save(directory=args.dout)
-    model = model.to(device)
+        glad_model.load_best_save(directory=args.dout)
+    glad_model = glad_model.to(device)
     logging.info('Running dev evaluation')
-    dev_out = model.run_eval(dataset['dev'], args)
+    dev_out = glad_model.run_eval(loader.dataset['dev'], args)
     print(dev_out)
 
