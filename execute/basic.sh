@@ -18,7 +18,7 @@
 # python glad_run.py --model glad --hidden-size 200 --embedding-size 400 \
 #       --task woz2
 CUDA_VISIBLE_DEVICES=0 python glad_run.py --gpu=0  --suffix full_model2 \
-    --hidden-size 200 --embedding-size 400 --task woz2 --model glad
+    --hidden-size 200 --embedding-size 400 --task woz2 --model glad --test-mode
 
 
 # Manual updates: vocab on components and evaluator, preprocess init file

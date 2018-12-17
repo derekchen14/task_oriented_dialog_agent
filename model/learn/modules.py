@@ -284,6 +284,13 @@ class ModelTemplate(nn.Module):
     predictions = self.run_pred(dev, args)
     return dev.evaluate_preds(predictions)
 
+  def run_report(self, dev, args):
+    self.eval()
+    one_batch = dev.batch(batch_size=args.batch_size).next()
+    loss, scores = self.forward(one_batch)
+    predictions = self.extract_predictions(scores)
+    return dev.full_report(predictions, scores)
+
   def save_config(self):
     fname = '{}/config.json'.format(self.args.dout)
     with open(fname, 'wt') as f:

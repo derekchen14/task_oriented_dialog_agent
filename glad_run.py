@@ -32,10 +32,6 @@ if __name__ == '__main__':
     else:
         glad_model.load_best_save(directory=args.dout)
     glad_model = glad_model.to(device)
-    logging.info('Running dev evaluation')
-    ldt = loader.dataset['test']
-    import pdb
-    pdb.set_trace()
-    dev_out = glad_model.run_eval(loader.dataset['test'], args)
-    print(dev_out)
-
+    logging.info('Running test evaluation')
+    test_out = glad_model.run_report(loader.dataset['test'], args)
+    print(test_out)
