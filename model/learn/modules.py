@@ -286,10 +286,10 @@ class ModelTemplate(nn.Module):
 
   def run_report(self, dev, args):
     self.eval()
-    one_batch = dev.batch(batch_size=args.batch_size).next()
+    one_batch = next(dev.batch(args.batch_size, shuffle=True))
     loss, scores = self.forward(one_batch)
     predictions = self.extract_predictions(scores)
-    return dev.full_report(predictions, scores)
+    return dev.full_report(one_batch, predictions, scores)
 
   def save_config(self):
     fname = '{}/config.json'.format(self.args.dout)

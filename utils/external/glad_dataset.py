@@ -94,9 +94,6 @@ class Dataset:
   def iter_turns(self):
     for d in self.dialogues:
       for t in d.turns:
-        print(t.keys())
-        pdb.set_trace()
-
         yield t
 
   def to_dict(self):
@@ -132,42 +129,41 @@ class Dataset:
     for i in tqdm(range(0, len(turns), batch_size)):
       yield turns[i:i+batch_size]
 
-  def full_report(self, predictions, confidence):
-    num_samples = len(predictions)
+  def process_confidence(self, confidence, idx):
+    for slot in ["area", "request", "price range", "food"]:
+      conf = [round(x, 3) for x in confidence[slot][idx]]
+      print("{} confidence: {}".format(slot, conf))
+  
+  def full_report(self, one_batch, preds, confidence):
+    num_samples = len(preds)
     request = []
     inform = []
     joint_goal = []
     fix = {'centre': 'center', 'areas': 'area', 'phone number': 'number'}
     i = 0
-    for d in self.dialogues:
-      pred_state = {}
-      for t in d.turns:
-        gold_request = set([(s, v) for s, v in t.turn_label if s == 'request'])
-        gold_inform = set([(s, v) for s, v in t.turn_label if s != 'request'])
-        pred_request = set([(s, v) for s, v in preds[i] if s == 'request'])
-        pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
-        request.append(gold_request == pred_request)
-        inform.append(gold_inform == pred_inform)
-
-        gold_recovered = set()
-        pred_recovered = set()
-        for s, v in pred_inform:
-          pred_state[s] = v
-        for b in t.belief_state:
-          for s, v in b['slots']:
-            if b['act'] != 'request':
-              gold_recovered.add((b['act'], fix.get(s.strip(), s.strip()),
-                                            fix.get(v.strip(), v.strip())))
-        for s, v in pred_state.items():
-          pred_recovered.add(('inform', s, v))
-        joint_goal.append(gold_recovered == pred_recovered)
-        i += 1
-        if i >= num_samples:
-          break
-    result = {'turn_inform': np.mean(inform),
-             'turn_request': np.mean(request),
-               'joint_goal': np.mean(joint_goal)}
-    return result
+    pred_state = {}
+    for t in one_batch:
+      if i >= num_samples:
+        break
+      gold_request = set([(s, v) for s, v in t.turn_label if s == 'request'])
+      gold_inform = set([(s, v) for s, v in t.turn_label if s != 'request'])
+      pred_request = set([(s, v) for s, v in preds[i] if s == 'request'])
+      pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
+      request.append(gold_request == pred_request)
+      inform.append(gold_inform == pred_inform)
+      
+      double_correct = (gold_request == pred_request) and (gold_inform == pred_inform)
+      joint_goal.append(double_correct)
+      
+      if not double_correct:
+        print(" ".join(t.transcript))
+        print('actual', t.turn_label)
+        print('predicted', preds[i])
+        self.process_confidence(confidence, i)
+        print('----------------')
+      
+      i += 1
+    return {'turn_inform': np.mean(inform), 'turn_request': np.mean(request), 'joint_goal': np.mean(joint_goal)}
 
   def evaluate_preds(self, preds):
     request = []
