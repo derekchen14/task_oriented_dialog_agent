@@ -22,6 +22,9 @@ class LossTracker(object):
     self.bleu_scores = []
     self.accuracy = []
 
+  def best_so_far(self):
+    return True
+
   def update_loss(self, loss, split):
     if split == "train":
       self.train_losses.append(loss)
@@ -80,3 +83,13 @@ class LossTracker(object):
       if (current_avg / lookback_avg) > 1.1:
         return True
     return False
+
+  def generate_summary(self):
+    return {
+      "train_epoch": self.train_epoch,
+      "train_loss": self.train_losses[-1],
+      "val_epoch": self.val_epoch,
+      "val_loss": self.val_losses[-1],
+      "accuracy": self.bleu_scores[-1],
+      "recall@k=2": self.accuracy[-1]
+    }

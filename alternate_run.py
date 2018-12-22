@@ -31,7 +31,6 @@ if __name__ == "__main__":
   #   learner = Learner(args, processor, builder, tracker, category)
   #   learner.learn(task)
   #   all_learners.append(learner)
-  #   print("Done training {}".format(category))
   # ------- MANAGE RESULTS -------
   evaluator = Evaluator(args, kind)
   # evaluator.report(all_learners)

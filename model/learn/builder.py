@@ -1,107 +1,100 @@
+import os
 import random
+import logging
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
-from torch import optim
 
 from model.components import device
 from model.learn import encoders as enc
 from model.learn import decoders as dec
-from model.learn import modules
+from model.learn.modules import GlobalLocalModel, BasicClassifer
 # from model.learn.belief_tracker import BeliefTracker
 # from model.learn.policy_manager import PolicyManager
 # from model.learn.text_generator import TextGenerator
 
 class Builder(object):
-  def __init__(self, args, loader=None, embeddings=None):
-    self.model_type = args.model
-    self.hidden_size = args.hidden_size
-    self.embed_size = args.embedding_size
-    self.method = args.attn_method
-    self.n_layers = args.n_layers
-    self.drop_prob = args.drop_prob
-    self.optimizer = args.optimizer
-    self.weight_decay = args.weight_decay
-    self.lr = args.learning_rate
+  def __init__(self, args, loader=None):
     self.args = args
+    self.use_existing = args.use_existing
+    self.model_type = args.model
+    self.dhid = args.hidden_size
+    self.test_mode = args.test_mode
+    self.prepare_directory(args)
 
     self.loader = loader
-    self.embeddings = embeddings
+    self.data_dir = loader.data_dir
+    self.embeddings = loader.embeddings if args.pretrained else None
 
-  def create_model(self, vocab_size, output_size=None, max_length=25):
+  def get_model(self, vocab_size, output_size=None):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
 
+    model = self.create_model(vocab_size, output_size)
+    if self.test_mode:
+      logging.info("Loading model at {} for testing".format(self.dir))
+      model = self.load_model(self.dir, model)
+    elif self.use_existing:
+      logging.info("Resuming model at {} for training".format(self.dir))
+      model = self.load_model(self.dir, model)
+    else:
+      logging.info("Building model at {}".format(self.dir))
+
+    return model
+
+  def prepare_directory(self, args):
+    self.model_path = args.prefix + args.model + args.suffix
+    self.dir = os.path.join("results", args.task, args.dataset, self.model_path)
+    if not os.path.exists(self.dir):
+      os.makedirs(self.dir)
+
+  def load_model(self, directory, model):
+    filename = "epoch=12_success=25.4042_recall@two=41.3395"
+    state = torch.load("{0}/{1}.pt".format(directory, filename))
+    model.load_state_dict(state['model'])
+    model.eval()
+    if self.use_existing:
+      model.init_optimizer()
+      model.optimizer.load_state_dict(state['optimizer'])
+    return model.to(device)
+
+  def create_model(self, vocab_size, output_size):
     if self.model_type == "basic":
-      encoder = enc.RNN_Encoder(vocab_size, self.hidden_size, self.embed_size)
-      ff_network = dec.FF_Network(self.hidden_size, output_size, self.model_type)
-      return BasicClassifer(encoder, ff_network)
+      encoder = enc.RNN_Encoder(vocab_size, self.args)
+      ff_network = dec.FF_Network(self.dhid, output_size, self.model_type)
+      return BasicClassifer(encoder, ff_network, self.args)
     if self.model_type in ["bilstm", "dual", "per_slot"]:
-      encoder = enc.BiLSTM_Encoder(vocab_size, self.hidden_size, self.embed_size,
-                        self.drop_prob, self.embeddings, self.n_layers)
-      ff_network = dec.FF_Network(self.hidden_size, output_size, self.model_type)
-      return BasicClassifer(encoder, ff_network)
+      encoder = enc.BiLSTM_Encoder(vocab_size, self.embeddings, self.args)
+      ff_network = dec.FF_Network(self.dhid, output_size, self.model_type)
+      return BasicClassifer(encoder, ff_network, self.args)
     elif self.model_type == "glad":
-      glad_model = modules.GlobalLocalModel(self.args, self.loader.ontology,
+      glad_model = GlobalLocalModel(self.args, self.loader.ontology,
                     self.loader.vocab, self.embeddings, enc.GLADEncoder)
-      glad_model.save_config()
+      glad_model.save_config(self.dir)
       return glad_model.to(device)
     elif self.model_type == "attention":
-      encoder = enc.GRU_Encoder(vocab_size, self.hidden_size, self.n_layers)
-      decoder = dec.Attn_Decoder(output_size, self.hidden_size, self.method, self.drop_prob)
+      encoder = enc.GRU_Encoder(vocab_size, self.args)
+      decoder = dec.Attn_Decoder(output_size, self.args)
     elif self.model_type == "bidirectional":
-      encoder = enc.Bid_Encoder(vocab_size, self.hidden_size)
-      decoder = dec.Bid_Decoder(output_size, self.hidden_size, self.method, self.drop_prob)
+      encoder = enc.Bid_Encoder(vocab_size, self.dhid)
+      decoder = dec.Bid_Decoder(output_size, self.args)
     elif self.model_type == "copy":
-      encoder = enc.Match_Encoder(vocab_size, self.hidden_size)
-      decoder = dec.Copy_Without_Attn_Decoder(output_size, self.hidden_size,
-                    self.method, self.drop_prob)
-      zeros_tensor = torch.zeros(vocab_size, max_length)
+      encoder = enc.Match_Encoder(vocab_size, self.dhid)
+      decoder = dec.Copy_Without_Attn_Decoder(output_size, self.args)
+      zeros_tensor = torch.zeros(vocab_size, max_length=25)
       copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
       decoder.embedding.weight = Parameter(torch.cat(copy_tensor, dim=1))
     elif self.model_type == "combined":
-      encoder = enc.Match_Encoder(vocab_size, self.hidden_size)
-      decoder = dec.Copy_Decoder(output_size, self.hidden_size, self.method,
-                    self.drop_prob, max_length)
-      zeros_tensor = torch.zeros(vocab_size, max_length)
+      encoder = enc.Match_Encoder(vocab_size, self.dhid)
+      decoder = dec.Copy_Decoder(output_size, self.args)
+      zeros_tensor = torch.zeros(vocab_size, max_length=25)
       copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
       decoder.embedding.weight = Parameter(torch.cat(copy_tensor, dim=1))
     elif self.model_type == "transformer":
-      encoder = enc.Transformer_Encoder(vocab_size, self.hidden_size, self.n_layers)
-      decoder = dec.Transformer_Decoder(output_size, self.hidden_size, self.n_layers)
-    elif self.model_type == "replica":
-      encoder = enc.Replica_Encoder(vocab_size, self.hidden_size)
-      decoder = dec.Replica_Decoder(output_size, self.hidden_size, self.method,
-                    self.drop_prob, max_length)
-      zeros_tensor = torch.zeros(vocab_size, max_length)
-      copy_tensor = [zeros_tensor, encoder.embedding.weight.data]
-      decoder.embedding.weight = Parameter(torch.cat(copy_tensor, dim=1))
+      encoder = enc.Transformer_Encoder(vocab_size, self.args)
+      decoder = dec.Transformer_Decoder(output_size, self.args)
 
     return Seq2Seq(encoder, decoder)
-
-  def init_optimizers(self, model):
-    enc_params, dec_params = model.encoder.parameters(), model.decoder.parameters()
-
-    if self.optimizer == 'SGD':
-      enc_optimizer = optim.SGD(enc_params, self.lr, self.weight_decay)
-      dec_optimizer = optim.SGD(dec_params, self.lr, self.weight_decay)
-    elif self.optimizer == 'Adam':
-      # warmup = step_num * math.pow(4000, -1.5)
-      # self.lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
-      self.lr = 0.0158
-      enc_optimizer = optim.Adam(enc_params, self.lr, betas=(0.9, 0.98), eps=1e-9)
-      dec_optimizer = optim.Adam(dec_params, self.lr, betas=(0.9, 0.98), eps=1e-9)
-      # encoder_optimizer = optim.Adam(enc_params, self.lr * 0.01, weight_decay=weight_decay)
-      # decoder_optimizer = optim.Adam(dec_params, self.lr * 0.01, weight_decay=weight_decay)
-    else:
-      enc_optimizer = optim.RMSprop(enc_params, self.lr, self.weight_decay)
-      dec_optimizer = optim.RMSprop(dec_params, self.lr, self.weight_decay)
-
-    return enc_optimizer, dec_optimizer
-
-  def make_system(self, input_size, *output_size):
-    models = [self.create_model(input_size, outs) for outs in output_size]
-    return models[0] if len(models) == 1 else models
 
 
 class Seq2Seq(nn.Module):
@@ -152,15 +145,3 @@ class Seq2Seq(nn.Module):
         decoder_input = var([[ni]], "long")
 
     return loss, predictions, visual
-
-
-class BasicClassifer(nn.Module):
-  def __init__(self, encoder, ff_network):
-    super(BasicClassifer, self).__init__()
-    self.encoder = encoder.to(device)
-    self.decoder = ff_network.to(device)
-    self.type = "basic"
-  def forward(self, sources, hidden):
-    self.encoder.rnn.flatten_parameters()
-    encoder_outputs, hidden = self.encoder(sources, hidden)
-    return self.decoder(encoder_outputs[0])

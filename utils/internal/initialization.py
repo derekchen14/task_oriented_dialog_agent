@@ -6,11 +6,13 @@ import math
 import json
 import pandas as pd
 import pickle as pkl
+# from nltk import word_tokenize
 
-from nltk import word_tokenize
-import utils.internal.vocabulary as vocab
-# import utils.internal.per_slot_vocab as vocab
-# import utils.internal.dual_vocab as vocab
+def pickle_io(filename, process, data=None):
+  if process == "load":
+    return pkl.load( open( filename, "rb" ) )
+  elif process == "save":
+    pkl.dump(data, open( filename, "wb") )
 
 def parse_dialogue(lines, tokenizer=True):
   '''

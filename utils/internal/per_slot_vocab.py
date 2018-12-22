@@ -9,7 +9,6 @@ def load_vocab(path):
 
 vocabs = load_vocab("woz2/vocab/per_slot.json")
 vocabs["woz2"] = load_vocab("woz2/vocab/vocabulary.json")
-categories = ["area", "food", "price", "request"]
 
 def belief_to_index(belief):
   intent, slot, value = belief

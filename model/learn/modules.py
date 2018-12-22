@@ -8,6 +8,7 @@ import re
 
 import torch
 import torch.nn as nn
+from torch import optim
 import torch.nn.functional as F
 
 from model.components import var, device
@@ -15,27 +16,27 @@ from collections import defaultdict
 from pprint import pformat
 
 class SelfAttention(nn.Module):
-    """
-    scores each element of the sequence with a linear layer and uses
-    the normalized scores to compute a context over the sequence.
-    """
-    def __init__(self, d_hid, dropout=0.):
-        super().__init__()
-        self.scorer = nn.Linear(d_hid, 1)
-        self.dropout = nn.Dropout(dropout)
+  """
+  scores each element of the sequence with a linear layer and uses
+  the normalized scores to compute a context over the sequence.
+  """
+  def __init__(self, d_hid, dropout=0.):
+    super().__init__()
+    self.scorer = nn.Linear(d_hid, 1)
+    self.dropout = nn.Dropout(dropout)
 
-    def forward(self, inp, lens):
-        batch_size, seq_len, hidden_dim = inp.size()
-        inp = self.dropout(inp)
-        raw_scores = self.scorer(inp.contiguous().view(-1, hidden_dim))
-        scores = raw_scores.view(batch_size, seq_len)
-        max_len = max(lens)
-        for i, l in enumerate(lens):
-            if l < max_len:
-                scores.data[i, l:] = -np.inf
-        scores = F.softmax(scores, dim=1)
-        context = scores.unsqueeze(2).expand_as(inp).mul(inp).sum(1)
-        return context
+  def forward(self, inp, lens):
+    batch_size, seq_len, hidden_dim = inp.size()
+    inp = self.dropout(inp)
+    raw_scores = self.scorer(inp.contiguous().view(-1, hidden_dim))
+    scores = raw_scores.view(batch_size, seq_len)
+    max_len = max(lens)
+    for i, l in enumerate(lens):
+      if l < max_len:
+        scores.data[i, l:] = -np.inf
+    scores = F.softmax(scores, dim=1)
+    context = scores.unsqueeze(2).expand_as(inp).mul(inp).sum(1)
+    return context
 
 
 class Attention(nn.Module):
@@ -196,13 +197,31 @@ def attend(seq, cond, lens):
   return context, scores
 
 class ModelTemplate(nn.Module):
-  def __init__(self):
+  def __init__(self, params):
     super().__init__()
+    self.params = params
+    self.opt = params.optimizer
+    self.lr = params.learning_rate
+    self.reg = params.weight_decay
+
+    self.dhid = params.hidden_size
+    self.demb = params.embedding_size
+    self.n_layers = params.num_layers
+
+  def init_optimizer(self):
+    if self.opt == 'sgd':
+      self.optimizer = optim.SGD(self.parameters(), self.lr, self.reg)
+    elif self.opt == 'adam':
+      # warmup = step_num * math.pow(4000, -1.5)   -- or -- lr = 0.0158
+      # self.lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
+      self.optimizer = optim.Adam(self.parameters(), self.lr)
+    elif self.opt == 'rmsprop':
+      self.optimizer = optim.RMSprop(self.parameters(), self.lr, self.reg)
 
   def get_train_logger(self):
     logger = logging.getLogger('train-{}'.format(self.__class__.__name__))
     formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
-    file_handler = logging.FileHandler(os.path.join(self.args.dout, 'train.log'))
+    file_handler = logging.FileHandler(os.path.join(self.save_dir, 'train.log'))
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     return logger
@@ -212,8 +231,7 @@ class ModelTemplate(nn.Module):
     iteration = 0
     best = {}
     logger = self.get_train_logger()
-    if self.optimizer is None:
-      self.set_optimizer()
+    self.init_optimizer()
 
     for epoch in range(args.epochs):
       logger.info('starting epoch {}'.format(epoch))
@@ -242,8 +260,7 @@ class ModelTemplate(nn.Module):
         best_dev = '{:f}'.format(summary[stop_key])
         best_train = '{:f}'.format(summary[train_key])
         best.update(summary)
-        self.save(
-          best,
+        self.save(best,
           identifier='epoch={epoch},iter={iteration},train_{key}={train},dev_{key}={dev}'.format(
             epoch=epoch, iteration=iteration, train=best_train, dev=best_dev, key=args.stop_early,
           )
@@ -251,7 +268,7 @@ class ModelTemplate(nn.Module):
         self.prune_saves()
         dev.record_preds(
           preds=self.run_pred(dev, self.args),
-          to_file=os.path.join(self.args.dout, 'dev.pred.json'),
+          to_file=os.path.join(self.save_dir, 'dev.pred.json'),
         )
       summary.update({'best_{}'.format(k): v for k, v in best.items()})
       logger.info(pformat(summary))
@@ -291,26 +308,26 @@ class ModelTemplate(nn.Module):
     predictions = self.extract_predictions(scores)
     return dev.full_report(one_batch, predictions, scores)
 
-  def save_config(self):
-    fname = '{}/config.json'.format(self.args.dout)
+  def save_config(self, save_directory):
+    fname = '{}/config.json'.format(save_directory)
     with open(fname, 'wt') as f:
-      logging.info('saving config to {}'.format(fname))
+      logging.info('Saving config to {}'.format(fname))
       json.dump(vars(self.args), f, indent=2)
 
   @classmethod
   def load_config(cls, fname, ontology, **kwargs):
     with open(fname) as f:
-      logging.info('loading config from {}'.format(fname))
+      logging.info('Loading config from {}'.format(fname))
       args = object()
       for k, v in json.load(f):
         setattr(args, k, kwargs.get(k, v))
     return cls(args, ontology)
 
   def save(self, summary, identifier):
-    fname = '{}/{}.t7'.format(self.args.dout, identifier)
-    logging.info('saving model to {}'.format(fname))
+    fname = '{}/{}.pt'.format(self.save_dir, identifier)
+    logging.info('saving model to {}.pt'.format(identifier))
     state = {
-      'args': vars(self.args),
+      'args': vars(self.params),
       'model': self.state_dict(),
       'summary': summary,
       'optimizer': self.optimizer.state_dict(),
@@ -321,13 +338,13 @@ class ModelTemplate(nn.Module):
     logging.info('loading model from {}'.format(fname))
     state = torch.load(fname)
     self.load_state_dict(state['model'])
-    self.set_optimizer()
+    self.init_optimizer()
     self.optimizer.load_state_dict(state['optimizer'])
 
   def get_saves(self, directory=None):
     if directory is None:
-      directory = self.args.dout
-    files = [f for f in os.listdir(directory) if f.endswith('.t7')]
+      directory = self.args.out_dir
+    files = [f for f in os.listdir(directory) if f.endswith('.pt')]
     scores = []
     for fname in files:
       re_str = r'dev_{}=([0-9\.]+)'.format(self.args.stop_early)
@@ -347,9 +364,6 @@ class ModelTemplate(nn.Module):
         os.remove(fname)
 
   def load_best_save(self, directory):
-    if directory is None:
-      directory = self.args.dout
-
     scores_and_files = self.get_saves(directory=directory)
     if scores_and_files:
       assert scores_and_files, 'no saves exist at {}'.format(directory)
@@ -359,27 +373,25 @@ class ModelTemplate(nn.Module):
 # the GLAD model described in https://arxiv.org/abs/1805.09655.
 class GlobalLocalModel(ModelTemplate):
   def __init__(self, args, ontology, vocab, Eword, GLADEncoder):
-    super().__init__()
+    super().__init__(args)
     self.optimizer = None
-    self.args = args
+
     self.vocab = vocab
     self.ontology = ontology
-    # self.embedding = nn.Embedding(len(vocab), args.demb)  # (num_embeddings, embedding_dim)
-    self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
+    if args.pretrained:
+      self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
+    else:
+      self.embedding = nn.Embedding(len(vocab), self.demb)  # (num_embeddings, embedding_dim)
 
-    demb = args.embedding_size    # aka embedding dimension
-    dhid = args.hidden_size       # aka hidden dimension
-    slots = self.ontology.slots
+    self.demb = args.embedding_size    # aka embedding dimension
+    self.dhid = args.hidden__size      # aka hidden state dimension
+    dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
 
-    self.utt_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
-    self.act_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
-    self.ont_encoder = GLADEncoder(demb, dhid, slots, args.dropout)
+    self.utt_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
+    self.act_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
+    self.ont_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.utt_scorer = nn.Linear(2 * dhid, 1)
     self.score_weight = nn.Parameter(torch.Tensor([0.5]))
-
-  def set_optimizer(self):
-    from torch import optim
-    self.optimizer = optim.Adam(self.parameters(), lr=self.args.learning_rate)
 
   def forward(self, batch):
     # convert to variables and look up embeddings
@@ -443,3 +455,15 @@ class GlobalLocalModel(ModelTemplate):
     return emb(padded.to(device)), lens
     # out = F.dropout(emb(padded.to(device)), drop_rate)
     # return out, lens
+
+class BasicClassifer(ModelTemplate):
+  def __init__(self, encoder, ff_network, args):
+    super().__init__(args)
+    self.encoder = encoder.to(device)
+    self.decoder = ff_network.to(device)
+    self.type = "basic"
+  def forward(self, sources, hidden):
+    self.encoder.rnn.flatten_parameters()
+    encoder_outputs, hidden = self.encoder(sources, hidden)
+    return self.decoder(encoder_outputs[0])
+

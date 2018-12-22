@@ -120,7 +120,6 @@ class GRU_Encoder(nn.Module):
     super(GRU_Encoder, self).__init__()
     self.hidden_size = hidden_size # dim of object passed into IFOG gates
     self.input_size = hidden_size # serves double duty
-    self.num_layers = n_layers
 
     self.rnn = nn.GRU(self.input_size, self.hidden_size, num_layers=n_layers)
     self.embedding = nn.Embedding(vocab_size, hidden_size)
@@ -143,18 +142,20 @@ class GRU_Encoder(nn.Module):
     return torch.zeros(self.num_layers, 1, self.hidden_size).to(device)
 
 class BiLSTM_Encoder(nn.Module):
-  def __init__(self, vocab_len, hidden_size, embed_size=None, drop_prob=0, pretained=None, n_layers=1):
+  def __init__(self, vocab_len, embeddings, params):
     super(BiLSTM_Encoder, self).__init__()
-    self.n_layers = n_layers
-    self.embed_size = hidden_size if embed_size is None else embed_size
-    self.hidden_size = hidden_size
-    if pretained is not None:
-        pre_embed = torch.FloatTensor(pretained)
-        self.embedding = nn.Embedding.from_pretrained(pre_embed, freeze=False)
+    self.n_layers = params.num_layers
+    self.embed_size = params.embedding_size
+    self.hidden_size = params.hidden_size
+
+    if params.pretrained:
+        pre_embed = torch.FloatTensor(embeddings)
+        self.embedding = nn.Embedding.from_pretrained(pre_embed, freeze=True)
     else:
         self.embedding = nn.Embedding(vocab_len, self.embed_size)
-    self.rnn = nn.LSTM(self.embed_size, hidden_size, bidirectional=True, num_layers=n_layers)
-    self.dropout = nn.Dropout(drop_prob)
+    self.rnn = nn.LSTM(self.embed_size, self.hidden_size, bidirectional=True,
+                                            num_layers=self.n_layers)
+    self.dropout = nn.Dropout(params.drop_prob)
 
   def forward(self, word_inputs, hidden_tuple):
     seq_len = len(word_inputs)
@@ -173,13 +174,13 @@ class BiLSTM_Encoder(nn.Module):
     return (hidden, cell)
 
 class RNN_Encoder(nn.Module):
-  def __init__(self, vocab_size, hidden_size, embed_size):
+  def __init__(self, vocab_size, params):
     super(RNN_Encoder, self).__init__()
-    self.input_size = hidden_size
-    self.hidden_size = hidden_size
+    self.input_size = params.hidden_size
+    self.hidden_size = params.hidden_size
 
-    self.embedding = nn.Embedding(vocab_size, embed_size)
-    self.rnn = nn.RNN(embed_size, self.hidden_size)
+    self.embedding = nn.Embedding(vocab_size, params.embedding_size)
+    self.rnn = nn.RNN(params.embedding_size, self.hidden_size)
 
   def forward(self, word_inputs, hidden_state):
     seq_len = len(word_inputs)

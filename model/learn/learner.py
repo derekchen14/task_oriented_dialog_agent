@@ -1,8 +1,8 @@
 import time as tm
 import pdb, sys
 import random
+import logging
 
-from torch import save
 from torch.nn import NLLLoss as NegLL_Loss
 from torch.optim.lr_scheduler import StepLR
 
@@ -11,25 +11,22 @@ from utils.internal.clock import *
 from model.components import *
 
 class Learner(object):
-  def __init__(self, args, processor, builder, tracker, kind=None):
+  def __init__(self, args, model, processor, tracker, task):
     self.verbose = args.verbose
     self.debug = args.debug
     self.epochs = args.epochs
-
     self.decay_times = args.decay_times
     self.teach_ratio = args.teacher_forcing
-    self.model_path = "results/{0}_{1}.pt".format(args.model_name, args.suffix)
 
     self.processor = processor
-    self.builder = builder
     self.tracker = tracker
+    self.vocab = processor.vocab
+    self.model = model
 
-    self.model_type = args.model
-    self.kind = "ordered_values" if kind is None else kind
-    if self.model_type == "per_slot":
-      self.model_idx = vocab.categories.index(self.kind)   # order matters, do not switch
+    self.task = args.task
+    self.model_idx = processor.loader.categories.index(self.task)   # order matters, do not switch
 
-  def train(self, input_var, output_var, enc_optimizer, dec_optimizer):
+  def train(self, input_var, output_var):
     self.model.train()   # affects the performance of dropout
     self.model.zero_grad()
 
@@ -37,8 +34,7 @@ class Learner(object):
                           self.criterion, self.teach_ratio)
     loss.backward()
     clip_gradient(self.model, clip=10)
-    enc_optimizer.step()
-    dec_optimizer.step()
+    self.model.optimizer.step()
 
     return loss.item() / output_var.shape[0]
 
@@ -51,10 +47,9 @@ class Learner(object):
     targets = output_var.data.tolist()
 
     # when task is not specified, it defaults to index_to_label
-    predicted_tokens = [vocab.index_to_word(predictions[0], "label")]
-    query_tokens = [vocab.index_to_word(y, task) for y in queries]
-    target_tokens = [vocab.index_to_word(z, "label") for z in targets]
-
+    predicted_tokens = [self.vocab.index_to_label(predictions[0])]
+    query_tokens = [self.vocab.index_to_word(y) for y in queries]
+    target_tokens = [self.vocab.index_to_label(z) for z in targets]
 
     avg_loss = loss.item() / output_var.shape[0]
     # bleu_score = 1 BLEU.compute(predicted_tokens, target_tokens)
@@ -73,34 +68,30 @@ class Learner(object):
   '''
 
   def learn(self, task):
-    self.model = self.builder.create_model(vocab.ulary_size(task), vocab.label_size())
-    print("Running model {}".format(self.model_path))
-
     self.learn_start = tm.time()
+    logging.info('Starting to learn ...')
+    self.model.init_optimizer()
+    self.criterion = NegLL_Loss()
+
     n_iters = 600 if self.debug else len(self.processor.train_data)
     print_every, plot_every, val_every = print_frequency(self.verbose, self.debug)
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-
-    enc_optimizer, dec_optimizer = self.builder.init_optimizers(self.model)
-    # training_pairs = [random.choice(train_data) for i in range(n_iters)]
-    # validation_pairs = [random.choice(val_data) for j in range(v_iters)]
-    self.criterion = NegLL_Loss()
-    step_size = n_iters/(self.decay_times+1)
-    enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)
-    dec_scheduler = StepLR(dec_optimizer, step_size=step_size, gamma=0.2)
+    # step_size = n_iters/(self.decay_times+1)
+    # enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)
+    # dec_scheduler = StepLR(dec_optimizer, step_size=step_size, gamma=0.2)
 
     for epoch in range(self.epochs):
       start = tm.time()
       starting_checkpoint(epoch, self.epochs, use_cuda)
       for iteration, training_pair in enumerate(self.processor.train_data):
-        enc_scheduler.step()
-        dec_scheduler.step()
+        # enc_scheduler.step()
+        # dec_scheduler.step()
         input_var, output_var = training_pair
-        if self.model_type == "per_slot":
+        if self.task == "per_slot":
           output_var = output_var[self.model_idx]
 
-        loss = self.train(input_var, output_var, enc_optimizer, dec_optimizer)
+        loss = self.train(input_var, output_var)
         print_loss_total += loss
         plot_loss_total += loss
 
@@ -116,7 +107,7 @@ class Learner(object):
           self.tracker.val_steps.append(iteration + 1)
           batch_val_loss, batch_bleu, batch_success = [], [], []
           for val_input, val_output in self.processor.val_data:
-            if self.model_type == "per_slot":
+            if self.task == "per_slot":
               val_output = val_output[self.model_idx]
             val_loss, bs, ts = self.validate(val_input, val_output, task)
             batch_val_loss.append(val_loss)
@@ -128,8 +119,11 @@ class Learner(object):
             print("Early stopped at val epoch {}".format(self.tracker.val_epoch))
             self.tracker.completed_training = False
             break
-    time_past(self.learn_start)
+      if self.tracker.best_so_far():
+        summary = self.tracker.generate_summary()
+        identifier = "epoch={0}_success={1:.4f}_recall@two={2:.4f}".format(
+              summary["train_epoch"], summary["accuracy"], summary["recall@k=2"])
+        self.model.save(summary, identifier)
 
-  def save_model(self):
-    save(self.model, self.model_path)
-    print('Model saved at {}!'.format(self.model_path))
+    logging.info("Done training {}".format(task))
+    time_past(self.learn_start)
