@@ -14,6 +14,7 @@ class DataLoader(object):
     self.clean_dir = os.path.join(self.data_dir, 'clean')
     self.debug_dir = os.path.join(self.data_dir, 'debug')
 
+    self.multitask = True
     if args.task == "end_to_end":
       self.categories = ["intent_tracker", "kb_lookup", "policy_manager", "text_generator"]
     elif args.task == "clarification":
@@ -23,7 +24,8 @@ class DataLoader(object):
     elif args.task == "per_slot":
       self.categories = ["area", "food", "price", "request"]
     else:
-      self.categories = [args.task]
+      self.categories = args.task
+      self.multitask = False
 
     if args.pretrained:
       with open(os.path.join(self.data_dir, 'embeddings.json')) as f:

@@ -11,7 +11,7 @@ from utils.internal.clock import *
 from model.components import *
 
 class Learner(object):
-  def __init__(self, args, model, processor, tracker, task):
+  def __init__(self, args, model, processor, tracker, task=None):
     self.verbose = args.verbose
     self.debug = args.debug
     self.epochs = args.epochs
@@ -23,7 +23,8 @@ class Learner(object):
     self.vocab = processor.vocab
     self.model = model
 
-    self.task = args.task
+    self.multitask = processor.multitask
+    self.task = task if self.multitask else args.task
     self.model_idx = processor.loader.categories.index(self.task)   # order matters, do not switch
 
   def train(self, input_var, output_var):
@@ -119,10 +120,10 @@ class Learner(object):
             print("Early stopped at val epoch {}".format(self.tracker.val_epoch))
             self.tracker.completed_training = False
             break
-      if self.tracker.best_so_far():
+      if self.tracker.best_so_far() and not self.debug:
         summary = self.tracker.generate_summary()
         identifier = "epoch={0}_success={1:.4f}_recall@two={2:.4f}".format(
-              summary["train_epoch"], summary["accuracy"], summary["recall@k=2"])
+              epoch, summary["accuracy"], summary["recall@k=2"])
         self.model.save(summary, identifier)
 
     logging.info("Done training {}".format(task))

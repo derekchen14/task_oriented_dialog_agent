@@ -3,10 +3,11 @@ from utils.internal.initialization import pickle_io
 import os
 
 class PreProcessor(object):
-  def __init__(self, args, loader):
+  def __init__(self, args, loader, task=None):
     self.loader = loader
     self.vocab = loader.vocab
-    self.task = args.task
+    self.multitask = loader.multitask
+    self.task = task if self.multitask else args.task
 
     if args.test_mode:
       self.prepare_examples("test", args.context, loader.test_data)
@@ -43,7 +44,10 @@ class PreProcessor(object):
     if self.task == "full_enumeration":
       target = self._fe_customize(target)
     if len(target) == 1:
-      target_index = self.vocab.label_to_index(target[0])
+      if self.multitask:
+        target_index = self.vocab.label_to_index(target[0], kind=self.task)
+      else:
+        target_index = self.vocab.label_to_index(target[0])
       output_var = var([target_index], "long")
       return output_var, False
     elif len(target) == 2:

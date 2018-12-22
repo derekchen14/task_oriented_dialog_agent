@@ -11,16 +11,24 @@ import utils.internal.initialization as data_io
 from model.components import var, run_inference
 
 class Evaluator(object):
-  def __init__(self, args, processor, system):
+  def __init__(self, args, system, multitask):
     self.config = args
     self.method = args.attn_method
     self.verbose = args.verbose
-    self.tasks = system.tasks
-    self.vocab = processor.vocab
-
-    self.system = system
+    self.multitask = multitask
     self.save_dir = os.path.join("results", args.task, args.dataset)
-    self.data = processor.test_data if args.test_mode else processor.val_data
+
+    if self.multitask:
+      self.tasks = system.tasks
+      self.models = system.models
+      single_p = self.processors[self.tasks[0]]
+    else:
+      self.tasks = [system.task]
+      self.model = system.model
+      single_p = system.processor
+
+    self.vocab = single_p.vocab
+    self.data = single_p.test_data if args.test_mode else single_p.val_data
 
     if args.report_results:
       self.quantitative_report()
@@ -64,7 +72,7 @@ class Evaluator(object):
 
       corrects = {"inform": True, "request": True, "exact": True, "rank": True}
       for idx, task in enumerate(self.tasks):
-        model = getattr(self.system, '{}_model'.format(task))
+        model = self.models[task] if self.multitask else self.model
         target = targets[idx]
 
         hidden_state = model.encoder.initHidden()

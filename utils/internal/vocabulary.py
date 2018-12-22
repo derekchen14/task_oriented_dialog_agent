@@ -9,7 +9,8 @@ class Vocabulary(object):
     self.dataset = args.dataset
 
     self.vocab = self.load_words(data_dir)
-    if self.task in ["full_enumeration", "ordered_values", "possible_only"]:
+    special_tasks = ["full_enumeration", "ordered_values", "possible_only", "dual", "per_slot"]
+    if self.task in special_tasks:
       self.label_vocab = self.load_labels(self.task)
     else:
       self.label_vocab = self.load_labels("label_vocab")
@@ -28,10 +29,13 @@ class Vocabulary(object):
 
   def word_to_index(self, token):
     return self.vocab.index(token)
-  def label_to_index(self, label):
+  def label_to_index(self, label, kind=None):
     act, slot, value = label
     token = "{}={}".format(slot, value)
-    return self.label_vocab.index(token)
+    if kind is None:
+      return self.label_vocab.index(token)
+    else:
+      return self.label_vocab[kind].index(token)
 
   def index_to_word(self, idx):
     return self.vocab[idx]
