@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.learn.modules import Transformer, SelfAttention
-from model.components import *
+from objects.components import *
+from objects.learn.modules import Transformer, SelfAttention
 
 class Match_Encoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):

@@ -8,7 +8,7 @@ import os, pdb, sys
 
 from utils.external.bleu import BLEU
 import utils.internal.initialization as data_io
-from model.components import var, run_inference
+from objects.components import var, run_inference
 
 class Evaluator(object):
   def __init__(self, args, system, multitask):

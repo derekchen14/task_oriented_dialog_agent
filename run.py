@@ -4,9 +4,9 @@ import logging
 from random import seed
 
 from utils.internal.arguments import solicit_args
-from model.preprocess import DataLoader
-from model.learn import Builder, UserSimulator
-from model.evaluate import LossTracker, Evaluator
+from operators.preprocess import DataLoader
+from operators.learn import Builder
+from operators.evaluate import LossTracker, Evaluator
 from operators.system import SingleSystem, MultiSystem
 
 if __name__ == "__main__":

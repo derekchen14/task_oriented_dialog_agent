@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
-from model.components import var, device
+from objects.components import var, device
 from collections import defaultdict
 from pprint import pformat
 

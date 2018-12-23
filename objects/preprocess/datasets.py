@@ -7,7 +7,6 @@ from pprint import pprint
 
 client = None
 
-
 def annotate(sent):
   global client
   if client is None:
@@ -133,7 +132,7 @@ class Dataset:
     for slot in ["area", "request", "price range", "food"]:
       conf = [round(x, 3) for x in confidence[slot][idx]]
       print("{} confidence: {}".format(slot, conf))
-  
+
   def run_report(self, one_batch, preds, confidence):
     num_samples = len(preds)
     request = []
@@ -151,17 +150,17 @@ class Dataset:
       pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
       request.append(gold_request == pred_request)
       inform.append(gold_inform == pred_inform)
-      
+
       double_correct = (gold_request == pred_request) and (gold_inform == pred_inform)
       joint_goal.append(double_correct)
-      
+
       if not double_correct:
         print(" ".join(t.transcript))
         print('actual', t.turn_label)
         print('predicted', preds[i])
         self.process_confidence(confidence, i)
         print('----------------')
-      
+
       i += 1
     return {'turn_inform': np.mean(inform), 'turn_request': np.mean(request), 'joint_goal': np.mean(joint_goal)}
 
@@ -208,31 +207,3 @@ class Dataset:
         i += 1
     with open(to_file, 'wt') as f:
       json.dump(data, f)
-
-
-class Ontology:
-
-  def __init__(self, slots=None, values=None, num=None):
-    self.slots = slots or []
-    self.values = values or {}
-    self.num = num or {}
-
-  def __add__(self, another):
-    new_slots = sorted(list(set(self.slots + another.slots)))
-    new_values = {s: sorted(list(set(self.values.get(s, []) + another.values.get(s, [])))) for s in new_slots}
-    return Ontology(new_slots, new_values)
-
-  def __radd__(self, another):
-    return self if another == 0 else self.__add__(another)
-
-  def to_dict(self):
-    return {'slots': self.slots, 'values': self.values, 'num': self.num}
-
-  def numericalize_(self, vocab):
-    self.num = {}
-    for s, vs in self.values.items():
-      self.num[s] = [vocab.word2index(annotate('{} = {}'.format(s, v)) + ['<eos>'], train=True) for v in vs]
-
-  @classmethod
-  def from_dict(cls, d):
-    return cls(**d)

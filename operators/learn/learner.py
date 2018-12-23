@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import StepLR
 
 from utils.external.bleu import BLEU
 from utils.internal.clock import *
-from model.components import *
+from objects.components import *
 
 class Learner(object):
   def __init__(self, args, model, processor, tracker, task=None):

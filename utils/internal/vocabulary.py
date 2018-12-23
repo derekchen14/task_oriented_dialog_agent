@@ -1,6 +1,5 @@
 import os
 import json
-from torch import eye
 import pdb, sys
 
 class Vocabulary(object):

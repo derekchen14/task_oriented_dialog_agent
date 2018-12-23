@@ -45,8 +45,6 @@ Scripts - one-off methods that are sparingly used
 
 ### Order of Execution
   1. Utils should always load first since they are used everywhere
-  2. Components will load next since they are shared across modules
-  3. Preprocess, Learn and Evaluate modules import components
-  4. Run.py comes last, it will inherit modules to perform its tasks
-
-As a result, utils should have very few imports, and components should only import from utils and never from modules
+  2. Objects will load next since they are shared across Operators
+  3. Operator modules are found in Preprocess, Learn and Evaluate
+  4. Run.py comes last, it will import Operators to perform tasks

@@ -1,5 +1,5 @@
-from model.preprocess import PreProcessor
-from model.learn import Learner
+from operators.preprocess import PreProcessor
+from operators.learn import Learner
 from utils.internal.vocabulary import Vocabulary
 
 class SingleSystem(object):

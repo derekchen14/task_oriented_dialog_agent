@@ -1,7 +1,7 @@
 import pdb, sys, os
 import torch
 from tqdm import tqdm as progress_bar
-from model.components import var, run_inference
+from objects.components import var, run_inference
 import numpy as np
 
 # Used for testing, as opposed to training or validation

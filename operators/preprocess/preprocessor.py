@@ -1,4 +1,4 @@
-from model.components import var
+from objects.components import var
 from utils.internal.initialization import pickle_io
 import os, pdb
 

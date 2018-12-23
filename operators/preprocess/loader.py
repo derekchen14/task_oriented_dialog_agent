@@ -3,7 +3,7 @@ import json
 import logging
 
 from vocab import Vocab
-from utils.external.glad_dataset import Dataset, Ontology
+from objects.preprocess import Dataset, Ontology
 
 # Used for loading data, to be fed into the PreProcessor
 class DataLoader(object):
