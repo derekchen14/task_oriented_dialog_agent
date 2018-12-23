@@ -2,7 +2,6 @@ import os, pdb, sys
 import json
 import logging
 
-from pprint import pformat
 from vocab import Vocab
 from utils.external.glad_dataset import Dataset, Ontology
 
@@ -12,49 +11,42 @@ class DataLoader(object):
     self.data_dir = os.path.join('datasets', args.dataset)
     self.clean_dir = os.path.join(self.data_dir, 'clean')
     self.debug_dir = os.path.join(self.data_dir, 'debug')
-
-    self.multitask = True
-    if args.task == "end_to_end":
-      self.categories = ["intent_tracker", "kb_lookup", "policy_manager", "text_generator"]
-    elif args.task == "clarification":
-      self.categories = ["belief_tracker", "policy_manager", "user_simulator"]
-    elif args.task == "dual":
-      self.categories = ["slot", "value"]
-    elif args.task == "per_slot":
-      self.categories = ["area", "food", "price", "request"]
-    else:
-      self.categories = args.task
-      self.multitask = False
+    self.task = args.task
 
     if args.pretrained:
       with open(os.path.join(self.data_dir, 'embeddings.json')) as f:
        self.embeddings = json.load(f)
 
-    if args.model == "glad":
+    if self.task == "glad":
       with open(os.path.join(self.data_dir, 'ontology.json')) as f:
         self.ontology = Ontology.from_dict(json.load(f))
       with open(os.path.join(self.data_dir, 'vocab.json')) as f:
         self.vocab = Vocab.from_dict(json.load(f))
-      self.populate_dataset()
+
+    self.set_categories()
+    self.load_datasets()
+
+  def set_categories(self):
+    self.multitask = True
+    if self.task == "end_to_end":
+      self.categories = ["intent_tracker", "kb_lookup", "policy_manager", "text_generator"]
+    elif self.task == "clarification":
+      self.categories = ["belief_tracker", "policy_manager", "user_simulator"]
+    elif self.task == "dual":
+      self.categories = ["slot", "value"]
+    elif self.task == "per_slot":
+      self.categories = ["area", "food", "price", "request"]
     else:
-      if args.test_mode:
-        self.test_data = self.load_dataset('test')
-      else:
-        self.train_data = self.load_dataset('train')
-        self.val_data = self.load_dataset('val')
+      self.categories = self.task
+      self.multitask = False
 
-  def load_dataset(self, split):
-    data_path = "{}/{}.json".format(self.clean_dir, split)
-    with open(data_path, "r") as f:
-      dataset = json.load(f)
-    print("{} data loaded!".format(data_path))
-    return dataset
-
-  def populate_dataset(self):
-    self.dataset = {}
-    for split in ["train", "val", "test"]:
-      with open(os.path.join(self.data_dir, '{}.json'.format(split))) as f:
-        logging.info('Loading {} split'.format(split))
-        self.dataset[split] = Dataset.from_dict(json.load(f))
-
-    logging.info('Dataset sizes: {}'.format(pformat({k: len(v) for k, v in self.dataset.items()})))
+  def load_datasets(self):
+    self.datasets = {}
+    for split in ['train', 'val', 'test']:
+      data_path = os.path.join(self.clean_dir, '{}.json'.format(split))
+      with open(data_path, 'r') as f:
+        dataset = json.load(f)
+        if self.task == 'glad':
+          dataset = Dataset.from_dict(dataset)
+      self.datasets[split] = dataset
+      logging.info("{} loaded with {} items!".format(data_path, len(dataset)))

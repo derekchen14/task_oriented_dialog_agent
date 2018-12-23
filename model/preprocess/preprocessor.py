@@ -8,23 +8,27 @@ class PreProcessor(object):
     self.loader = loader
     self.multitask = loader.multitask
     self.task = task if self.multitask else args.task
+    self.datasets = loader.datasets
 
-    if args.test_mode:
-      self.prepare_examples("test", args.context, loader.test_data)
+    if self.task == "glad":
+      pass
+    elif args.test_mode:
+      self.prepare_examples("test", args.context)
     elif args.debug:
       self.load_debug_examples(loader.debug_dir)
     else: # normal training mode
-      self.prepare_examples("train", args.context, loader.train_data)
-      self.prepare_examples("val", args.context, loader.val_data)
+      self.prepare_examples("train", args.context)
+      self.prepare_examples("val", args.context)
       self.make_cache(loader.debug_dir)
 
-  def prepare_examples(self, split, use_context, dataset):
+  def prepare_examples(self, split, use_context):
     ''' For DSTC2, format is
     Example is dict with keys
       {"input_source": [utterance, context, id]}
       {"output_target": [list of labels]}
     where each label is (high level intent, low level intent, slot, value)
     '''
+    dataset = self.datasets[split]
     variables = []
     for example in dataset:
       input_var = self.prepare_input(example["input_source"], use_context)

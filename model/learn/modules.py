@@ -197,16 +197,16 @@ def attend(seq, cond, lens):
   return context, scores
 
 class ModelTemplate(nn.Module):
-  def __init__(self, params):
+  def __init__(self, args):
     super().__init__()
-    self.params = params
-    self.opt = params.optimizer
-    self.lr = params.learning_rate
-    self.reg = params.weight_decay
+    self.args = args
+    self.opt = args.optimizer
+    self.lr = args.learning_rate
+    self.reg = args.weight_decay
 
-    self.dhid = params.hidden_size
-    self.demb = params.embedding_size
-    self.n_layers = params.num_layers
+    self.dhid = args.hidden_size
+    self.demb = args.embedding_size
+    self.n_layers = args.num_layers
 
   def init_optimizer(self):
     if self.opt == 'sgd':
@@ -226,7 +226,8 @@ class ModelTemplate(nn.Module):
     logger.addHandler(file_handler)
     return logger
 
-  def run_train(self, train, dev, args):
+  def run_train(self, datasets, args):
+    train, dev = datasets['train'], datasets['val']
     track = defaultdict(list)
     iteration = 0
     best = {}
@@ -327,7 +328,7 @@ class ModelTemplate(nn.Module):
     fname = '{}/{}.pt'.format(self.save_dir, identifier)
     logging.info('saving model to {}.pt'.format(identifier))
     state = {
-      'args': vars(self.params),
+      'args': vars(self.args),
       'model': self.state_dict(),
       'summary': summary,
       'optimizer': self.optimizer.state_dict(),
@@ -384,13 +385,13 @@ class GlobalLocalModel(ModelTemplate):
       self.embedding = nn.Embedding(len(vocab), self.demb)  # (num_embeddings, embedding_dim)
 
     self.demb = args.embedding_size    # aka embedding dimension
-    self.dhid = args.hidden__size      # aka hidden state dimension
+    self.dhid = args.hidden_size      # aka hidden state dimension
     dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
 
     self.utt_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.act_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.ont_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
-    self.utt_scorer = nn.Linear(2 * dhid, 1)
+    self.utt_scorer = nn.Linear(2 * self.dhid, 1)
     self.score_weight = nn.Parameter(torch.Tensor([0.5]))
 
   def forward(self, batch):

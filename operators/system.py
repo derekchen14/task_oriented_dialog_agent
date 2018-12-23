@@ -4,6 +4,7 @@ from utils.internal.vocabulary import Vocabulary
 
 class SingleSystem(object):
   def __init__(self, args, loader, builder, tracker):
+    self.args = args
     self.task = loader.categories
     vocab = Vocabulary(args, loader.data_dir)
     self.model = builder.get_model(vocab.ulary_size(), vocab.label_size())
@@ -12,7 +13,10 @@ class SingleSystem(object):
       self.learner = Learner(args, self.model, self.processor, tracker)
 
   def run_main(self):
-    self.learner.learn(self.task)
+    if self.task == "glad":
+      self.model.run_train(self.processor.datasets, self.args)
+    else:
+      self.learner.learn(self.task)
 
 class MultiSystem(object):
   def __init__(self, args, loader, builder, tracker):

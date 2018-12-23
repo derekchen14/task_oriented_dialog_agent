@@ -16,12 +16,13 @@ class Vocabulary(object):
     return vocab
   def load_labels(self, path, task):
     label_path = "{}/{}.json".format(path, task)
-    if not os.path.exists(label_path):
-      label_path = "{}/{}.json".format(path, "label_vocab")
-    with open(label_path, "r") as f:
-      labels = json.load(f)
-    print("{} labels loaded!".format(label_path))
-    return labels
+    if os.path.exists(label_path):
+      with open(label_path, "r") as f:
+        labels = json.load(f)
+      print("{} labels loaded!".format(label_path))
+      return labels
+    else:
+      return self.vocab
 
   def word_to_index(self, token):
     return self.vocab.index(token)
