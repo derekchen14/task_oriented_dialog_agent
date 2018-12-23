@@ -58,7 +58,16 @@ def basic_inference(model, sources, targets, criterion):
   pred = topi[0]  # returns full list of predictions as a tensor
   # pred = topi[0][0] # instead to select just the first
 
-  loss = 0 if criterion is None else criterion(output, targets)
+  if criterion is None:
+    loss = 0
+  else:
+    try:
+      loss = criterion(output, targets)
+    except(RuntimeError):
+      print(output)
+      print(targets)
+      pdb.set_trace()
+  # loss = 0 if criterion is None else criterion(output, targets)
   return loss, pred, None
 
 def transformer_inference(model, sources, targets, criterion):

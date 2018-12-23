@@ -4,38 +4,29 @@ from torch import eye
 import pdb, sys
 
 class Vocabulary(object):
-  def __init__(self, args, data_dir):
-    self.task = args.task
-    self.dataset = args.dataset
-
+  def __init__(self, args, data_dir, kind=None):
     self.vocab = self.load_words(data_dir)
-    special_tasks = ["full_enumeration", "ordered_values", "possible_only", "dual", "per_slot"]
-    if self.task in special_tasks:
-      self.label_vocab = self.load_labels(self.task)
-    else:
-      self.label_vocab = self.load_labels("label_vocab")
+    labels = self.load_labels(data_dir, args.task)
+    self.label_vocab = labels[kind] if kind is not None else labels
 
   def load_words(self, path):
     with open("{}/vocab.json".format(path), "r") as f:
       vocab = json.load(f)
     print("{} vocab loaded!".format(path))
     return vocab
-  def load_labels(self, task):
-    path = os.path.join("datasets", self.dataset)
-    with open("{}/{}.json".format(path, task), "r") as f:
+  def load_labels(self, path, task):
+    label_path = "{}/{}.json".format(path, task)
+    if not os.path.exists(label_path):
+      label_path = "{}/{}.json".format(path, "label_vocab")
+    with open(label_path, "r") as f:
       labels = json.load(f)
-    print("{} labels loaded!".format(task))
+    print("{} labels loaded!".format(label_path))
     return labels
 
   def word_to_index(self, token):
     return self.vocab.index(token)
-  def label_to_index(self, label, kind=None):
-    act, slot, value = label
-    token = "{}={}".format(slot, value)
-    if kind is None:
-      return self.label_vocab.index(token)
-    else:
-      return self.label_vocab[kind].index(token)
+  def label_to_index(self, token):
+    return self.label_vocab.index(token)
 
   def index_to_word(self, idx):
     return self.vocab[idx]

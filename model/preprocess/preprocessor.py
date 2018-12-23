@@ -1,11 +1,11 @@
 from model.components import var
 from utils.internal.initialization import pickle_io
-import os
+import os, pdb
 
 class PreProcessor(object):
-  def __init__(self, args, loader, task=None):
+  def __init__(self, args, vocab, loader, task=None):
+    self.vocab = vocab
     self.loader = loader
-    self.vocab = loader.vocab
     self.multitask = loader.multitask
     self.task = task if self.multitask else args.task
 
@@ -41,17 +41,13 @@ class PreProcessor(object):
     return var(tokens, "long")
 
   def prepare_output(self, target):
-    if self.task == "full_enumeration":
-      target = self._fe_customize(target)
+    target = self._multi_prep(target) if self.multitask else self._single_prep(target)
     if len(target) == 1:
-      if self.multitask:
-        target_index = self.vocab.label_to_index(target[0], kind=self.task)
-      else:
-        target_index = self.vocab.label_to_index(target[0])
+      target_index = self.vocab.label_to_index(target[0])
       output_var = var([target_index], "long")
       return output_var, False
     elif len(target) == 2:
-      target_indexes = [self.vocab.label_to_index(b) for b in target]
+      target_indexes = [self.vocab.label_to_index(t) for t in target]
       output_vars = [var([ti], "long") for ti in target_indexes]
       return output_vars, True
 
@@ -79,14 +75,30 @@ class PreProcessor(object):
 
     return dialog_pairs
 
-  def _fe_customize(self, target):
-    if len(target) ==  1: return target
-    act_a, slot_a, value_a = target[0]
-    act_b, slot_b, value_b = target[1]
-    joined = "{0}={1}+{2}".format(slot_a, value_a, slot_b)
-    intent = (act_a, joined, value_b)
-    return [intent]
+  def _single_prep(self, target):
+    if len(target) ==  1:
+      act, slot, value = target[0]
+      return ["{}={}".format(slot, value)]
+    else:
+      intents = [self._single_prep([label])[0] for label in target]
+      if self.task == "full_enumeration":
+        return ["+".join(intents)]
+      else:
+        return intents
 
+  def _multi_prep(self, intents):
+    if self.task == "slot":
+      return [slot for act, slot, value in intents]
+    elif self.task == "value":
+      return [value for act, slot, value in intents]
+    elif self.task in ["area", "food", "price", "request"]:
+      targets = []
+      for act, slot, value in intents:
+        if self.task == slot or self.task == act:
+          targets.append(value)
+        else:
+          targets.append("<NONE>")
+      return targets
 
 '''
 tokens = []

@@ -20,15 +20,15 @@ class Builder(object):
     self.model_type = args.model
     self.dhid = args.hidden_size
     self.test_mode = args.test_mode
-    self.prepare_directory(args)
 
     self.loader = loader
     self.data_dir = loader.data_dir
     self.embeddings = loader.embeddings if args.pretrained else None
 
-  def get_model(self, vocab_size, output_size=None):
+  def get_model(self, vocab_size, output_size=None, task=None):
     if output_size is None:
       output_size = vocab_size # word generation rather than classification
+    self.prepare_directory(self.args, task)
 
     model = self.create_model(vocab_size, output_size)
     if self.test_mode:
@@ -39,11 +39,15 @@ class Builder(object):
       model = self.load_model(self.dir, model)
     else:
       logging.info("Building model at {}".format(self.dir))
+      model.save_dir = self.dir
 
     return model
 
-  def prepare_directory(self, args):
-    self.model_path = args.prefix + args.model + args.suffix
+  def prepare_directory(self, args, task):
+    if task is None:
+      self.model_path = args.prefix + args.model + args.suffix
+    else:
+      self.model_path = task + "_" + args.prefix + args.model + args.suffix
     self.dir = os.path.join("results", args.task, args.dataset, self.model_path)
     if not os.path.exists(self.dir):
       os.makedirs(self.dir)

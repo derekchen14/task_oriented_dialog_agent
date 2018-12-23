@@ -4,7 +4,6 @@ import logging
 
 from pprint import pformat
 from vocab import Vocab
-from utils.internal.vocabulary import Vocabulary
 from utils.external.glad_dataset import Dataset, Ontology
 
 # Used for loading data, to be fed into the PreProcessor
@@ -43,7 +42,6 @@ class DataLoader(object):
       else:
         self.train_data = self.load_dataset('train')
         self.val_data = self.load_dataset('val')
-      self.vocab = Vocabulary(args, self.data_dir)
 
   def load_dataset(self, split):
     data_path = "{}/{}.json".format(self.clean_dir, split)

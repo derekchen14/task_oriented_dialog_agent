@@ -21,14 +21,12 @@ class Evaluator(object):
     if self.multitask:
       self.tasks = system.tasks
       self.models = system.models
-      single_p = self.processors[self.tasks[0]]
     else:
       self.tasks = [system.task]
       self.model = system.model
-      single_p = system.processor
 
-    self.vocab = single_p.vocab
-    self.data = single_p.test_data if args.test_mode else single_p.val_data
+    self.vocab = system.processor.vocab
+    self.data = system.processor.test_data if args.test_mode else system.processor.val_data
 
     if args.report_results:
       self.quantitative_report()
@@ -60,7 +58,7 @@ class Evaluator(object):
     display = []
     use_display = False
     for example in self.data:
-      utterance, targets = example
+      utterance, target = example
 
       if random.random() < -1:
         display.append(" ----- ")
@@ -73,9 +71,8 @@ class Evaluator(object):
       corrects = {"inform": True, "request": True, "exact": True, "rank": True}
       for idx, task in enumerate(self.tasks):
         model = self.models[task] if self.multitask else self.model
-        target = targets[idx]
-
         hidden_state = model.encoder.initHidden()
+
         output = model(utterance, hidden_state)
         _, top1 = output.data.topk(1)
         exact_pred = top1[0][0]

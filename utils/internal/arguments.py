@@ -38,8 +38,8 @@ def solicit_args():
               help='Number of hidden units in each LSTM')
   parser.add_argument('--embedding-size', default=300, type=int,
               help='Word embedding size usually from pretrained')
-  parser.add_argument('--optimizer', default='SGD', type=str,
-              help='Optimizer we want to use')
+  parser.add_argument('--optimizer', default='sgd', type=str,
+              help='Optimizer to use. Choose from sgd, rmsprop, adam')
   parser.add_argument('--drop-prob', default=0.2, type=float,
               help='probability of dropping a node, opposite of keep prob')
   parser.add_argument('--teacher-forcing', default=0.6, type=float,

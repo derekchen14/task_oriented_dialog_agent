@@ -25,7 +25,6 @@ class Learner(object):
 
     self.multitask = processor.multitask
     self.task = task if self.multitask else args.task
-    self.model_idx = processor.loader.categories.index(self.task)   # order matters, do not switch
 
   def train(self, input_var, output_var):
     self.model.train()   # affects the performance of dropout
@@ -89,9 +88,6 @@ class Learner(object):
         # enc_scheduler.step()
         # dec_scheduler.step()
         input_var, output_var = training_pair
-        if self.task == "per_slot":
-          output_var = output_var[self.model_idx]
-
         loss = self.train(input_var, output_var)
         print_loss_total += loss
         plot_loss_total += loss
@@ -108,8 +104,6 @@ class Learner(object):
           self.tracker.val_steps.append(iteration + 1)
           batch_val_loss, batch_bleu, batch_success = [], [], []
           for val_input, val_output in self.processor.val_data:
-            if self.task == "per_slot":
-              val_output = val_output[self.model_idx]
             val_loss, bs, ts = self.validate(val_input, val_output, task)
             batch_val_loss.append(val_loss)
             batch_bleu.append(bs)
