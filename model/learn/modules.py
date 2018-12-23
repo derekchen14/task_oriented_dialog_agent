@@ -226,7 +226,7 @@ class ModelTemplate(nn.Module):
     logger.addHandler(file_handler)
     return logger
 
-  def run_train(self, datasets, args):
+  def learn(self, datasets, args):
     train, dev = datasets['train'], datasets['val']
     track = defaultdict(list)
     iteration = 0
@@ -344,7 +344,7 @@ class ModelTemplate(nn.Module):
 
   def get_saves(self, directory=None):
     if directory is None:
-      directory = self.args.out_dir
+      directory = self.save_dir
     files = [f for f in os.listdir(directory) if f.endswith('.pt')]
     scores = []
     for fname in files:

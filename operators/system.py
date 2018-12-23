@@ -14,7 +14,7 @@ class SingleSystem(object):
 
   def run_main(self):
     if self.task == "glad":
-      self.model.run_train(self.processor.datasets, self.args)
+      self.model.learn(self.processor.datasets, self.args)
     else:
       self.learner.learn(self.task)
 

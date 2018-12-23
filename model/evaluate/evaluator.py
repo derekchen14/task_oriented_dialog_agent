@@ -54,6 +54,9 @@ class Evaluator(object):
     plt.show()
 
   def run_report(self, metrics):
+    if self.tasks == "glad":
+      self.model.run_report(self.data, self.config)
+      sys.exit()
     scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
     display = []
     use_display = False

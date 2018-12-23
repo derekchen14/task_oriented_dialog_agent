@@ -33,7 +33,10 @@ class Builder(object):
     model = self.create_model(vocab_size, output_size)
     if self.test_mode:
       logging.info("Loading model at {} for testing".format(self.dir))
-      model = self.load_model(self.dir, model)
+      if self.model_type == "glad":
+        model.load_best_save(directory=self.dir)
+      else:
+        model = self.load_model(self.dir, model)
     elif self.use_existing:
       logging.info("Resuming model at {} for training".format(self.dir))
       model = self.load_model(self.dir, model)
@@ -41,7 +44,7 @@ class Builder(object):
       logging.info("Building model at {}".format(self.dir))
       model.save_dir = self.dir
 
-    return model
+    return model.to(device)
 
   def prepare_directory(self, args, task):
     if task is None:
@@ -60,7 +63,7 @@ class Builder(object):
     if self.use_existing:
       model.init_optimizer()
       model.optimizer.load_state_dict(state['optimizer'])
-    return model.to(device)
+    return model
 
   def create_model(self, vocab_size, output_size):
     if self.model_type == "basic":

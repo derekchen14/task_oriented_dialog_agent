@@ -31,7 +31,7 @@ if __name__ == '__main__':
         # glad_model.load_best_save(directory=resume_path)
     # else:
         # glad_model.load_best_save(directory=args.dout)
-    glad_model = glad_model.to(device)
-    logging.info('Running test evaluation')
-    test_out = glad_model.run_report(loader.dataset['test'], args)
-    print(test_out)
+    # glad_model = glad_model.to(device)
+    # logging.info('Running test evaluation')
+    # test_out = glad_model.run_report(loader.dataset['test'], args)
+    # print(test_out)
