@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np
 from tqdm import tqdm
 from stanza.nlp.corenlp import CoreNLPClient
-
+from pprint import pprint
 
 client = None
 
@@ -134,7 +134,7 @@ class Dataset:
       conf = [round(x, 3) for x in confidence[slot][idx]]
       print("{} confidence: {}".format(slot, conf))
   
-  def full_report(self, one_batch, preds, confidence):
+  def run_report(self, one_batch, preds, confidence):
     num_samples = len(preds)
     request = []
     inform = []
@@ -197,7 +197,7 @@ class Dataset:
     result = {'turn_inform': np.mean(inform),
              'turn_request': np.mean(request),
                'joint_goal': np.mean(joint_goal)}
-    return result
+    pprint(result)
 
   def record_preds(self, preds, to_file):
     data = self.to_dict()

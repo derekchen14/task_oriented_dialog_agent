@@ -57,8 +57,8 @@ class Evaluator(object):
     plt.show()
 
   def run_report(self, metrics):
-    if self.tasks == "glad":
-      self.model.run_report(self.data, self.config)
+    if self.tasks[0] == "glad":
+      self.model.quant_report(self.data, self.config)  # qual_report for qualitative analysis
       sys.exit()
     scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
     display = []

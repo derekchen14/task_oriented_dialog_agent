@@ -290,24 +290,24 @@ class ModelTemplate(nn.Module):
           predictions[i].add((sort[0][0], sort[0][1]))
     return predictions
 
-  def run_pred(self, dev, args):
+  def run_pred(self, data, args):
     self.eval()
     predictions = []
-    for batch in dev.batch(batch_size=args.batch_size):
+    for batch in data.batch(batch_size=args.batch_size):
       loss, scores = self.forward(batch)
       predictions += self.extract_predictions(scores)
     return predictions
 
-  def run_eval(self, dev, args):
-    predictions = self.run_pred(dev, args)
-    return dev.evaluate_preds(predictions)
+  def quant_report(self, data, args):
+    predictions = self.run_pred(data, args)
+    return data.evaluate_preds(predictions)
 
-  def run_report(self, dev, args):
+  def qual_report(self, data, args):
     self.eval()
     one_batch = next(dev.batch(args.batch_size, shuffle=True))
     loss, scores = self.forward(one_batch)
     predictions = self.extract_predictions(scores)
-    return dev.full_report(one_batch, predictions, scores)
+    return data.run_report(one_batch, predictions, scores)
 
   def save_config(self, save_directory):
     fname = '{}/config.json'.format(save_directory)

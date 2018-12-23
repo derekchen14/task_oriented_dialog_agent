@@ -2,7 +2,6 @@ import os
 import json
 import logging
 from argparse import ArgumentParser, Namespace
-from pprint import pprint
 from utils import load_dataset, load_model
 
 
@@ -30,7 +29,7 @@ if __name__ == '__main__':
 
     logging.info('Making predictions for {} dialogues and {} turns'.format(len(dataset[args.split]), len(list(dataset[args.split].iter_turns()))))
     preds = model.run_pred(dataset[args.split], args_save)
-    pprint(dataset[args.split].evaluate_preds(preds))
+    dataset[args.split].evaluate_preds(preds)
 
     if args.fout:
         with open(args.fout, 'wt') as f:
