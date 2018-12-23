@@ -73,44 +73,44 @@ class Learner(object):
     self.model.init_optimizer()
     self.criterion = NegLL_Loss()
 
-    n_iters = 600 if self.debug else len(self.processor.train_data)
+    n_iters = 600 if self.debug else len(self.processor.datasets['train'])
     print_every, plot_every, val_every = print_frequency(self.verbose, self.debug)
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
     # step_size = n_iters/(self.decay_times+1)
     # enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)
     # dec_scheduler = StepLR(dec_optimizer, step_size=step_size, gamma=0.2)
+    # enc_scheduler.step()
+    # dec_scheduler.step()
 
     for epoch in range(self.epochs):
       start = tm.time()
       starting_checkpoint(epoch, self.epochs, use_cuda)
-      for iteration, training_pair in enumerate(self.processor.train_data):
-        # enc_scheduler.step()
-        # dec_scheduler.step()
-        input_var, output_var = training_pair
+      for i, train_pair in enumerate(self.processor.datasets['train']):
+        input_var, output_var = train_pair
         loss = self.train(input_var, output_var)
         print_loss_total += loss
         plot_loss_total += loss
 
-        if iteration > 0 and iteration % print_every == 0:
-          self.tracker.train_steps.append(iteration + 1)
+        if i > 0 and i % print_every == 0:
+          self.tracker.train_steps.append(i + 1)
           print_loss_avg = print_loss_total / print_every
           print_loss_total = 0  # reset the print loss
-          print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(print_loss_avg,
-              (iteration/n_iters * 100.0), timeSince(start, iteration/n_iters )))
+          print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(
+              print_loss_avg, (i/n_iters * 100.0), timeSince(start, i/n_iters )))
           self.tracker.update_loss(print_loss_avg, "train")
 
-        if iteration > 0 and iteration % val_every == 0:
-          self.tracker.val_steps.append(iteration + 1)
+        if i > 0 and i % val_every == 0:
+          self.tracker.val_steps.append(i + 1)
           batch_val_loss, batch_bleu, batch_success = [], [], []
-          for val_input, val_output in self.processor.val_data:
+          for val_input, val_output in self.processor.datasets['val']:
             val_loss, bs, ts = self.validate(val_input, val_output, task)
             batch_val_loss.append(val_loss)
             batch_bleu.append(bs)
             batch_success.append(ts)
 
           self.tracker.batch_processing(batch_val_loss, batch_bleu, batch_success)
-          if self.tracker.should_early_stop(iteration):
+          if self.tracker.should_early_stop(i):
             print("Early stopped at val epoch {}".format(self.tracker.val_epoch))
             self.tracker.completed_training = False
             break

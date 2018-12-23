@@ -26,7 +26,10 @@ class Evaluator(object):
       self.model = system.model
 
     self.vocab = system.processor.vocab
-    self.data = system.processor.test_data if args.test_mode else system.processor.val_data
+    if args.test_mode:
+      self.data = system.processor.datasets['test']
+    else:
+      self.data = system.processor.datasets['val']
 
     if args.report_results:
       self.quantitative_report()

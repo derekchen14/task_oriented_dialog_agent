@@ -22,13 +22,8 @@ class PreProcessor(object):
       self.make_cache(loader.debug_dir)
 
   def prepare_examples(self, split, use_context):
-    ''' For DSTC2, format is
-    Example is dict with keys
-      {"input_source": [utterance, context, id]}
-      {"output_target": [list of labels]}
-    where each label is (high level intent, low level intent, slot, value)
-    '''
     dataset = self.datasets[split]
+
     variables = []
     for example in dataset:
       input_var = self.prepare_input(example["input_source"], use_context)
@@ -38,7 +33,7 @@ class PreProcessor(object):
         output_var = output_var[1]      # set output to be the second label
       variables.append((input_var, output_var))
 
-    setattr(self, "{}_data".format(split), variables)
+    self.datasets[split] = variables
 
   def prepare_input(self, source, use_context):
     tokens = [self.vocab.word_to_index(word) for word in source]
@@ -117,4 +112,10 @@ if use_context:
 for word in source["utterance"].split():
   tokens.append(vocab.word_to_index(word, dataset))
 return var(tokens, "long")
+
+For DSTC2, format is
+Example is dict with keys
+  {"input_source": [utterance, context, id]}
+  {"output_target": [list of labels]}
+where each label is (high level intent, low level intent, slot, value)
 '''
