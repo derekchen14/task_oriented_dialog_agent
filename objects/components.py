@@ -3,7 +3,7 @@ from torch.nn.utils import rnn as rnn_utils
 from torch.nn import NLLLoss, parameter
 
 import utils.internal.vocabulary as vocab
-import utils.internal.data_io as data_io
+import utils.internal.initialization as data_io
 from utils.external.bleu import BLEU
 
 import torch

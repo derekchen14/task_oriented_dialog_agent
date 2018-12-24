@@ -397,8 +397,8 @@ class GlobalLocalModel(ModelTemplate):
   def forward(self, batch):
     # convert to variables and look up embeddings
     eos = self.vocab.word2index('<eos>')
-    utterance, utterance_len = self.pad([e.num['transcript'] for e in batch], self.embedding, pad=eos)
-    acts = [self.pad(e.num['system_acts'], self.embedding, pad=eos) for e in batch]
+    utterance, utterance_len = self.pad([e.num['utterance'] for e in batch], self.embedding, pad=eos)
+    acts = [self.pad(e.num['agent_actions'], self.embedding, pad=eos) for e in batch]
     ontology = {s: self.pad(v, self.embedding, pad=eos) for s, v in self.ontology.num.items()}
 
     ys = {}
@@ -438,7 +438,7 @@ class GlobalLocalModel(ModelTemplate):
       # create label variable and compute loss
       labels = {s: [len(self.ontology.values[s]) * [0] for i in range(len(batch))] for s in self.ontology.slots}
       for i, e in enumerate(batch):
-        for s, v in e.turn_label:
+        for s, v in e.user_intent:
           labels[s][i][self.ontology.values[s].index(v)] = 1
       labels = {s: torch.Tensor(m).to(device) for s, m in labels.items()}
 

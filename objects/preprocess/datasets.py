@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from stanza.nlp.corenlp import CoreNLPClient
 from pprint import pprint
+from objects.preprocess.ontology import Ontology
 
 client = None
 
@@ -17,20 +18,34 @@ def annotate(sent):
       words.append(tok.word)
   return words
 
+class Intent:
+
+  def __init__(self, domain, subdomain, act, slot, value):
+    self.domain = domain        # restaurant, airline, banking
+    self.subdomain = subdomain  # reservation, traffic, event
+    self.act = act              # accept/reject, open/close, request/inform,
+                                # question/answer, acknow/confuse
+    self.slot = slot            # time, location, price, rating, name
+    self.value = value          # north, yes/no, cheap, 5, more, italian
+
+  @classmethod
+  def from_dict(cls, d):
+    return cls(**d)
+
 
 class Turn:
 
-  def __init__(self, turn_id, transcript, turn_label, belief_state, system_acts, system_transcript, num=None):
+  def __init__(self, turn_id, utterance, user_intent, belief_state, agent_actions, agent_utterance, num=None):
     self.id = turn_id
-    self.transcript = transcript
-    self.turn_label = turn_label
+    self.utterance = utterance
+    self.user_intent = user_intent
     self.belief_state = belief_state
-    self.system_acts = system_acts
-    self.system_transcript = system_transcript
+    self.agent_actions = agent_actions
+    self.agent_utterance = agent_utterance
     self.num = num or {}
 
   def to_dict(self):
-    return {'turn_id': self.id, 'transcript': self.transcript, 'turn_label': self.turn_label, 'belief_state': self.belief_state, 'system_acts': self.system_acts, 'system_transcript': self.system_transcript, 'num': self.num}
+    return {'turn_id': self.id, 'utterance': self.utterance, 'user_intent': self.user_intent, 'belief_state': self.belief_state, 'agent_actions': self.agent_actions, 'agent_utterance': self.agent_utterance, 'num': self.num}
 
   @classmethod
   def from_dict(cls, d):
@@ -38,27 +53,27 @@ class Turn:
 
   @classmethod
   def annotate_raw(cls, raw):
-    system_acts = []
-    for a in raw['system_acts']:
+    agent_actions = []
+    for a in raw['agent_actions']:
       if isinstance(a, list):
         s, v = a
-        system_acts.append(['inform'] + s.split() + ['='] + v.split())
+        agent_actions.append(['inform'] + s.split() + ['='] + v.split())
       else:
-        system_acts.append(['request'] + a.split())
+        agent_actions.append(['request'] + a.split())
     # NOTE: fix inconsistencies in data label
     fix = {'centre': 'center', 'areas': 'area', 'phone number': 'number'}
     return cls(
       turn_id=raw['turn_idx'],
-      transcript=annotate(raw['transcript']),
-      system_acts=system_acts,
-      turn_label=[[fix.get(s.strip(), s.strip()), fix.get(v.strip(), v.strip())] for s, v in raw['turn_label']],
+      utterance=annotate(raw['utterance']),
+      agent_actions=agent_actions,
+      user_intent=[[fix.get(s.strip(), s.strip()), fix.get(v.strip(), v.strip())] for s, v in raw['user_intent']],
       belief_state=raw['belief_state'],
-      system_transcript=raw['system_transcript'],
+      agent_utterance=raw['agent_utterance'],
     )
 
   def numericalize_(self, vocab):
-    self.num['transcript'] = vocab.word2index(['<sos>'] + [w.lower() for w in self.transcript + ['<eos>']], train=True)
-    self.num['system_acts'] = [vocab.word2index(['<sos>'] + [w.lower() for w in a] + ['<eos>'], train=True) for a in self.system_acts + [['<sentinel>']]]
+    self.num['utterance'] = vocab.word2index(['<sos>'] + [w.lower() for w in self.utterance + ['<eos>']], train=True)
+    self.num['agent_actions'] = [vocab.word2index(['<sos>'] + [w.lower() for w in a] + ['<eos>'], train=True) for a in self.agent_actions + [['<sentinel>']]]
 
 
 class Dialogue:
@@ -116,7 +131,7 @@ class Dataset:
     slots = set()
     values = defaultdict(set)
     for t in self.iter_turns():
-      for s, v in t.turn_label:
+      for s, v in t.user_intent:
         slots.add(s.lower())
         values[s].add(v.lower())
     return Ontology(sorted(list(slots)), {k: sorted(list(v)) for k, v in values.items()})
@@ -144,8 +159,8 @@ class Dataset:
     for t in one_batch:
       if i >= num_samples:
         break
-      gold_request = set([(s, v) for s, v in t.turn_label if s == 'request'])
-      gold_inform = set([(s, v) for s, v in t.turn_label if s != 'request'])
+      gold_request = set([(s, v) for s, v in t.user_intent if s == 'request'])
+      gold_inform = set([(s, v) for s, v in t.user_intent if s != 'request'])
       pred_request = set([(s, v) for s, v in preds[i] if s == 'request'])
       pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
       request.append(gold_request == pred_request)
@@ -155,8 +170,8 @@ class Dataset:
       joint_goal.append(double_correct)
 
       if not double_correct:
-        print(" ".join(t.transcript))
-        print('actual', t.turn_label)
+        print(" ".join(t.utterance))
+        print('actual', t.user_intent)
         print('predicted', preds[i])
         self.process_confidence(confidence, i)
         print('----------------')
@@ -173,8 +188,8 @@ class Dataset:
     for d in self.dialogues:
       pred_state = {}
       for t in d.turns:
-        gold_request = set([(s, v) for s, v in t.turn_label if s == 'request'])
-        gold_inform = set([(s, v) for s, v in t.turn_label if s != 'request'])
+        gold_request = set([(s, v) for s, v in t.user_intent if s == 'request'])
+        gold_inform = set([(s, v) for s, v in t.user_intent if s != 'request'])
         pred_request = set([(s, v) for s, v in preds[i] if s == 'request'])
         pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
         request.append(gold_request == pred_request)
