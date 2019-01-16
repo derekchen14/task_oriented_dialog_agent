@@ -8,6 +8,7 @@ class SingleSystem(object):
     self.task = loader.categories
     vocab = Vocabulary(args, loader.data_dir)
     self.model = builder.get_model(vocab.ulary_size(), vocab.label_size())
+    # self.module = builder.configure_module(args, self.model)
     self.processor = PreProcessor(args, vocab, loader)
     if not args.test_mode:
       self.learner = Learner(args, self.model, self.processor, tracker)
@@ -38,3 +39,21 @@ class MultiSystem(object):
     for task in self.tasks:
       learner = self.learners[task]
       learner.learn(task)
+
+class EndToEndSystem(object):
+  def __init__(self, args, loader, builder, tracker):
+    self.args = args
+    self.task = loader.categories
+    vocab = Vocabulary(args, loader.data_dir)
+
+    belief_tracker = builder.configure_module(args, self.model)
+    policy_manager = builder.configure_module(args, self.model)
+    text_generator = builder.configure_module(args, self.model)
+    modules = [belief_tracker, policy_manager, text_generator]
+
+    self.processor = PreProcessor(args, vocab, loader)
+    if not args.test_mode:
+      self.learner = Learner(args, modules, self.processor, tracker)
+
+  def run_main(self):
+    self.learner.learn(self.task)

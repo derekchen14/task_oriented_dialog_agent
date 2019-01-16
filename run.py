@@ -19,14 +19,13 @@ if __name__ == "__main__":
   loader = DataLoader(args)
   tracker = LossTracker(args)
   builder = Builder(args, loader)
+  evaluator = Evaluator(args, loader.multitask)
   # -------- RUN THE SYSTEM --------
   if loader.multitask:
-    system = MultiSystem(args, loader, builder, tracker)
+    system = MultiSystem(args, loader, builder, tracker, evaluator)
   else:
-    system = SingleSystem(args, loader, builder, tracker)
+    system = SingleSystem(args, loader, builder, tracker, evaluator)
   if not args.test_mode:
     system.run_main()
     logging.info(args)
-  # ----- EVALUATE PERFORMANCE -----
-  evaluator = Evaluator(args, system, loader.multitask)
-  evaluator.run_report(args.metrics)
+  system.evaluate()

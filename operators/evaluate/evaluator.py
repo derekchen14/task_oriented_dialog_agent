@@ -13,6 +13,7 @@ from objects.components import var, run_inference
 class Evaluator(object):
   def __init__(self, args, system, multitask):
     self.config = args
+    self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
     self.multitask = multitask

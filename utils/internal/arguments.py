@@ -8,8 +8,8 @@ def solicit_args():
   parser.add_argument('-d', '--dataset', choices=['babi', 'in-car', 'woz2',
               'dstc2', 'frames', 'multiwoz', 'basicwoz'], default='frames',
               help='Choose the data to train on, defines labels', )
-  parser.add_argument('-m', '--model', default='match', choices=['basic', \
-              'attention', 'transformer', 'match', 'bilstm', 'glad'],
+  parser.add_argument('-m', '--model', default='match', choices=['rule', \
+              'basic', 'attention', 'transformer', 'match', 'bilstm', 'glad'],
               help='Choose the model type used',)
 
   parser.add_argument('--debug', default=False, action='store_true',
@@ -80,6 +80,6 @@ def solicit_args():
               visualize the attention weights and store in results/visualize.png')
   parser.add_argument('--metrics', nargs='+', default=['accuracy'],
               help='list of evaluation metrics to run, such as accuracy \
-              macro_f1, micro_f1, bleu, rouge, or inform_success')
+              macro_f1, micro_f1, bleu, rouge, reward, success_rate, or avg_turn')
 
   return parser.parse_args()

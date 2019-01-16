@@ -5,13 +5,13 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 
-from objects.components import device
-from objects.learn import encoders as enc
-from objects.learn import decoders as dec
+from objects.blocks import encoders as enc
+from objects.blocks import decoders as dec
+from objects.blocks.components import device
 from objects.learn.modules import GlobalLocalModel, BasicClassifer
-# from objects.learn.belief_tracker import BeliefTracker
-# from objects.learn.policy_manager import PolicyManager
-# from objects.learn.text_generator import TextGenerator
+# from objects.learn.belief_tracker import RuleBeliefTracker, NeuralBeliefTracker
+from objects.learn.policy_manager import RulePolicyManager # , NeuralPolicyManager
+# from objects.learn.text_generator import RuleTextGenerator, NeuralTextGenerator
 
 class Builder(object):
   def __init__(self, args, loader=None):
