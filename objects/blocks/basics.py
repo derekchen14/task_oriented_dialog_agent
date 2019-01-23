@@ -1,10 +1,12 @@
-import numpy as np
-import os, pdb, sys  # set_trace
-import logging
-import numbers
+import re
 import math
 import json
-import re
+import logging
+import numbers
+import numpy as np
+import os, pdb, sys  # set_trace
+from pprint import pformat
+from collections import defaultdict
 
 import torch
 import torch.nn as nn
@@ -12,8 +14,8 @@ from torch import optim
 import torch.nn.functional as F
 
 from objects.components import var, device
-from collections import defaultdict
-from pprint import pformat
+from utils.external.reader import get_glove_name
+
 
 class ModelTemplate(nn.Module):
   def __init__(self, args):
@@ -201,6 +203,37 @@ class BasicClassifer(ModelTemplate):
     encoder_outputs, hidden = self.encoder(sources, hidden)
     return self.decoder(encoder_outputs[0])
 
+class PretrainedEmbeddingsModel(nn.Module):
+  """
+  Base class that allows pretrained embedding to be loaded from
+  a vocabulary. Assumes the wrapper class will initialize the embeddings
+  """
+  def load_embeddings(self, vocab):
+    if self.opt.pt != "none":
+      # Get glove vector file name
+      name = get_glove_name(self.opt, "tokens")
+      print("Loading embeddings from {}".format(name))
+
+      # Load glove vectors
+      with open(name, "r") as f:
+        token_words = pickle.load(f)
+
+      # Assign glove vectors to correct word in vocab
+      for i, word in vocab.iteritems():
+
+        # If vocab word is meaning less, set embedding to 0
+        if word in ["<unk>", "<start>", "<end>", "<pad>"]:
+          self.embeddings.weight.data[i].zero_()
+          continue
+
+        if self.is_cuda:
+          vec = torch.cuda.FloatTensor(token_words[word])
+        else:
+          vec = torch.FloatTensor(token_words[word])
+
+        # Set embedding in embedding module
+        self.embeddings.weight.data[i] = vec
+
 class WeightedBOW(PretrainedEmbeddingsModel):
   """
   Indexes a set of word embeddings for a sequence of words it receives
@@ -250,34 +283,3 @@ class WeightedBOW(PretrainedEmbeddingsModel):
     super(WeightedBOW, self).cuda(device_id)
     self.weights.cuda(device_id)
     self.is_cuda = True
-
-class PretrainedEmbeddingsModel(nn.Module):
-  """
-  Base class that allows pretrained embedding to be loaded from
-  a vocabulary. Assumes the wrapper class will initialize the embeddings
-  """
-  def load_embeddings(self, vocab):
-    if self.opt.pt != "none":
-      # Get glove vector file name
-      name = cfg.get_glove_name(self.opt, "tokens")
-      print "Loading embeddings from {}".format(name)
-
-      # Load glove vectors
-      with open(name, "r") as f:
-        token_words = pickle.load(f)
-
-      # Assign glove vectors to correct word in vocab
-      for i, word in vocab.iteritems():
-
-        # If vocab word is meaning less, set embedding to 0
-        if word in ["<unk>", "<start>", "<end>", "<pad>"]:
-          self.embeddings.weight.data[i].zero_()
-          continue
-
-        if self.is_cuda:
-          vec = torch.cuda.FloatTensor(token_words[word])
-        else:
-          vec = torch.FloatTensor(token_words[word])
-
-        # Set embedding in embedding module
-        self.embeddings.weight.data[i] = vec

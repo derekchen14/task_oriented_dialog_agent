@@ -3,10 +3,37 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from objects.blocks.attention import Attention
+from objects.blocks.basics import WeightedBOW
+from objects.models.transformer import Transformer
 from objects.components import *
-from objects.learn.modules import Transformer, SelfAttention
 
-class Match_Encoder(nn.Module):
+class SentenceEncoder(nn.Module):
+  """
+  Encode sentence using a weighted bag of words where the
+  word embeddings are weighted by a positional mask
+
+  Input:
+    input: word indices based on vocabulary
+    lengths: length of each set of words in the batchs
+    embed: word embeddings in case we use shared embeddings
+        with another module
+
+  Output:
+    output: hidden state from encoding the words
+  """
+  def __init__(self, opt, max_words=None):
+    super(SentenceEncoder, self).__init__()
+    self.opt = opt
+    self.sentence_encoder = WeightedBOW(opt, max_words)
+
+  def forward(self, input, lengths, embed=None):
+    # Encode sentences
+    output, hidden = self.sentence_encoder(input, lengths)
+    return output
+
+
+class MatchEncoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super().__init__()
     self.hidden_size = hidden_size + 8  # extended dim for the match features
@@ -24,15 +51,16 @@ class Match_Encoder(nn.Module):
     return torch.zeros(2, 1, self.hidden_size // 2).to(device)
 
 # the GLAD encoder described in https://arxiv.org/abs/1805.09655.
-class GLADEncoder(nn.Module):
+class GLAD_Encoder(nn.Module):
   def __init__(self, din, dhid, slots, dropout=None):
     super().__init__()
     self.dropout = dropout or {}
     self.global_rnn = nn.LSTM(din, dhid, bidirectional=True, batch_first=True)
-    self.global_selfattn = SelfAttention(2 * dhid, dropout=self.dropout.get('selfattn', 0.))
+    # self attention is just attention but with itself as the condition vector
+    self.global_selfattn = Attention(2*dhid, 'self', self.dropout.get('selfattn', 0.))
     for s in slots:
       setattr(self, '{}_rnn'.format(s), nn.LSTM(din, dhid, bidirectional=True, batch_first=True, dropout=self.dropout.get('rnn', 0.)))
-      setattr(self, '{}_selfattn'.format(s), SelfAttention(din, dropout=self.dropout.get('selfattn', 0.)))
+      setattr(self, '{}_selfattn'.format(s), Attention(din, 'self', self.dropout.get('selfattn', 0.)))
     self.slots = slots
     self.beta_raw = nn.Parameter(torch.Tensor(len(slots)))
     nn.init.uniform_(self.beta_raw, -0.01, 0.01)
@@ -44,13 +72,20 @@ class GLADEncoder(nn.Module):
     local_rnn = getattr(self, '{}_rnn'.format(slot))
     local_selfattn = getattr(self, '{}_selfattn'.format(slot))
     beta = self.beta(slot)
+
     local_h = run_rnn(local_rnn, x, x_len)
     global_h = run_rnn(self.global_rnn, x, x_len)
-    h = F.dropout(local_h, self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(global_h, self.dropout.get('global', default_dropout), self.training) * (1-beta)
-    c = F.dropout(local_selfattn(h, x_len), self.dropout.get('local', default_dropout), self.training) * beta + F.dropout(self.global_selfattn(h, x_len), self.dropout.get('global', default_dropout), self.training) * (1-beta)
+    local_drop = self.dropout.get('local', default_dropout)
+    global_drop = self.dropout.get('global', default_dropout)
+
+    h = F.dropout(local_h, local_drop, self.training) * beta + \
+        F.dropout(global_h, global_drop, self.training) * (1-beta)
+    c = F.dropout(local_selfattn(h, h, x_len), local_drop, self.training) * beta + \
+        F.dropout(self.global_selfattn(h, h, x_len), global_drop, self.training) * (1-beta)
+
     return h, c
 
-class Replica_Encoder(nn.Module):
+class ReplicaEncoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(Replica_Encoder, self).__init__()
     self.vocab_dim = 300
@@ -73,7 +108,7 @@ class Replica_Encoder(nn.Module):
     cell = torch.zeros(2, 1, self.hidden_size).to(device)
     return (hidden, cell)
 
-class Transformer_Encoder(nn.Module):
+class TransformerEncoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=6):
     super(Transformer_Encoder, self).__init__()
     self.hidden_size = hidden_size
@@ -115,7 +150,7 @@ class BiGRU_Encoder(nn.Module):
     # output size, we split each of the hidden layers in half, z = h // 2
     return torch.zeros(2, 1, self.hidden_size // 2).to(device)
 
-class GRU_Encoder(nn.Module):
+class GRUEncoder(nn.Module):
   def __init__(self, vocab_size, hidden_size, n_layers=1):
     super(GRU_Encoder, self).__init__()
     self.hidden_size = hidden_size # dim of object passed into IFOG gates

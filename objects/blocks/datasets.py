@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from stanza.nlp.corenlp import CoreNLPClient
 from pprint import pprint
-from objects.preprocess.ontology import Ontology
+from objects.blocks.ontology import Ontology
 
 client = None
 

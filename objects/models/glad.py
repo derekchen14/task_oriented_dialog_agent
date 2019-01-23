@@ -3,13 +3,15 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
-from objects.models.basics import ModelTemplate
+from objects.blocks.basics import ModelTemplate  # should be blocks.base
+from objects.blocks.attention import Attention
 
 # the GlobalLocalModel model described in https://arxiv.org/abs/1805.09655.
 class GLAD(ModelTemplate):
   def __init__(self, args, ontology, vocab, Eword, GLADEncoder):
     super().__init__(args)
     self.optimizer = None
+    self.attend = Attention()
 
     self.vocab = vocab
     self.ontology = ontology
@@ -50,14 +52,14 @@ class GLAD(ModelTemplate):
       y_utts = []
       q_utts = []
       for i, c_val in enumerate(C_vals):
-        q_utt, _ = attend(H_utt, c_val.unsqueeze(0).expand(len(batch), *c_val.size()), lens=utterance_len)
+        q_utt = self.attend(H_utt, c_val.unsqueeze(0).expand(len(batch), *c_val.size()), lens=utterance_len)
         q_utts.append(q_utt)   # torch.Size([50, 400])
       y_utts = self.utt_scorer(torch.stack(q_utts, dim=1)).squeeze(2)
 
       # compute the previous action score
       q_acts = []
       for j, C_act in enumerate(C_acts):
-        q_act, _ = attend(C_act.unsqueeze(0), c_utt[j].unsqueeze(0), lens=[C_act.size(0)])
+        q_act = self.attend(C_act.unsqueeze(0), c_utt[j].unsqueeze(0), lens=[C_act.size(0)])
         q_acts.append(q_act)  # torch.Size([1, 400])
       # (50x7) =         (50, 400)       x    (400, 7)
       y_acts = torch.cat(q_acts, dim=0).mm(C_vals.transpose(0, 1))

@@ -5,7 +5,8 @@ import torch.nn.functional as F
 import sys, pdb  # set_trace
 
 from objects.components import var, match_embedding
-from objects.learn.modules import Attention, Transformer
+from objects.blocks.attention import Attention
+from objects.models.transformer import Transformer
 
 # ------- Decoders ----------
 # Decoder is given an input token and hidden state. The initial input token is
