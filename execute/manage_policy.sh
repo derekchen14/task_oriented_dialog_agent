@@ -1,5 +1,11 @@
 python run.py --task-name simulation --model-type rule --report-results \
-    --metrics success_rate
+    --metrics success_rate --dataset ddq/movies
+
+python run.py --task-name simulation --model-type rule --report-results \
+    --metrics success_rate --dataset ddq/restaurants
+
+python run.py --task-name simulation --model-type rule --report-results \
+    --metrics success_rate --dataset ddq/taxis
     # avg_turn reward
 
 
