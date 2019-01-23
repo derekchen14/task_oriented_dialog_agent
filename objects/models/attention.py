@@ -1,16 +1,7 @@
 import numpy as np
-import os, pdb, sys  # set_trace
-import logging
-
 import torch
 import torch.nn as nn
-from torch import optim
 import torch.nn.functional as F
-
-from objects.components import var, device
-from collections import defaultdict
-from pprint import pformat
-
 
 class Attention(nn.Module):
   """
@@ -33,7 +24,7 @@ class Attention(nn.Module):
       activations for each hidden state
 
   """
-  def __init__(self, hidden_dim=None, method='dot', act='tanh'):
+  def __init__(self, hidden=None, method='dot', act='tanh'):
     super(Attention, self).__init__()
     act_options = { "softmax": nn.Softmax(dim=1),
                     "sigmoid": nn.Sigmoid(),
@@ -41,16 +32,22 @@ class Attention(nn.Module):
     self.activation = act_options[act]
 
     if method == 'linear':                # h(Wh)
-      self.W_a = nn.Linear(hidden_dim, 1)
+      self.W_a = nn.Linear(hidden, hidden)
     elif method == 'concat':            # v_a tanh(W[h_i;h_j])
-      self.W_a =  nn.Linear(hidden_dim * 2, hidden_dim)
-      self.v_a = torch.tensor(1, hidden_dim)
+      self.W_a =  nn.Linear(2 * hidden, hidden)
+      self.v_a = nn.Linear(hidden, 1, bias=False)
+    elif method == 'double':            # v_a tanh(W[h_i;h_j])
+      self.W_a =  nn.Linear(2 * hidden, hidden)
+      self.v_a = nn.Linear(hidden, 1, bias=False)
+    elif method == 'self':
+      self.W_a = nn.Linear(hidden, 1)
+      self.drop = nn.Dropout(act)  # semi hack to use the param
     # if attention method is 'dot' no extra matrix is needed
     self.attn_method = method
 
   def forward(self, sequence, condition, lengths=None):
     """
-    Compute context weights for a given type of scoring mechanim
+    Compute context weights for a given type of scoring mechanism
     return the scores along with the weights
     """
     if lengths is None:
@@ -63,30 +60,47 @@ class Attention(nn.Module):
     scores = self.score(sequence, condition)
     # Normalize scores into weights --> batch_size x seq_len
     self.scores = F.softmax(scores, dim=1)
-    # batch_size x seq_len --> batch_size x seq_len x hidden_dim
-    expanded = self.scores.unsqueeze(2).expand_as(sequence)
-    # context weights shape is batch_size x hidden_dim
-    context_weights = expanded.mul(sequence).sum(1)
+    # scores unsqueezed is batch_size x 1 x seq_len
+    # sequence shape is batch_size x seq_len x hidden_dim
+    weights = torch.bmm(self.scores.unsqueeze(1), sequence).squeeze(1)
+    # this is equivalent to doing a dot product and summing
+    # weights = scores.unsqueeze(2).expand_as(sequence).mul(sequence).sum(1)
 
-    return context_weights
+    return weights
 
   def score(self, sequence, condition):
     """
     Calculate activation score over the sequence using the condition.
     Output shape = batch_size x seq_len
     """
-    if self.attn_method == 'linear':                # h(Wh)
+    if self.attn_method == 'self':                 # W h
       batch_size, seq_len, hidden_dim = sequence.size()
+      # start out with some drop out
+      sequence = self.drop(sequence)
       # batch_size, seq_len, hidden_dim --> batch_size x seq_len, 1
-      reshaped = condition.contiguous().view(-1, hidden_dim)
+      reshaped = sequence.contiguous().view(-1, hidden_dim)
       # batch_size x seq_len, 1 --> batch_size, seq_len
       scores = self.W_a(reshaped).view(batch_size, seq_len)
+
+    elif self.attn_method == 'linear':                # p(Wq)
+      # after affine, sequence keeps the same batch_size x seq_len x hidden_dim
+      # after unsqueeze, condition shape becomes batch_size x hidden_dim x 1
+      product = torch.bmm(self.W_a(sequence), condition.unsqueeze(2))
+      # final score shape is just batch_size x seq_len as expected
+      scores = product.squeeze(2)
+
     elif self.attn_method == 'concat':            # v_a tanh(W[h_i;h_j])
-      joined = torch.cat((input_2, input_1), dim=1)
+      # batch_size x hidden_dim --> batch_size x seq_len x hidden_dim
+      expanded = condition.unsqueeze(1).expand_as(sequence)
+      # joined shape becomes batch_size x seq_len x (2 * hidden_dim)
       # Note that W_a[h_i; h_j] is the same as W_1a(h_i) + W_2a(h_j) since
       # W_a is just (W_1a concat W_2a)             (nx2n) = [(nxn);(nxn)]
-      logit = self.W_a(joined).transpose(0,1)
-      scores = self.v_a.matmul(self.tanh(logit))
+      joined = torch.cat([sequence, expanded], dim=2)
+      # logit is now brought back to original batch_size x seq_len x hidden_dim
+      logit = self.activation(self.W_a(joined))
+      # v_a brings to batch_size x seq_len x 1, and squeeze completes the job
+      scores = self.v_a(logit).squeeze(2)
+
     elif self.attn_method == 'dot':
       # batch_size x hidden_dim --> batch_size x seq_len x hidden_dim
       expanded = condition.unsqueeze(1).expand_as(sequence)
@@ -101,89 +115,43 @@ class Attention(nn.Module):
     return scores
 
 
-class Attender(nn.Module):
+class DoubleAttention(nn.Module):
     """
-    Attend to a set of vectors using an attention distribution
-
-    Input:
-        input: 3-dimensional tensor of size
-                batch_size x seq_len x hidden_state
-                These are the hidden states to compare to
-        weights: attention distribuution
-        do_reduce: indicator variable indicating whether we compute
-                   the weighted average of the attended vectors OR
-                   just return them scaled by their attention weight
-
-    Output:
-        attention distribution over hidden states
-        activations for each hidden state
-
-    """
-    def __init__(self):
-        super(Attender, self).__init__()
-
-    # input is batch_size * num_agenda * input_embed
-    # weights is batch_size * num_agenda
-    def forward(self, input, weights, do_reduce=True):
-        if do_reduce:
-            out = torch.bmm(weights.unsqueeze(1), input)
-            return out.view(out.size(0), out.size(2))
-        else:
-            out = weights.unsqueeze(2).repeat(1, 1, input.size(2)) * input
-            return out
-
-
-class DoubleDotAttention(nn.Module):
-    """
-    Compute a dot product attention between two vectors
+    Compute a double dot product attention. While the typical attention
+    takes in a 3-dim sequence and 2-dim condition this module takes in two
+    inputs that are both 3-dim and a hidden state as the 2-dim condition
 
     Initialization Args:
         act: which non-linearity to use to compute attention
-            (sigmoid for independent attention,
-             softmax for joint attention)
+          (sigmoid for independent attention, softmax for joint attention)
 
     Input:
-        input_1: 3-dimensional tensor of batch_size x seq_len x hidden_state
-                These are the hidden states to compare to
-        input_2: 3-dimensional tensor of batch_size x seq_len x hidden_state
-                These are the second hidden states to compare to
-        hidden: vector used to compute attentions
+        hidden: vector used to compute attentions which acts as a gate
+          shape is batch_size x hidden_dim
+        slots: 3-dimensional tensor of batch_size x num_items x hidden_dim
+        keys: 3-dimensional tensor of batch_size x num_items x hidden_dim
+          Note that the slot and key shapes are inter-changeable
 
     Output:
-        attention distribution over hidden states
-        activations for each hidden state
-
+        weights: weighted context representing the chosen slots
+        normalized: attention distribution over memory slots
+        scores: raw activation scores based on hidden states
     """
     def __init__(self, act="softmax"):
-        super(DoubleDotAttention, self).__init__()
+      super(DoubleDotAttention, self).__init__()
+      if act == "softmax":
+        self.activation = nn.Softmax(dim=1)
+      elif act == "sigmoid":
+        self.activation = nn.Sigmoid()
 
-        if act == "softmax":
-            self.act = nn.Softmax(dim=1)
-        elif act == "sigmoid":
-            self.act = nn.Sigmoid()
+    def forward(hidden, slots, keys):
+      scores = self.score(hidden, slots, keys)
+      activated = self.activation(scores, dim=1)
+      weights = torch.bmm(activated.unsqueeze(1), slots).squeeze(1)
+      return weights, activated, scores
 
-    # Input should be bs x num_agenda x input_size
-    def forward(self, input_1, input_2, hidden):
-        batch_size = input_1.size(0)
-        num_items = input_1.size(1)
-        input_size = input_1.size(2)
-
-        assert input_1.size(2) == hidden.size(1)
-        assert input_1.size(0) == hidden.size(0)
-        assert input_2.size(2) == hidden.size(1)
-        assert input_2.size(0) == hidden.size(0)
-        hidden_ = hidden.view(batch_size, 1, input_size).expand(
-            batch_size, num_items, input_size).contiguous().view(
-            -1, input_size)
-        inputs_1 = input_1.view(-1, input_size)
-        inputs_2 = input_2.view(-1, input_size)
-
-        activation_1 = torch.sum(inputs_1 * hidden_, 1).view(
-            batch_size, num_items)
-
-        activation_2 = torch.sum(inputs_2 * hidden_, 1).view(
-            batch_size, num_items)
-
-        activation = activation_1 + activation_2
-
-        return self.act(activation), activation
+    def score(self, hidden, input_1, input_2):
+      hidden_ = hidden.unsqueeze(1).expand_as(input_1)
+      logit_1 = (input_1 * hidden_).sum(2)
+      logit_2 = (input_2 * hidden_).sum(2)
+      return logit_1 + logit_2
