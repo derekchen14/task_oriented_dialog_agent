@@ -5,10 +5,10 @@ def solicit_args():
   parser.add_argument('--seed', help='Random seed', type=int, default=14)
   parser.add_argument('-t', '--task', default='default', type=str,
               help='overall configuration of operations and objects in system', )
-  parser.add_argument('-d', '--dataset', choices=['babi', 'in-car', 'woz2',
-              'dstc2', 'frames', 'multiwoz', 'basicwoz'], default='frames',
+  parser.add_argument('-d', '--dataset', choices=['babi', 'woz2', 'dstc2',
+              'ddq/movies', 'ddq/taxis', 'ddq/restaurants'], default='woz2',
               help='Choose the data to train on, defines labels', )
-  parser.add_argument('-m', '--model', default='match', choices=['rule', \
+  parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
               'basic', 'attention', 'transformer', 'match', 'bilstm', 'glad'],
               help='Choose the model type used',)
 
@@ -45,7 +45,7 @@ def solicit_args():
               help='Number of layers in each LSTM')
   parser.add_argument('--num-iters', default=30000, type=int,
               help='iterations to train')
-  parser.add_argument('--batch_size', default=50, type=int,
+  parser.add_argument('--batch-size', default=50, type=int,
               help='batch size for training')
   parser.add_argument('-e', '--epochs', default=14, type=int,
               help='Number of epochs to train, not compatible with n_iters')

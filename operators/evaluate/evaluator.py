@@ -24,13 +24,13 @@ class Evaluator(object):
     else:
       self.data = processor.datasets['val']
 
-    if args.report_results:
-      self.quantitative_report()
-      self.qualitative_report()
-    if args.visualize > 0:
-      self.visual_report(args.visualize)
-    if args.plot_results:
-      self.plot("Training curve")
+    # if args.report_results:
+    #   self.quantitative_report()
+    #   self.qualitative_report()
+    # if args.visualize > 0:
+    #   self.visual_report(args.visualize)
+    # if args.plot_results:
+    #   self.plot("Training curve")
 
   def plot(title):
     tracker = getattr(system.learner, '{}_tracker'.format(self.tasks[0]))

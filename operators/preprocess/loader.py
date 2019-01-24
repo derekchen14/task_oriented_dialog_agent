@@ -35,7 +35,7 @@ class DataLoader(object):
       self.embeddings = json.load(self.path('embeddings.json'))
 
     if self.task == "glad":
-      self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
+      self.ontology = Ontology.from_path(self.path('ontology.json'))
       self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
     elif self.task == "rule":
       self.intent_sets = {

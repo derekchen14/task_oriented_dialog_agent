@@ -134,7 +134,9 @@ class Dataset:
       for s, v in t.user_intent:
         slots.add(s.lower())
         values[s].add(v.lower())
-    return Ontology(sorted(list(slots)), {k: sorted(list(v)) for k, v in values.items()})
+    ont_slots = sorted(list(slots))
+    ont_values = {k: sorted(list(v)) for k, v in values.items()}
+    return Ontology(slots=ont_slots, values=ont_values)
 
   def batch(self, batch_size, shuffle=False):
     turns = list(self.iter_turns())

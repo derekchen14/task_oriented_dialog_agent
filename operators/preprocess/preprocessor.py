@@ -10,7 +10,7 @@ class PreProcessor(object):
     self.vocab = None
     self.ontology = None
 
-    if self.task == "glad":
+    if self.task in ["glad", "policy"]:
       pass
     elif args.test_mode:
       self.prepare_examples("test", args.context)

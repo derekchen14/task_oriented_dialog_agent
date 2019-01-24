@@ -12,7 +12,7 @@ class SingleSystem(object):
 
     if self.task == "policy":
       tracker = RewardTracker(args)
-      processor.ontology = Ontology(args, loader.data_dir)
+      processor.ontology = Ontology.from_path(loader.data_dir)
     else:
       tracker = LossTracker(args)
       processor.vocab = Vocabulary(args, loader.data_dir)

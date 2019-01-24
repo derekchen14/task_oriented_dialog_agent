@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from objects.blocks.attention import Attention
+from objects.blocks.attention import SelfAttention
 from objects.blocks.basics import WeightedBOW
 from objects.models.transformer import Transformer
 from objects.components import *
@@ -57,10 +57,10 @@ class GLAD_Encoder(nn.Module):
     self.dropout = dropout or {}
     self.global_rnn = nn.LSTM(din, dhid, bidirectional=True, batch_first=True)
     # self attention is just attention but with itself as the condition vector
-    self.global_selfattn = Attention(2*dhid, 'self', self.dropout.get('selfattn', 0.))
+    self.global_selfattn = SelfAttention(2*dhid, self.dropout.get('selfattn', 0.))
     for s in slots:
       setattr(self, '{}_rnn'.format(s), nn.LSTM(din, dhid, bidirectional=True, batch_first=True, dropout=self.dropout.get('rnn', 0.)))
-      setattr(self, '{}_selfattn'.format(s), Attention(din, 'self', self.dropout.get('selfattn', 0.)))
+      setattr(self, '{}_selfattn'.format(s), SelfAttention(din, self.dropout.get('selfattn', 0.)))
     self.slots = slots
     self.beta_raw = nn.Parameter(torch.Tensor(len(slots)))
     nn.init.uniform_(self.beta_raw, -0.01, 0.01)
