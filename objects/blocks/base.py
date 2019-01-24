@@ -1,5 +1,5 @@
 
-class BaseModel:
+class BasePolicy:
   """ Prototype for all agent classes,
   defining the interface they must uphold """
 

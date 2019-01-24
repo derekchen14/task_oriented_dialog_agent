@@ -29,11 +29,11 @@ class Attention(nn.Module):
     act_options = { "softmax": nn.Softmax(dim=1),
                     "sigmoid": nn.Sigmoid(),
                     "tanh": nn.Tanh() }
-    self.activation = act_options[act]
 
     if method == 'linear':                # h(Wh)
       self.W_a = nn.Linear(hidden, hidden)
     elif method == 'concat':            # v_a tanh(W[h_i;h_j])
+      self.activation = act_options[act]
       self.W_a =  nn.Linear(2 * hidden, hidden)
       self.v_a = nn.Linear(hidden, 1, bias=False)
     elif method == 'double':            # v_a tanh(W[h_i;h_j])
