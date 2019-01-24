@@ -45,7 +45,7 @@ class SingleSystem(object):
 
   def evaluate(self):
     self.evaluator.model = self.module
-    self.evalutor.run_report(self.metrics)
+    self.evaluator.run_report(self.metrics)
 
 
 class EndToEndSystem(object):

@@ -3,11 +3,12 @@ import numpy as np
 
 class Ontology:
 
-  def __init__(self, acts=None, slots=None, relations=None, values=None):
+  def __init__(self, acts=None, slots=None, relations=None, values=None, num=None):
     self.acts = acts or []
     self.slots = slots or []
     self.relations = relations or []
     self.values = values or {}
+    self.num = num or {}
 
   def __add__(self, another):
     new_acts = sorted(list(set(self.acts + another.acts)))
@@ -31,5 +32,6 @@ class Ontology:
 
   @classmethod
   def from_path(cls, path):
+    print(path)
     data = json.load(open(path , 'r'))
     return cls(**data)

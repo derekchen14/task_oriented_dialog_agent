@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from stanza.nlp.corenlp import CoreNLPClient
 from pprint import pprint
-from objects.blocks.ontology import Ontology
+from utils.internal.ontology import Ontology
 
 client = None
 
@@ -213,7 +213,7 @@ class Dataset:
     result = {'turn_inform': np.mean(inform),
              'turn_request': np.mean(request),
                'joint_goal': np.mean(joint_goal)}
-    pprint(result)
+    # pprint(result)
     return result
 
   def record_preds(self, preds, to_file):

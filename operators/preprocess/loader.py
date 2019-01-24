@@ -5,7 +5,8 @@ import logging
 
 from vocab import Vocab
 from utils.external.reader import text_to_dict, get_glove_name
-from objects.blocks import Dataset, Ontology
+from objects.blocks import Dataset
+from utils.internal.ontology import Ontology
 
 class ModuleLoader(object):
   def __init__(self, args):
@@ -35,7 +36,7 @@ class DataLoader(object):
       self.embeddings = json.load(self.path('embeddings.json'))
 
     if self.task == "glad":
-      self.ontology = Ontology.from_path(self.path('ontology.json'))
+      self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
       self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
     elif self.task == "rule":
       self.intent_sets = {

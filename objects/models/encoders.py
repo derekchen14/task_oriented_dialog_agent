@@ -80,8 +80,8 @@ class GLAD_Encoder(nn.Module):
 
     h = F.dropout(local_h, local_drop, self.training) * beta + \
         F.dropout(global_h, global_drop, self.training) * (1-beta)
-    c = F.dropout(local_selfattn(h, h, x_len), local_drop, self.training) * beta + \
-        F.dropout(self.global_selfattn(h, h, x_len), global_drop, self.training) * (1-beta)
+    c = F.dropout(local_selfattn(h, x_len), local_drop, self.training) * beta + \
+        F.dropout(self.global_selfattn(h, x_len), global_drop, self.training) * (1-beta)
 
     return h, c
 

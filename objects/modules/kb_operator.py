@@ -6,7 +6,7 @@ from torch import nn
 
 import copy
 from collections import defaultdict
-import datasets.ddq.deep_dialog_ontology as dialog_config
+# import datasets.ddq.deep_dialog_ontology as dialog_config
 
 
 class KBHelper(object):
