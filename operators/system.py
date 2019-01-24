@@ -44,7 +44,7 @@ class SingleSystem(object):
       self.learner.rulebased(params, self.module, datasets)
 
   def evaluate(self):
-    self.evaluator.set_module(self.module)
+    self.evaluator.model = self.module
     self.evalutor.run_report(self.metrics)
 
 
