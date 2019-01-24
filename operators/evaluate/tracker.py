@@ -93,3 +93,29 @@ class LossTracker(object):
       "accuracy": self.bleu_scores[-1],
       "recall@k=2": self.accuracy[-1]
     }
+
+
+class RewardTracker(object):
+  def __init__(self, args):
+    self.completed_training = True
+    # Minimum loss we are willing to accept for calculating absolute loss
+    self.threshold = args.early_stop
+    self.absolute_range = 4
+
+    self.status = {'successes': 0, 'count': 0, 'cumulative_reward': 0}
+
+    self.simulation_epoch_size = 100
+    self.warm_start_epochs = 100
+    self.batch_size = args.batch_size # default = 16
+    self.warm_start = args.warm_start
+    self.success_rate_threshold = args.threshold  # 0.3
+    self.save_check_point = 5   # save the last X checkpoints
+
+
+    """ Best Model and Performance Records """
+    self.best_model = {}
+    self.best_res = {'success_rate': 0, 'ave_reward':float('-inf'), 'ave_turns': float('inf'), 'epoch':0}
+    # self.best_model['model'] = copy.deepcopy(agent)
+    self.best_res['success_rate'] = 0
+
+    self.performance = {'success_rate': {}, 'avg_turns': {}, 'avg_reward': {} }

@@ -4,9 +4,10 @@ import logging
 
 from torch import nn
 
-class BeliefTrackerTemplate(object):
+class BaseBeliefTracker(object):
   def __init__(self, data):
     self.data = data
+    self.learning_method = "supervised" # or "rulebased" # or "reinforce"
 
   def learn(self):
     raise NotImplementedError
@@ -20,7 +21,7 @@ class BeliefTrackerTemplate(object):
     raise NotImplementedError
 
 
-class RuleBeliefTracker(BeliefTrackerTemplate):
+class RuleBeliefTracker(BaseBeliefTracker):
   def __init__(self, *args):
     super().__init__(args)
 
@@ -37,6 +38,6 @@ class RuleBeliefTracker(BeliefTrackerTemplate):
     input_text
 
 
-class NeuralBeliefTracker(BeliefTrackerTemplate, nn.module)
+class NeuralBeliefTracker(BaseBeliefTracker, nn.Module):
   def __init__(self):
     super().__init__()

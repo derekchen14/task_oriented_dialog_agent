@@ -3,12 +3,12 @@ from utils.internal.initialization import pickle_io
 import os, pdb
 
 class PreProcessor(object):
-  def __init__(self, args, vocab, loader, task=None):
-    self.vocab = vocab
+  def __init__(self, args, loader):
     self.loader = loader
-    self.multitask = loader.multitask
-    self.task = task if self.multitask else args.task
+    self.task = args.task
     self.datasets = loader.datasets
+    self.vocab = None
+    self.ontology = None
 
     if self.task == "glad":
       pass
@@ -20,6 +20,18 @@ class PreProcessor(object):
       self.prepare_examples("train", args.context)
       self.prepare_examples("val", args.context)
       self.make_cache(loader.debug_dir)
+
+  def input_output_cardinality(self):
+    """ get the input size and output size to set model attributes"""
+    if self.task in ["glad", "intent", "belief"]:
+      return self.vocab.ulary_size(), self.vocab.label_size()
+    elif self.task == "policy":
+      num_slots = len(self.ontology.slot_dict)
+      num_actions = len(self.ontology.feasible_actions)
+      return num_slots, num_actions
+    elif self.task == "generate":
+      num_actions = len(self.ontology.feasible_actions)
+      return num_actions, self.vocab.ulary_size()
 
   def prepare_examples(self, split, use_context):
     dataset = self.datasets[split]
@@ -40,7 +52,7 @@ class PreProcessor(object):
     return var(tokens, "long")
 
   def prepare_output(self, target):
-    target = self._multi_prep(target) if self.multitask else self._single_prep(target)
+    target = self._prepare_target(target)
     if len(target) == 1:
       target_index = self.vocab.label_to_index(target[0])
       output_var = var([target_index], "long")
@@ -74,7 +86,7 @@ class PreProcessor(object):
 
     return dialog_pairs
 
-  def _single_prep(self, target):
+  def _prepare_target(self, target):
     if len(target) ==  1:
       act, slot, value = target[0]
       return ["{}={}".format(slot, value)]

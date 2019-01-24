@@ -11,26 +11,18 @@ import utils.internal.initialization as data_io
 from objects.components import var, run_inference
 
 class Evaluator(object):
-  def __init__(self, args, system, multitask):
+  def __init__(self, args, processor):
     self.config = args
     self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
-    self.multitask = multitask
+
     self.save_dir = os.path.join("results", args.task, args.dataset)
-
-    if self.multitask:
-      self.tasks = system.tasks
-      self.models = system.models
-    else:
-      self.tasks = [system.task]
-      self.model = system.model
-
-    self.vocab = system.processor.vocab
+    self.vocab = processor.vocab
     if args.test_mode:
-      self.data = system.processor.datasets['test']
+      self.data = processor.datasets['test']
     else:
-      self.data = system.processor.datasets['val']
+      self.data = processor.datasets['val']
 
     if args.report_results:
       self.quantitative_report()
@@ -56,6 +48,22 @@ class Evaluator(object):
     plt.ylabel(ylabel)
     plt.legend(["Train", "Validation"])
     plt.show()
+
+  def set_agent(agent):
+    """
+    semantics is that the agent contain multiple modules, rather than just one
+    """
+    self.multitask = True
+    self.agent = agent
+
+  def set_module(module):
+    """
+    a single module is either the intent prediction, policy management or
+    text generation.  Belief tracking includes the KB Operator and Dialog
+    State Tracking, but those are deterministic and are not evaluated
+    """
+    self.multitask = False
+    self.module = module
 
   def run_report(self, metrics):
     if self.tasks[0] == "glad":

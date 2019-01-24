@@ -22,9 +22,7 @@ class Learner(object):
     self.tracker = tracker
     self.vocab = processor.vocab
     self.model = model
-
-    self.multitask = processor.multitask
-    self.task = task if self.multitask else args.task
+    self.task = task
 
   def train(self, input_var, output_var):
     self.model.train()   # affects the performance of dropout
@@ -67,7 +65,16 @@ class Learner(object):
   return avg_loss, bleu_score, all(turn_success)
   '''
 
-  def learn(self, task):
+  def rulebased(self, task, module, data):
+    """ main method is simple next """
+    self.run_episodes(count, status)
+
+  def reinforce(self, task, module, data):
+    """ main methods are store_experience, next, learn """
+    pass
+
+  def supervise(self, task, module, data):
+    """ main methods are train, validate, and inference """
     self.learn_start = tm.time()
     logging.info('Starting to learn ...')
     self.model.init_optimizer()
@@ -122,3 +129,127 @@ class Learner(object):
 
     logging.info("Done training {}".format(task))
     time_past(self.learn_start)
+
+  def simulation_epoch(self, simulation_epoch_size):
+    successes = 0
+    cumulative_reward = 0
+    cumulative_turns = 0
+
+    res = {}
+    for episode in xrange(simulation_epoch_size):
+      dialog_manager.initialize_episode()
+      episode_over = False
+      while(not episode_over):
+        episode_over, reward = dialog_manager.next_turn()
+        cumulative_reward += reward
+        if episode_over:
+          if reward > 0:
+            successes += 1
+            print ("simulation episode %s: Success" % (episode))
+          else: print ("simulation episode %s: Fail" % (episode))
+          cumulative_turns += dialog_manager.state_tracker.turn_count
+
+    res['success_rate'] = float(successes)/simulation_epoch_size
+    res['ave_reward'] = float(cumulative_reward)/simulation_epoch_size
+    res['ave_turns'] = float(cumulative_turns)/simulation_epoch_size
+    print ("simulation success rate %s, ave reward %s, ave turns %s" % (res['success_rate'], res['ave_reward'], res['ave_turns']))
+    return res
+
+  """ Warm_Start Simulation (by Rule Policy) """
+  def warm_start_simulation(self):
+    successes = 0
+    cumulative_reward = 0
+    cumulative_turns = 0
+
+    res = {}
+    warm_start_run_epochs = 0
+    for episode in xrange(warm_start_epochs):
+      dialog_manager.initialize_episode()
+      episode_over = False
+      while(not episode_over):
+        episode_over, reward = dialog_manager.next_turn()
+        cumulative_reward += reward
+        if episode_over:
+          if reward > 0:
+            successes += 1
+            print ("warm_start simulation episode %s: Success" % (episode))
+          else: print ("warm_start simulation episode %s: Fail" % (episode))
+          cumulative_turns += dialog_manager.state_tracker.turn_count
+
+      warm_start_run_epochs += 1
+
+      if len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
+        break
+
+    agent.warm_start = 2
+    res['success_rate'] = float(successes)/warm_start_run_epochs
+    res['ave_reward'] = float(cumulative_reward)/warm_start_run_epochs
+    res['ave_turns'] = float(cumulative_turns)/warm_start_run_epochs
+    print ("Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s" % (episode+1, res['success_rate'], res['ave_reward'], res['ave_turns']))
+    print ("Current experience replay buffer size %s" % (len(agent.experience_replay_pool)))
+
+  def run_episodes(self, count, status):
+    successes = 0
+    cumulative_reward = 0
+    cumulative_turns = 0
+
+    if (agt == 9 or agt == 12 or agt == 13) and params['trained_model_path'] == None and warm_start == 1:
+      print ('warm_start starting ...')
+      warm_start_simulation()
+      print ('warm_start finished, start RL training ...')
+
+    for episode in xrange(count):
+      print ("Episode: %s" % (episode))
+      dialog_manager.initialize_episode()
+      episode_over = False
+
+      while(not episode_over):
+        episode_over, reward = dialog_manager.next_turn()
+        cumulative_reward += reward
+
+        if episode_over:
+          if reward > 0:
+            print ("Successful Dialog!")
+            successes += 1
+          else: print ("Failed Dialog!")
+
+          cumulative_turns += dialog_manager.state_tracker.turn_count
+
+      # simulation
+      if (agt == 9 or agt == 12 or agt == 13) and params['trained_model_path'] == None:
+        agent.predict_mode = True
+        simulation_res = simulation_epoch(simulation_epoch_size)
+
+        performance_records['success_rate'][episode] = simulation_res['success_rate']
+        performance_records['ave_turns'][episode] = simulation_res['ave_turns']
+        performance_records['ave_reward'][episode] = simulation_res['ave_reward']
+
+        if simulation_res['success_rate'] >= best_res['success_rate']:
+          if simulation_res['success_rate'] >= success_rate_threshold: # threshold = 0.30
+            agent.experience_replay_pool = []
+            simulation_epoch(simulation_epoch_size)
+
+        if simulation_res['success_rate'] > best_res['success_rate']:
+          best_model['model'] = copy.deepcopy(agent)
+          best_res['success_rate'] = simulation_res['success_rate']
+          best_res['ave_reward'] = simulation_res['ave_reward']
+          best_res['ave_turns'] = simulation_res['ave_turns']
+          best_res['epoch'] = episode
+
+        agent.clone_dqn = copy.deepcopy(agent.dqn)
+        agent.train(batch_size, 1)
+        agent.predict_mode = False
+
+        print ("Simulation success rate %s, Ave reward %s, Ave turns %s, Best success rate %s" % (performance_records['success_rate'][episode], performance_records['ave_reward'][episode], performance_records['ave_turns'][episode], best_res['success_rate']))
+        if episode % save_check_point == 0 and params['trained_model_path'] == None: # save the model every 10 episodes
+          save_model(params['write_model_dir'], agt, best_res['success_rate'], best_model['model'], best_res['epoch'], episode)
+          save_performance_records(params['write_model_dir'], agt, performance_records)
+
+      print("Progress: %s / %s, Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (episode+1, count, successes, episode+1, float(cumulative_reward)/(episode+1), float(cumulative_turns)/(episode+1)))
+    print("Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (successes, count, float(cumulative_reward)/count, float(cumulative_turns)/count))
+    status['successes'] += successes
+    status['count'] += count
+
+    if (agt == 9 or agt == 12 or agt == 13)  and params['trained_model_path'] == None:
+      save_model(params['write_model_dir'], agt, best_res['success_rate'], best_model['model'], best_res['epoch'], count)
+      save_performance_records(params['write_model_dir'], agt, performance_records)

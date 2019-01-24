@@ -4,10 +4,10 @@ import logging
 from random import seed
 
 from utils.internal.arguments import solicit_args
-from operators.preprocess import DataLoader
-from operators.learn import Builder
-from operators.evaluate import LossTracker, Evaluator
-from operators.system import SingleSystem, MultiSystem
+from operators.preprocess import DataLoader, PreProcessor
+from operators.learn import Builder, Learner
+from operators.evaluate import Evaluator
+from operators.system import SingleSystem, EndToEndSystem
 
 if __name__ == "__main__":
   args = solicit_args()
@@ -17,14 +17,14 @@ if __name__ == "__main__":
   logging.basicConfig(level=logging.INFO)
   # ----- INITIALIZE OPERATORS -----
   loader = DataLoader(args)
-  tracker = LossTracker(args)
   builder = Builder(args, loader)
-  evaluator = Evaluator(args, loader.multitask)
+  processor = PreProcessor(args, loader)
+  evaluator = Evaluator(args, processor)
   # -------- RUN THE SYSTEM --------
-  if loader.multitask:
-    system = MultiSystem(args, loader, builder, tracker, evaluator)
+  if args.task == "end_to_end":
+    system = EndToEndSystem(args, loader, builder, processor, evaluator)
   else:
-    system = SingleSystem(args, loader, builder, tracker, evaluator)
+    system = SingleSystem(args, loader, builder, processor, evaluator)
   if not args.test_mode:
     system.run_main()
     logging.info(args)

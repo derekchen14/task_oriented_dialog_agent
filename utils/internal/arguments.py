@@ -25,21 +25,16 @@ def solicit_args():
               help='if true, then include context as part of training input')
   parser.add_argument('--attn-method', default='luong', type=str,
               help='type of attention', choices=['luong', 'dot', 'vinyals'])
-  parser.add_argument('--early-stop', default=-1.0, type=float,
-              help='Minimum loss value we are willing to accept during epoch 10 \
-                    at validation, set to negative value to prevent early stopping')
-  parser.add_argument('--stop-early', default='joint_goal', type=str,
-              help='slot to early stop on, used for GLAD')
+  parser.add_argument('--optimizer', default='sgd', type=str,
+              help='Optimizer to use. Choose from sgd, rmsprop, adam')
 
   # ------ PARAMETER OPTIMIZATION --------
   parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,
               help='Learning rate alpha for weight updates')
-  parser.add_argument('--hidden-size', default=256, type=int,
-              help='Number of hidden units in each LSTM')
+  parser.add_argument('--hidden-dim', default=256, type=int,
+              help='Number of hidden units, size of hidden dimension')
   parser.add_argument('--embedding-size', default=300, type=int,
               help='Word embedding size usually from pretrained')
-  parser.add_argument('--optimizer', default='sgd', type=str,
-              help='Optimizer to use. Choose from sgd, rmsprop, adam')
   parser.add_argument('--drop-prob', default=0.2, type=float,
               help='probability of dropping a node, opposite of keep prob')
   parser.add_argument('--teacher-forcing', default=0.6, type=float,
@@ -48,7 +43,7 @@ def solicit_args():
               help='weight_decay to regularize the weights')
   parser.add_argument('--num-layers', default=1, type=int,
               help='Number of layers in each LSTM')
-  parser.add_argument('--n-iters', default=30000, type=int,
+  parser.add_argument('--num-iters', default=30000, type=int,
               help='iterations to train')
   parser.add_argument('--batch_size', default=50, type=int,
               help='batch size for training')
@@ -57,11 +52,32 @@ def solicit_args():
   parser.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')
 
+  # --------- LIMITS AND THRESHOLDS -----------
+  parser.add_argument('--max-turns', default=20, type=int,
+              help='max allowed turns in dialogue before declaring failure')
+  parser.add_argument('--max-seq-len', default=15, type=int,
+              help='max number of tokens allowed to generate or to use as input')
+  parser.add_argument('--threshold', default=0.8, type=float,
+              help='minimum confidence level to output true, or other threshold')
+  parser.add_argument('--early-stop', default=-1.0, type=float,
+              help='Minimum loss value we are willing to accept during epoch 10 \
+                    at validation, set to negative value to prevent early stopping')
+  parser.add_argument('--stop-early', default='joint_goal', type=str,
+              help='slot to early stop on, used for GLAD')
+
+  # --------- REINFORCEMENT LEARNING ----------
+  parser.add_argument('--discount-rate', default=0.9, type=float,
+              help='discount rate for value, commonly known as gamma')
+  parser.add_argument('--pool-size', default=1000, type=int,
+              help='number of examples to hold in experience replay pool')
+  parser.add_argument('--warm-start', default=False, action='store_true',
+              help='when true, agent has warm start phase for training')
+
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',
               help='when true, save model weights in a checkpoint')
   parser.add_argument('--use-existing', default=False, action='store_true',
-              help='when true, we use an existing model rather than training a new one')
+              help='when true, use an existing model rather than training a new one')
   parser.add_argument('--pretrained', default=False, action='store_true',
               help='when true, use pretrained word embeddings from data directory')
   parser.add_argument('--prefix', default='', type=str,
