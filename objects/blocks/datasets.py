@@ -212,6 +212,7 @@ class Dataset:
              'turn_request': np.mean(request),
                'joint_goal': np.mean(joint_goal)}
     pprint(result)
+    return result
 
   def record_preds(self, preds, to_file):
     data = self.to_dict()

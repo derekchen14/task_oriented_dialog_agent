@@ -25,7 +25,7 @@ class ModelTemplate(nn.Module):
     self.lr = args.learning_rate
     self.reg = args.weight_decay
 
-    self.dhid = args.hidden_size
+    self.dhid = args.hidden_dim
     self.demb = args.embedding_size
     self.n_layers = args.num_layers
 
@@ -72,8 +72,8 @@ class ModelTemplate(nn.Module):
       summary = {'iteration': iteration, 'epoch': epoch}
       for k, v in track.items():
         summary[k] = sum(v) / len(v)
-      summary.update({'eval_train_{}'.format(k): v for k, v in self.run_eval(train, args).items()})
-      summary.update({'eval_dev_{}'.format(k): v for k, v in self.run_eval(dev, args).items()})
+      summary.update({'eval_train_{}'.format(k): v for k, v in self.quant_report(train, args).items()})
+      summary.update({'eval_dev_{}'.format(k): v for k, v in self.quant_report(dev, args).items()})
 
       # do early stopping saves
       stop_key = 'eval_dev_{}'.format(args.stop_early)

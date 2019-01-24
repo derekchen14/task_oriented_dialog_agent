@@ -1,5 +1,6 @@
 python run.py --task-name simulation --model-type rule --report-results \
-    --metrics success_rate --dataset ddq/movies
+    --metrics success_rate --dataset ddq/movies \
+    --batch-size 16
 
 python run.py --task-name simulation --model-type rule --report-results \
     --metrics success_rate --dataset ddq/restaurants
