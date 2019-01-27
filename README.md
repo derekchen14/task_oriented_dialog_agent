@@ -24,6 +24,7 @@ Arguably the most important task of a dialogue agent is to understand the user i
   3. slot
   4. relation
   5. value
+
 The vast majority of systems assume that the domain and sub-domain are given and consequently are ignored during prediction, instead focusing on only 'act(slot=value)'.  (See Victor's GLAD model and Hannah's xIntent from Event2Mind)
 
 #### Policy Management
@@ -32,6 +33,7 @@ The policy manager is formalized as a POMDP where the latent state is the underl
   2. partial clarification requests - what was the area you mentioned? I understood one piece of information
   3. confirmation through mention of alternatives - did you say the north part of town? I only misunderstood one piece of information
   4. reformulation of information - so basically you want asian food, right? I understood almost everything
+
 In conjunction with the policy manager is the user simulator which makes training an RL agent feasible (Xiujin's D3Q stuff).
 
 #### Text Generation
