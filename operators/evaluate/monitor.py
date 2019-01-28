@@ -1,14 +1,25 @@
 import numpy as np
 
-class LossMonitor(object):
+class MonitorBase(object):
   def __init__(self, args):
-    self.train_steps = []
-    self.train_losses = []
-    self.train_epoch = 0
+    self.metrics = args.metrics
+    self.phase = "test" if args.test_mode else "val"
 
+    self.train_steps = []
+    self.train_epoch = 0
     self.val_steps = []
-    self.val_losses = []
     self.val_epoch = 0
+
+  def generate_summary(self):
+    """ should summarize all relevant metrics to final score as a scalar
+    floating point value, rather than a list of values per epoch"""
+    raise(NotImplementedError)
+
+class LossMonitor(MonitorBase):
+  def __init__(self, args):
+    super().__init__(args)
+    self.train_losses = []
+    self.val_losses = []
 
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss
@@ -19,7 +30,7 @@ class LossMonitor(object):
     self.epochs_per_avg = 3
     self.lookback_range = 2
 
-    self.bleu_scores = []
+    self.bleus_scores = []
     self.accuracy = []
 
   def best_so_far(self):
@@ -34,8 +45,11 @@ class LossMonitor(object):
       self.val_epoch += 1
 
   def update_stats(self, bleu, acc):
-    self.bleu_scores = bleu
-    self.accuracy = acc
+    # takes in a dict of keyword arguments of metrics
+    # for metric_name, metric_value in metrics.items():
+    #   setattr(self, metric_name, metric_value)
+    self.bleu_scores.append(bleu)
+    self.accuracy.append(acc)
 
   def batch_processing(self, batch_val_loss, batch_bleu, batch_success):
     avg_val_loss = sum(batch_val_loss) * 1.0 / len(batch_val_loss)
@@ -85,24 +99,23 @@ class LossMonitor(object):
     return False
 
   def generate_summary(self):
-    return {
-      "train_epoch": self.train_epoch,
-      "train_loss": self.train_losses[-1],
-      "val_epoch": self.val_epoch,
-      "val_loss": self.val_losses[-1],
-      "accuracy": self.bleu_scores[-1],
-      "recall@k=2": self.accuracy[-1]
-    }
+    self.bleu = self.bleu_scores[-1] if len(self.bleu_scores) > 0 else 0.0
+    self.rouge = self.rouge_scores[-1] if len(self.rouge_scores) > 0 else 0.0
+    self.meteor = self.meteors[-1] if len(self.meteors) > 0 else 0.0
+    self.accuracy = self.accuracies[-1] if len(self.accuracies) > 0 else 0.0
+    self.eval_loss = self.eval_losses[-1] if len(self.eval_losses) > 0 else 0.0
+
+    if 'macro_f1' in self.metrics or 'micro_f1' in self.metrics:
+      self.calculate_f1()
 
 
-class RewardMonitor(object):
+class RewardMonitor(MonitorBase):
   def __init__(self, args):
-    self.completed_training = True
-    # Minimum loss we are willing to accept for calculating absolute loss
-    self.threshold = args.early_stop
-    self.absolute_range = 4
-
-    self.status = {'successes': 0, 'count': 0, 'cumulative_reward': 0}
+    super().__init__(args)
+    self.rewards = []
+    self.turns = []
+    self.num_successes = 0
+    self.num_episodes = 1
 
     self.simulation_epoch_size = 100
     self.warm_start_epochs = 100
@@ -112,10 +125,23 @@ class RewardMonitor(object):
     self.save_check_point = 5   # save the last X checkpoints
 
 
-    """ Best Model and Performance Records """
+    """ Best Model and Performance Records
     self.best_model = {}
     self.best_res = {'success_rate': 0, 'ave_reward':float('-inf'), 'ave_turns': float('inf'), 'epoch':0}
     # self.best_model['model'] = copy.deepcopy(agent)
     self.best_res['success_rate'] = 0
+    """
+  def start_episode(self):
+    self.status = {'turn_count': 0, 'success': False, 'cumulative_reward': 0}
 
-    self.performance = {'success_rate': {}, 'avg_turns': {}, 'avg_reward': {} }
+  def end_episode(self):
+    self.rewards.append(self.status["cumulative_reward"])
+    self.turns.append(self.status["turn_count"])
+    if self.status["success"]:
+      self.num_successes += 1
+    self.num_episodes += 1
+
+  def generate_summary(self):
+    self.avg_reward = np.average(self.rewards)
+    self.avg_turn = np.average(self.turns)
+    self.success_rate = self.num_successes / float(self.num_episodes)

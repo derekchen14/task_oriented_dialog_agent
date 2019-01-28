@@ -29,27 +29,28 @@ def solicit_args():
               help='Optimizer to use. Choose from sgd, rmsprop, adam')
 
   # ------ PARAMETER OPTIMIZATION --------
-  parser.add_argument('-lr', '--learning-rate', default=0.01, type=float,
+  param_group = parser.add_argument_group(title='hyperparameters')
+  param_group.add_argument('-lr', '--learning-rate', default=0.01, type=float,
               help='Learning rate alpha for weight updates')
-  parser.add_argument('--hidden-dim', default=256, type=int,
+  param_group.add_argument('--hidden-dim', default=256, type=int,
               help='Number of hidden units, size of hidden dimension')
-  parser.add_argument('--embedding-size', default=300, type=int,
+  param_group.add_argument('--embedding-size', default=300, type=int,
               help='Word embedding size usually from pretrained')
-  parser.add_argument('--drop-prob', default=0.2, type=float,
+  param_group.add_argument('--drop-prob', default=0.2, type=float,
               help='probability of dropping a node, opposite of keep prob')
-  parser.add_argument('--teacher-forcing', default=0.6, type=float,
+  param_group.add_argument('--teacher-forcing', default=0.6, type=float,
               help='teacher forcing ratio, 0 means no teacher forcing')
-  parser.add_argument('-reg', '--weight-decay', default=0.003, type=float,
+  param_group.add_argument('-reg', '--weight-decay', default=0.003, type=float,
               help='weight_decay to regularize the weights')
-  parser.add_argument('--num-layers', default=1, type=int,
+  param_group.add_argument('--num-layers', default=1, type=int,
               help='Number of layers in each LSTM')
-  parser.add_argument('--num-iters', default=30000, type=int,
+  param_group.add_argument('--num-iters', default=30000, type=int,
               help='iterations to train')
-  parser.add_argument('--batch-size', default=50, type=int,
+  param_group.add_argument('--batch-size', default=50, type=int,
               help='batch size for training')
-  parser.add_argument('-e', '--epochs', default=14, type=int,
+  param_group.add_argument('-e', '--epochs', default=14, type=int,
               help='Number of epochs to train, not compatible with n_iters')
-  parser.add_argument('--decay-times', default=3, type=int,
+  param_group.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')
 
   # --------- LIMITS AND THRESHOLDS -----------
@@ -97,7 +98,8 @@ def solicit_args():
               help='when true, the values selected by the metrics argument will \
               be calculated, displayed and stored into a results.log file')
   parser.add_argument('--metrics', nargs='+', default=['accuracy'],
-              help='list of evaluation metrics to run, such as bleu, rouge, \
-              accuracy, macro_f1, micro_f1, reward, success_rate, or avg_turn')
+              choices=['bleu', 'rouge', 'meteor', 'accuracy', 'eval_loss', \
+              'macro_f1', 'micro_f1', 'avg_reward', 'avg_turn', 'success_rate'],
+              help='list of evaluation metrics, each metric is a single float')
 
   return parser.parse_args()

@@ -1,5 +1,7 @@
+import os
 import json
 import numpy as np
+import pickle as pkl
 
 class Ontology:
 
@@ -32,6 +34,9 @@ class Ontology:
 
   @classmethod
   def from_path(cls, path):
-    print(path)
-    data = json.load(open(path , 'r'))
+    data = {
+      "acts": json.load(open(os.path.join(path, "act_set.json"), "r")),
+      "slots": json.load(open(os.path.join(path, "slot_set.json"), "r")),
+      "values": pkl.load(open(os.path.join(path, "value_set.p"), "rb"), encoding="latin1")
+    }
     return cls(**data)

@@ -17,7 +17,7 @@ class Evaluator(object):
     self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
-    self.tracker = None
+    self.monitor = None
 
     self.save_dir = os.path.join("results", args.task, args.dataset)
     self.vocab = processor.vocab
@@ -53,29 +53,28 @@ class Evaluator(object):
         file.write("Predicted: {}\n".format(human_readable))
     print('Qualitative examples saved to {}'.format(qual_report_path))
 
-  # Quantitative evalution of model performance
+  """ Quantitative evalution of model performance, for per step loss
+      please view the logging output in the results folder instead """
   def quantitative_report(self):
-    train_s, train_l = self.tracker.train_steps, self.tracker.train_losses
-    val_s, val_l = self.tracker.val_steps, self.tracker.val_losses
-    bleu, accuracy = self.tracker.bleu_scores, self.tracker.accuracy
+    datarows = {}
+    extras = ["save_model", "prefix", "suffix", "verbose", "gpu", "context", \
+              "metrics", "report_visual", "report_qual", "report_quant"]
+    for param, value in vars(self.config).items():
+      if param not in extras:
+        datarows[param] = value
 
-    df_train = pd.DataFrame(data={'train_steps':train_s, 'train_loss':train_l})
-    df_val = pd.DataFrame(data={'validation_steps':val_s, 'validation_loss': val_l,
-                      'bleu_score': bleu, 'per_turn_accuracy': accuracy})
-    df_params = pd.DataFrame(data={
-        "Params": ['hidden-size', 'learning-rate', 'drop-prob', 'model-type', \
-                  'weight-decay', 'decay-times', 'attention-method'],
-        "Values": [self.config.hidden_size, self.config.learning_rate, \
-                  self.config.drop_prob, self.config.model_type, \
-                  self.config.weight_decay, self.config.decay_times, \
-                  self.config.attn_method]})
-    loss_history = pd.concat([df_train, df_val, df_params], axis=1)
+    self.monitor.generate_summary()
+    for metric in self.metrics:
+      datarows[metric] = getattr(self.monitor, metric)
 
-    self.save_report(loss_history, "quant.csv")
+    quant = pd.DataFrame(data=datarows, index=["Attributes"])
+    self.save_csv_report(quant.T, "quant")
 
   def visual_report(self, vis_count):
     self.model.eval()
     dialogues = data_io.select_consecutive_pairs(self.data, vis_count)
+    train_s, train_l = self.monitor.train_steps, self.monitor.train_losses
+    val_s, val_l = self.monitor.val_steps, self.monitor.val_losses
 
     visualizations = []
     for dialog in dialogues:
@@ -90,10 +89,10 @@ class Evaluator(object):
         visualizations.append((visual, query_tokens, response_tokens))
     self.show_save_attention(visualizations)
 
-  def save_report(self, report, kind):
-    report_path = "{}/{}.csv".format(self.save_dir, kind)
-    report.to_csv(report_path, index=False)
-    print('{} report complete, saved to {}!'.format(kind, report_path))
+  def save_csv_report(self, report, filename):
+    report_path = "{}/{}.csv".format(self.save_dir, filename)
+    report.to_csv(report_path, index=True)
+    print('{} report complete, saved to {}!'.format(filename, report_path))
 
   def plot(title):
     tracker = getattr(system.learner, '{}_tracker'.format(self.tasks[0]))
