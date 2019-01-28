@@ -70,6 +70,8 @@ def solicit_args():
               help='discount rate for value, commonly known as gamma')
   parser.add_argument('--pool-size', default=1000, type=int,
               help='number of examples to hold in experience replay pool')
+  parser.add_argument('--epsilon', default=0.1, type=int,
+              help='Amount to start looking around in epsilon-greedy exploration')
   parser.add_argument('--warm-start', default=False, action='store_true',
               help='when true, agent has warm start phase for training')
 
@@ -86,16 +88,16 @@ def solicit_args():
               help='appended string to distinguish among trials, usually count')
 
   # -------- REPORTING RESULTS ----------------
-  parser.add_argument('--report-results', default=False, action='store_true',
-              help='when true, report the BLEU score, loss history, per dialog \
-              and per turn accuracy in the results path file')
-  parser.add_argument('--plot-results', default=False, action='store_true',
-              help='when true, plot the loss graph in file')
-  parser.add_argument('--visualize', default=0, type=int,
-              help='randomly select x number of dialogues from validation set, \
-              visualize the attention weights and store in results/visualize.png')
+  parser.add_argument('--report-visual', default=False, action='store_true',
+              help='when true, plot the train and val loss graph to file')
+  parser.add_argument('--report-qual', default=False, action='store_true',
+              help='when true, 50 random samples of inputs and outputs will be \
+              printed out in human readable form for qualitative evaluation')
+  parser.add_argument('--report-quant', default=False, action='store_true',
+              help='when true, the values selected by the metrics argument will \
+              be calculated, displayed and stored into a results.log file')
   parser.add_argument('--metrics', nargs='+', default=['accuracy'],
-              help='list of evaluation metrics to run, such as accuracy \
-              macro_f1, micro_f1, bleu, rouge, reward, success_rate, or avg_turn')
+              help='list of evaluation metrics to run, such as bleu, rouge, \
+              accuracy, macro_f1, micro_f1, reward, success_rate, or avg_turn')
 
   return parser.parse_args()

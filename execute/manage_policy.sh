@@ -1,5 +1,5 @@
-python run.py --task policy --model rulebased --report-results \
-    --metrics success_rate --dataset ddq/movies --batch-size 16
+python run.py --task policy --model rulebased --report-quant \
+    --metrics success_rate reward --dataset ddq/movies --batch-size 16
 
 # python run.py --task-name simulation --model-type rule --report-results \
 #     --metrics success_rate --dataset ddq/restaurants
