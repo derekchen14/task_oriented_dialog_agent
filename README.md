@@ -1,4 +1,4 @@
-# Framework for processing, training and evaluating dialogue agents
+# Framework for training and evaluating dialogue agents
 
 To get started, you should create your own "datasets" and "results" directories and download the appropriate data. Training has worked before with Woz2, DSTC2, Stanford In-Car dataset, Maluuba Frames Corpus, MultiWoz, FB bAbI Dialog, and Microsoft E2E Dialogue Challenge. Although a handful of these now are deprecated.  Next, there are execution shell scripts in the `execute` folder which can be run for various purposes.
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-class LossTracker(object):
+class LossMonitor(object):
   def __init__(self, args):
     self.train_steps = []
     self.train_losses = []
@@ -95,7 +95,7 @@ class LossTracker(object):
     }
 
 
-class RewardTracker(object):
+class RewardMonitor(object):
   def __init__(self, args):
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss

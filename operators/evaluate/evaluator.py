@@ -13,9 +13,11 @@ from objects.components import var, run_inference
 class Evaluator(object):
   def __init__(self, args, processor):
     self.config = args
+    self.task = args.task
     self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
+    self.tracker = None
 
     self.save_dir = os.path.join("results", args.task, args.dataset)
     self.vocab = processor.vocab
@@ -24,119 +26,17 @@ class Evaluator(object):
     else:
       self.data = processor.datasets['val']
 
-    # if args.report_results:
-    #   self.quantitative_report()
-    #   self.qualitative_report()
-    # if args.visualize > 0:
-    #   self.visual_report(args.visualize)
-    # if args.plot_results:
-    #   self.plot("Training curve")
-
-  def plot(title):
-    tracker = getattr(system.learner, '{}_tracker'.format(self.tasks[0]))
-    xs = tracker.train_epochs   # tracker.val_epochs
-    ys = tracker.train_losses   # tracker.val_losses
-
-    xlabel = "Iterations"
-    ylabel = "Loss"
-    assert len(xs) == len(ys)
-    for i in range(len(xs)):
-      plt.plot(xs[i], ys[i])
-
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.legend(["Train", "Validation"])
-    plt.show()
-
-  def set_agent(agent):
-    """
-    semantics is that the agent contain multiple modules, rather than just one
-    """
-    self.multitask = True
-    self.agent = agent
-
-  def set_module(module):
-    """
-    a single module is either the intent prediction, policy management or
-    text generation.  Belief tracking includes the KB Operator and Dialog
-    State Tracking, but those are deterministic and are not evaluated
-    """
-    self.multitask = False
-    self.module = module
-
-  def run_report(self, metrics):
-    if self.tasks[0] == "glad":
+  def run_report(self):
+    if self.task == "glad":
       self.model.quant_report(self.data, self.config)  # qual_report for qualitative analysis
       sys.exit()
-    scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
-    display = []
-    use_display = False
-    for example in self.data:
-      utterance, target = example
 
-      if random.random() < -1:
-        display.append(" ----- ")
-        input_text = " ".join([self.vocab.index_to_word(token) for token in utterance])
-        display.append(input_text)
-        use_display = True
-        target_words = ["Target: "]
-        pred_words = ["Prediction: "]
-
-      corrects = {"inform": True, "request": True, "exact": True, "rank": True}
-      for idx, task in enumerate(self.tasks):
-        model = self.models[task] if self.multitask else self.model
-        hidden_state = model.encoder.initHidden()
-
-        output = model(utterance, hidden_state)
-        _, top1 = output.data.topk(1)
-        exact_pred = top1[0][0]
-        _, top2 = output.data.topk(2)
-        rank_preds = top2[0]
-
-        target_word = self.vocab.index_to_label(target)
-        if exact_pred != target:
-          corrects["exact"] = False
-
-        if target not in rank_preds:
-          corrects["rank"] = False
-          if task in ["area", "food", "price"]:
-            corrects["inform"] = False
-          elif task == "request":
-            corrects["request"] = False
-          elif task == "slot" and idx < 3:  # indexes 0, 1, 2 refer to area, food, price
-            corrects["inform"] = False
-          elif task == "slot" and idx == 3:  # index 3 refers to question
-            corrects["request"] = False
-          elif task == "value" and target < 87:  # indexes 1 to 86 refer values of area, food, price
-            corrects["inform"] = False
-          elif task == "value" and target >= 87:  # index 3 refers to values of request
-            corrects["request"] = False
-          elif task in ["full_enumeration", "possible_only", "ordered_values"]:
-            slot_type = target_word.split("=")
-            if slot_type[0] in ["area", "food", "price"]:
-              corrects["inform"] = False
-            else:
-              corrects["request"] = False
-
-        if use_display and target != 0:
-          target_words.append(target_word)
-        if use_display and exact_pred != 0:
-          pred_words.append(self.vocab.index_to_word(exact_pred))
-
-      for success, status in corrects.items():
-        if status:
-          scores[success] += 1
-      if use_display:
-        display.append(" ".join(target_words))
-        display.append(" ".join(pred_words))
-        use_display = False
-
-    for success, score in scores.items():
-      accuracy = float(score) / len(self.data)
-      print("{} accuracy: {:.4f}".format(success, accuracy))
-    for line in display:
-      print(line)
+    if self.config.report_visual:
+      self.visual_report()
+    if self.config.report_qual:
+      self.qualitative_report()
+    if self.config.report_quant:
+      self.quantitative_report()
 
   # Qualitative evalution of model performance
   def qualitative_report(self):
@@ -155,7 +55,6 @@ class Evaluator(object):
 
   # Quantitative evalution of model performance
   def quantitative_report(self):
-    quant_report_path = "{}/quant.txt".format(self.save_dir)
     train_s, train_l = self.tracker.train_steps, self.tracker.train_losses
     val_s, val_l = self.tracker.val_steps, self.tracker.val_losses
     bleu, accuracy = self.tracker.bleu_scores, self.tracker.accuracy
@@ -171,8 +70,8 @@ class Evaluator(object):
                   self.config.weight_decay, self.config.decay_times, \
                   self.config.attn_method]})
     loss_history = pd.concat([df_train, df_val, df_params], axis=1)
-    loss_history.to_csv(quant_report_path, index=False)
-    print('Loss, BLEU and accuracy saved to {}'.format(quant_report_path))
+
+    self.save_report(loss_history, "quant.csv")
 
   def visual_report(self, vis_count):
     self.model.eval()
@@ -191,6 +90,27 @@ class Evaluator(object):
         visualizations.append((visual, query_tokens, response_tokens))
     self.show_save_attention(visualizations)
 
+  def save_report(self, report, kind):
+    report_path = "{}/{}.csv".format(self.save_dir, kind)
+    report.to_csv(report_path, index=False)
+    print('{} report complete, saved to {}!'.format(kind, report_path))
+
+  def plot(title):
+    tracker = getattr(system.learner, '{}_tracker'.format(self.tasks[0]))
+    xs = tracker.train_epochs   # tracker.val_epochs
+    ys = tracker.train_losses   # tracker.val_losses
+
+    xlabel = "Iterations"
+    ylabel = "Loss"
+    assert len(xs) == len(ys)
+    for i in range(len(xs)):
+      plt.plot(xs[i], ys[i])
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend(["Train", "Validation"])
+    plt.show()
 
   def show_save_attention(self, visualizations):
     for i, viz in enumerate(self.visualizations):
@@ -265,4 +185,76 @@ class Evaluator(object):
       success / float(datapoint_count), rank_accuracy) )
     for line in display:
       print(line)
+
+    scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
+    display = []
+    use_display = False
+    for example in self.data:
+      utterance, target = example
+
+      if random.random() < -1:
+        display.append(" ----- ")
+        input_text = " ".join([self.vocab.index_to_word(token) for token in utterance])
+        display.append(input_text)
+        use_display = True
+        target_words = ["Target: "]
+        pred_words = ["Prediction: "]
+
+      corrects = {"inform": True, "request": True, "exact": True, "rank": True}
+      for idx, task in enumerate(self.tasks):
+        model = self.models[task] if self.multitask else self.model
+        hidden_state = model.encoder.initHidden()
+
+        output = model(utterance, hidden_state)
+        _, top1 = output.data.topk(1)
+        exact_pred = top1[0][0]
+        _, top2 = output.data.topk(2)
+        rank_preds = top2[0]
+
+        target_word = self.vocab.index_to_label(target)
+        if exact_pred != target:
+          corrects["exact"] = False
+
+        if target not in rank_preds:
+          corrects["rank"] = False
+          if task in ["area", "food", "price"]:
+            corrects["inform"] = False
+          elif task == "request":
+            corrects["request"] = False
+          elif task == "slot" and idx < 3:  # indexes 0, 1, 2 refer to area, food, price
+            corrects["inform"] = False
+          elif task == "slot" and idx == 3:  # index 3 refers to question
+            corrects["request"] = False
+          elif task == "value" and target < 87:  # indexes 1 to 86 refer values of area, food, price
+            corrects["inform"] = False
+          elif task == "value" and target >= 87:  # index 3 refers to values of request
+            corrects["request"] = False
+          elif task in ["full_enumeration", "possible_only", "ordered_values"]:
+            slot_type = target_word.split("=")
+            if slot_type[0] in ["area", "food", "price"]:
+              corrects["inform"] = False
+            else:
+              corrects["request"] = False
+
+        if use_display and target != 0:
+          target_words.append(target_word)
+        if use_display and exact_pred != 0:
+          pred_words.append(self.vocab.index_to_word(exact_pred))
+
+      for success, status in corrects.items():
+        if status:
+          scores[success] += 1
+      if use_display:
+        display.append(" ".join(target_words))
+        display.append(" ".join(pred_words))
+        use_display = False
+
+    for success, score in scores.items():
+      accuracy = float(score) / len(self.data)
+      print("{} accuracy: {:.4f}".format(success, accuracy))
+    for line in display:
+      print(line)
+
+
+
 """
