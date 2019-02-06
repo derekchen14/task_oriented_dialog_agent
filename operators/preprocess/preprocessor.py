@@ -7,8 +7,8 @@ class PreProcessor(object):
     self.loader = loader
     self.task = args.task
     self.datasets = loader.datasets
-    self.vocab = None
-    self.ontology = None
+    self.vocab = loader.vocab
+    self.ontology = loader.ontology
 
     if self.task in ["glad", "policy"]:
       pass
@@ -26,8 +26,9 @@ class PreProcessor(object):
     if self.task in ["glad", "intent", "belief"]:
       return self.vocab.ulary_size(), self.vocab.label_size()
     elif self.task == "policy":
-      num_slots = len(self.ontology.slot_dict)
-      num_actions = len(self.ontology.feasible_actions)
+      num_slots = len(self.ontology.slots)
+      from datasets.ddq.constants import feasible_actions
+      num_actions = len(feasible_actions)
       return num_slots, num_actions
     elif self.task == "generate":
       num_actions = len(self.ontology.feasible_actions)

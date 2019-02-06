@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import time as tm
 import math
+from tqdm import tqdm as progress_bar
 
 def asMinutes(s):
   m = math.floor(s / 60)

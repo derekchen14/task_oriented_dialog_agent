@@ -1,7 +1,5 @@
 from operators.learn import Learner
-from operators.evaluate import LossTracker, RewardTracker
-from utils.internal.vocabulary import Vocabulary
-from utils.internal.ontology import Ontology
+from operators.evaluate import Monitor
 
 class SingleSystem(object):
   def __init__(self, args, loader, builder, processor, evaluator):
@@ -9,63 +7,42 @@ class SingleSystem(object):
     self.metrics = args.metrics
     self.task = args.task
     self.evaluator = evaluator
+    self.monitor = Monitor(args.epochs, args.threshold, self.task)
 
-    if self.task == "policy":
-      tracker = RewardTracker(args)
-      processor.ontology = Ontology.from_path(loader.data_dir)
-    else:
-      tracker = LossTracker(args)
-      processor.vocab = Vocabulary(args, loader.data_dir)
-
-    if args.use_existing:
-      builder.module_loader = ModuleLoader(args)
-      self.module = builder.set_module(args)
-    else:
-      model = builder.get_model(processor)
-      # model = builder.create_model(processor)
-      self.module = builder.configure_module(args, model)
-
+    model = builder.get_model(processor)
+    self.module = builder.configure_module(args, model, loader)
     if not args.test_mode:
-      self.learner = Learner(args, self.module, processor, tracker)
+      self.learner = Learner(args, self.module, processor, self.monitor)
 
   def run_main(self):
-    # unpack only the arguments needed, store into params
-    params = {}
-    params["task"] = self.task
-    params["hidden_dim"] = self.args.hidden_dim
-    datasets = self.learner.processor.datasets
-
     if self.task == "glad":
-      self.module.learn(datasets, self.args)
-      # self.learner.supervise(params, self.module, datasets)
+      self.module.learn(self.args, self.learner.processor.datasets)
+      # self.learner.supervise(self.args)
     elif self.task == "policy":
-      self.learner.reinforce(params, self.module, datasets)
-    else:
-      self.learner.rulebased(params, self.module, datasets)
+      self.learner.reinforce(self.args)
 
-  def evaluate(self):
-    self.evaluator.model = self.module
-    self.evaluator.run_report(self.metrics)
-
+  def evaluate(self, test_mode):
+    self.evaluator.module = self.module
+    self.evaluator.monitor = self.monitor
+    if self.args.test_mode:
+      self.run_test()
+    self.evaluator.generate_report()
 
 class EndToEndSystem(object):
-  def __init__(self, args, loader, builder, tracker, evaluator):
+  def __init__(self, args, loader, builder, processor, evaluator):
     self.args = args
     self.metrics = args.metrics
     self.task = loader.categories
-    vocab = Vocabulary(args, loader.data_dir)
     self.evaluator = evaluator
 
-    belief_tracker = builder.configure_module(args, "belief tracker")
+    belief_tracker = builder.configure_module(args, "belief monitor")
     policy_manager = builder.configure_module(args, "policy manager")
     text_generator = builder.configure_module(args, "text generator")
     modules = [belief_tracker, policy_manager, text_generator]
-
     self.dialogue_agent = builder.create_agent(args, modules)
-    self.processor = PreProcessor(args, vocab, loader)
 
     if not args.test_mode:
-      self.learner = Learner(args, self.dialogue_agent, self.processor, tracker)
+      self.learner = Learner(args, self.dialogue_agent, processor)
 
   def run_main(self):
     self.learner.learn(self.task)

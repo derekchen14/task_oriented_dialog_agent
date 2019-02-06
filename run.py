@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import torch
-import logging
+import logging, sys
 from random import seed
 
 from utils.internal.arguments import solicit_args
@@ -28,4 +28,10 @@ if __name__ == "__main__":
   if not args.test_mode:
     system.run_main()
     logging.info(args)
-  system.evaluate()
+  system.evaluate(args.test_mode)
+
+"""
+TODO:
+Change all "diaact" to "dialogue_act"
+Change all "nl" to "utterance"
+"""

@@ -1,15 +1,16 @@
-import os
+import os, pdb, sys  # set_trace
 import random
 import logging
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 
+from objects.components import device
 from objects.models import encoders as enc
 from objects.models import decoders as dec
-from objects.models import Transformer, EntNet, NPN , GLAD, Seq2Seq
+from objects.models import Transformer, EntNet, NPN, GLAD, Seq2Seq
+from objects.models import InformPolicy
 from objects.modules import *
-from objects.components import device
 
 class Builder(object):
   def __init__(self, args, data_loader):
@@ -23,35 +24,26 @@ class Builder(object):
     self.data_dir = data_loader.data_dir
     self.embeddings = data_loader.embeddings if args.pretrained else None
 
-  def set_module(self, args):
-    pass
+  def get_model(self, processor):
+    self.prepare_directory()
+    model = self.create_model(processor)
 
-  def get_model(self, processor, task=None):
-    input_size, output_size = processor.input_output_cardinality()
-    self.prepare_directory(self.args, task)
-
-    model = self.create_model(input_size, output_size)
     if self.test_mode:
       logging.info("Loading model at {} for testing".format(self.dir))
-      if self.model_type == "glad":
-        model.load_best_save(directory=self.dir)
-      else:
-        model = self.load_model(self.dir, model)
+      # if self.model_type == "glad":
+      #   model.load_best_save(directory=self.dir)
+      model = self.load_model(self.dir, model)
     elif self.use_existing:
       logging.info("Resuming model at {} for training".format(self.dir))
       model = self.load_model(self.dir, model)
     else:
       logging.info("Building model at {}".format(self.dir))
       model.save_dir = self.dir
+    return model
 
-    return model.to(device)
-
-  def prepare_directory(self, args, task):
-    if task is None:
-      self.model_path = args.prefix + args.model + args.suffix
-    else:
-      self.model_path = task + "_" + args.prefix + args.model + args.suffix
-    self.dir = os.path.join("results", args.task, args.dataset, self.model_path)
+  def prepare_directory(self):
+    model_path = self.args.prefix + self.args.model + self.args.suffix
+    self.dir = os.path.join("results", self.args.task, self.args.dataset, model_path)
     if not os.path.exists(self.dir):
       os.makedirs(self.dir)
 
@@ -65,7 +57,9 @@ class Builder(object):
       model.optimizer.load_state_dict(state['optimizer'])
     return model
 
-  def create_model(self, input_size, output_size):
+  def create_model(self, processor):
+    input_size, output_size = processor.input_output_cardinality()
+
     if self.model_type == "basic":
       encoder = enc.RNN_Encoder(input_size, self.args)
       ff_network = dec.FF_Network(self.dhid, output_size, self.model_type)
@@ -80,7 +74,7 @@ class Builder(object):
       glad_model.save_config(self.dir)
       return glad_model.to(device)
     elif self.model_type == "rulebased":
-      return InformPolicy(self.args)
+      return InformPolicy(processor.ontology)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)
@@ -102,5 +96,16 @@ class Builder(object):
 
     return Seq2Seq(encoder, decoder)
 
-  def configure_module(self, args, model):
-    return model
+  def configure_module(self, args, model, loader):
+    if args.task == "policy":
+      kb, ontology = loader.kb, loader.ontology
+      if args.model == "rulebased":
+        module = RulebasedPolicyManager(args, model, kb, ontology)
+        results_dir = os.path.join('results', args.dataset, 'models')
+        module.user.text_generator = TextGenerator.from_pretrained(args)
+        module.user.text_generator.set_templates(args.dataset)
+      else:
+        module = NeuralPolicyManager(args, model.to(device), kb, ontology)
+      return module
+    else:
+      return model.to(device)

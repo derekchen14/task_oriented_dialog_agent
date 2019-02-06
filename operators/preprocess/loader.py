@@ -4,25 +4,10 @@ import pickle as pkl
 import logging
 
 from vocab import Vocab
+from utils.internal.vocabulary import Vocabulary
 from utils.external.reader import text_to_dict, get_glove_name
 from objects.blocks import Dataset
 from utils.internal.ontology import Ontology
-
-class ModuleLoader(object):
-  def __init__(self, args):
-    pass
-
-  def load_intent_predictor(self, model_path):
-    pass
-
-  def load_policy_manager(self, model_path):
-    pass
-
-  def load_text_generator(self, model_path, template_path):
-    model_params = pkl.load(open(model_path, 'rb'))
-    text_generator = TextGenerator.from_params(model_params)
-    templates = json.load(open(path, 'rb'))
-    text_generator.set_templates(templates)
 
 # Used for loading data, to be fed into the PreProcessor
 class DataLoader(object):
@@ -36,15 +21,12 @@ class DataLoader(object):
       self.embeddings = json.load(self.path('embeddings.json'))
 
     if self.task == "glad":
-      self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
       self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
-    elif self.task == "rule":
-      self.intent_sets = {
-        "act": text_to_dict(self.path("act_set.txt")),
-        "slot": text_to_dict(self.path("slot_set.txt")),
-        "value": pkl.load(open(self.path("value_set.p"), "rb"))
-      }
-      self.kb = pkl.load(open(self.path("knowledge_base.p")))
+      self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
+    elif self.task == "policy":
+      self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
+      self.ontology = Ontology.from_path(self.data_dir)
+      self.vocab = Vocabulary(args, self.data_dir)
 
     self.load_datasets()
 

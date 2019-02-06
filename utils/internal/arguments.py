@@ -44,25 +44,22 @@ def solicit_args():
               help='weight_decay to regularize the weights')
   param_group.add_argument('--num-layers', default=1, type=int,
               help='Number of layers in each LSTM')
-  param_group.add_argument('--num-iters', default=30000, type=int,
-              help='iterations to train')
   param_group.add_argument('--batch-size', default=50, type=int,
               help='batch size for training')
   param_group.add_argument('-e', '--epochs', default=14, type=int,
-              help='Number of epochs to train, not compatible with n_iters')
+              help='Number of epochs or episodes to train')
   param_group.add_argument('--decay-times', default=3, type=int,
               help='total lr decay times')
 
   # --------- LIMITS AND THRESHOLDS -----------
-  parser.add_argument('--max-turns', default=20, type=int,
+  parser.add_argument('--max-turn', default=20, type=int,
               help='max allowed turns in dialogue before declaring failure')
   parser.add_argument('--max-seq-len', default=15, type=int,
               help='max number of tokens allowed to generate or to use as input')
   parser.add_argument('--threshold', default=0.8, type=float,
-              help='minimum confidence level to output true, or other threshold')
-  parser.add_argument('--early-stop', default=-1.0, type=float,
-              help='Minimum loss value we are willing to accept during epoch 10 \
-                    at validation, set to negative value to prevent early stopping')
+              help='minimum confidence level to keep, minimum success rate for \
+              experience replay, minimum loss value we are willing to accept \
+              for early stopping (with -1 to turn off), or other threshold')
   parser.add_argument('--stop-early', default='joint_goal', type=str,
               help='slot to early stop on, used for GLAD')
 
@@ -75,6 +72,8 @@ def solicit_args():
               help='Amount to start looking around in epsilon-greedy exploration')
   parser.add_argument('--warm-start', default=False, action='store_true',
               help='when true, agent has warm start phase for training')
+  parser.add_argument('--user', default='simulate', type=str,
+              help='type of user to talk to', choices=['simulate', 'command'])
 
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',

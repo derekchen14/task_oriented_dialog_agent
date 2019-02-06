@@ -6,12 +6,13 @@ import logging
 from torch.nn import NLLLoss as NegLL_Loss
 from torch.optim.lr_scheduler import StepLR
 
+from operators.evaluate import RewardMonitor
 from utils.external.bleu import BLEU
 from utils.internal.clock import *
 from objects.components import *
 
 class Learner(object):
-  def __init__(self, args, model, processor, tracker, task=None):
+  def __init__(self, args, module, processor, monitor, task=None):
     self.verbose = args.verbose
     self.debug = args.debug
     self.epochs = args.epochs
@@ -19,9 +20,9 @@ class Learner(object):
     self.teach_ratio = args.teacher_forcing
 
     self.processor = processor
-    self.tracker = tracker
+    self.monitor = monitor
     self.vocab = processor.vocab
-    self.model = model
+    self.module = module
     self.task = task
 
   def train(self, input_var, output_var):
@@ -64,31 +65,24 @@ class Learner(object):
   turn_success = [pred == tar[0] for pred, tar in zip(predictions, targets)]
   return avg_loss, bleu_score, all(turn_success)
   '''
-
-  def rulebased(self, task, module, data):
-    """ main method is simple next """
-    self.run_episodes(count, status)
-
-  def reinforce(self, task, module, data):
-    """ main methods are store_experience, next, learn """
-    pass
-
-  def supervise(self, task, module, data):
-    """ main methods are train, validate, and inference """
-    self.learn_start = tm.time()
-    logging.info('Starting to learn ...')
+  def supervise(self, params):
+    supervise_start_time = tm.time()
+    logging.info('Starting supervised learning ...')
     self.model.init_optimizer()
     self.criterion = NegLL_Loss()
 
-    n_iters = 600 if self.debug else len(self.processor.datasets['train'])
+    train_data = self.processor.datasets['train']
+    val_data = self.processor.datasets['val']
+    self.run_epochs(train_data, val_data)
+
+    logging.info("Done training {}".format(params.task))
+    time_past(supervise_start_time)
+
+  def run_epochs(self, train_data, val_data):
+    """ main methods are run_epochs, train, validate, predict, and inference """
     print_every, plot_every, val_every = print_frequency(self.verbose, self.debug)
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-    # step_size = n_iters/(self.decay_times+1)
-    # enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)
-    # dec_scheduler = StepLR(dec_optimizer, step_size=step_size, gamma=0.2)
-    # enc_scheduler.step()
-    # dec_scheduler.step()
 
     for epoch in range(self.epochs):
       start = tm.time()
@@ -100,15 +94,15 @@ class Learner(object):
         plot_loss_total += loss
 
         if i > 0 and i % print_every == 0:
-          self.tracker.train_steps.append(i + 1)
+          self.monitor.train_steps.append(i + 1)
           print_loss_avg = print_loss_total / print_every
           print_loss_total = 0  # reset the print loss
           print('{1:3.1f}% complete {2}, Train Loss: {0:.4f}'.format(
               print_loss_avg, (i/n_iters * 100.0), timeSince(start, i/n_iters )))
-          self.tracker.update_loss(print_loss_avg, "train")
+          self.monitor.update_loss(print_loss_avg, "train")
 
         if i > 0 and i % val_every == 0:
-          self.tracker.val_steps.append(i + 1)
+          self.monitor.val_steps.append(i + 1)
           batch_val_loss, batch_bleu, batch_success = [], [], []
           for val_input, val_output in self.processor.datasets['val']:
             val_loss, bs, ts = self.validate(val_input, val_output, task)
@@ -116,44 +110,17 @@ class Learner(object):
             batch_bleu.append(bs)
             batch_success.append(ts)
 
-          self.tracker.batch_processing(batch_val_loss, batch_bleu, batch_success)
-          if self.tracker.should_early_stop(i):
-            print("Early stopped at val epoch {}".format(self.tracker.val_epoch))
-            self.tracker.completed_training = False
+          self.monitor.batch_processing(batch_val_loss, batch_bleu, batch_success)
+          if self.monitor.should_early_stop(i):
+            print("Early stopped at val epoch {}".format(self.monitor.val_epoch))
+            self.monitor.completed_training = False
             break
-      if self.tracker.best_so_far() and not self.debug:
-        summary = self.tracker.generate_summary()
+      if self.monitor.best_so_far() and not self.debug:
+        summary = self.monitor.generate_summary()
         identifier = "epoch={0}_success={1:.4f}_recall@two={2:.4f}".format(
               epoch, summary["accuracy"], summary["recall@k=2"])
         self.model.save(summary, identifier)
 
-    logging.info("Done training {}".format(task))
-    time_past(self.learn_start)
-
-  def simulation_epoch(self, simulation_epoch_size):
-    successes = 0
-    cumulative_reward = 0
-    cumulative_turns = 0
-
-    res = {}
-    for episode in xrange(simulation_epoch_size):
-      dialog_manager.initialize_episode()
-      episode_over = False
-      while(not episode_over):
-        episode_over, reward = dialog_manager.next_turn()
-        cumulative_reward += reward
-        if episode_over:
-          if reward > 0:
-            successes += 1
-            print ("simulation episode %s: Success" % (episode))
-          else: print ("simulation episode %s: Fail" % (episode))
-          cumulative_turns += dialog_manager.state_tracker.turn_count
-
-    res['success_rate'] = float(successes)/simulation_epoch_size
-    res['ave_reward'] = float(cumulative_reward)/simulation_epoch_size
-    res['ave_turns'] = float(cumulative_turns)/simulation_epoch_size
-    print ("simulation success rate %s, ave reward %s, ave turns %s" % (res['success_rate'], res['ave_reward'], res['ave_turns']))
-    return res
 
   """ Warm_Start Simulation (by Rule Policy) """
   def warm_start_simulation(self):
@@ -163,11 +130,11 @@ class Learner(object):
 
     res = {}
     warm_start_run_epochs = 0
-    for episode in xrange(warm_start_epochs):
+    for episode in range(warm_start_epochs):
       dialog_manager.initialize_episode()
       episode_over = False
       while(not episode_over):
-        episode_over, reward = dialog_manager.next_turn()
+        episode_over, reward = dialog_manager.next(collect_data=True)
         cumulative_reward += reward
         if episode_over:
           if reward > 0:
@@ -188,68 +155,72 @@ class Learner(object):
     print ("Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s" % (episode+1, res['success_rate'], res['ave_reward'], res['ave_turns']))
     print ("Current experience replay buffer size %s" % (len(agent.experience_replay_pool)))
 
-  def run_episodes(self, count, status):
-    successes = 0
-    cumulative_reward = 0
-    cumulative_turns = 0
+  def reinforce(self, params):
+    """ main methods are run_episodes, store_experience, and next """
+    reinforce_start_time = tm.time()
+    logging.info('Starting reinforcement learning ...')
+    self.success_rate_threshold = params.threshold
 
-    if (agt == 9 or agt == 12 or agt == 13) and params['trained_model_path'] == None and warm_start == 1:
-      print ('warm_start starting ...')
+    if params.warm_start:  #  TODO: check that a pretrained model doesn't already exist
       warm_start_simulation()
-      print ('warm_start finished, start RL training ...')
 
-    for episode in xrange(count):
-      print ("Episode: %s" % (episode))
-      dialog_manager.initialize_episode()
-      episode_over = False
+    self.module.user.goal_sets = self.processor.datasets
+    self.module.user.learning_phase = "train"
+    self.run_episodes(params.epochs)
 
-      while(not episode_over):
-        episode_over, reward = dialog_manager.next_turn()
-        cumulative_reward += reward
+    logging.info("Done training {}".format(params.task))
+    time_past(reinforce_start_time)
 
-        if episode_over:
-          if reward > 0:
-            print ("Successful Dialog!")
-            successes += 1
-          else: print ("Failed Dialog!")
+  def run_one_episode(self, monitor, collect_data=False):
+    monitor.start_episode()
+    self.module.initialize_episode()   # module is policy_manager
 
-          cumulative_turns += dialog_manager.state_tracker.turn_count
+    episode_over = False
+    while not episode_over:
+      episode_over, reward = self.module.next(collect_data)
+      monitor.status["episode_reward"] += reward
+      monitor.status["turn_count"] += 1
 
-      # simulation
-      if (agt == 9 or agt == 12 or agt == 13) and params['trained_model_path'] == None:
-        agent.predict_mode = True
-        simulation_res = simulation_epoch(simulation_epoch_size)
+      if episode_over:
+        if monitor.status["episode_reward"] > 0:
+          monitor.status["success"] = True
+        monitor.end_episode()
 
-        performance_records['success_rate'][episode] = simulation_res['success_rate']
-        performance_records['ave_turns'][episode] = simulation_res['ave_turns']
-        performance_records['ave_reward'][episode] = simulation_res['ave_reward']
+    return monitor
 
-        if simulation_res['success_rate'] >= best_res['success_rate']:
-          if simulation_res['success_rate'] >= success_rate_threshold: # threshold = 0.30
-            agent.experience_replay_pool = []
-            simulation_epoch(simulation_epoch_size)
+  def run_episodes(self, num_episodes):
+    print("Running {} training episodes".format(num_episodes))
+    for episode in progress_bar(range(num_episodes)):
+      self.monitor = self.run_one_episode(self.monitor)
 
-        if simulation_res['success_rate'] > best_res['success_rate']:
-          best_model['model'] = copy.deepcopy(agent)
-          best_res['success_rate'] = simulation_res['success_rate']
-          best_res['ave_reward'] = simulation_res['ave_reward']
-          best_res['ave_turns'] = simulation_res['ave_turns']
-          best_res['epoch'] = episode
+      # run simulation to generate experiences that are stored in replay buffer
+      num_simulations = 10 # typically 100
+      if self.verbose: print("Running {} simulations".format(num_simulations))
+      sim_monitor = RewardMonitor(num_simulations)
+      for sim_episode in range(num_simulations):
+        sim_monitor = self.run_one_episode(sim_monitor, collect_data=True)
+      sim_monitor.summarize_results(self.verbose)
 
-        agent.clone_dqn = copy.deepcopy(agent.dqn)
-        agent.train(batch_size, 1)
-        agent.predict_mode = False
+      if self.monitor.best_so_far(sim_monitor.success_rate):
+        self.module.save_checkpoint(sim_monitor, episode)
 
-        print ("Simulation success rate %s, Ave reward %s, Ave turns %s, Best success rate %s" % (performance_records['success_rate'][episode], performance_records['ave_reward'][episode], performance_records['ave_turns'][episode], best_res['success_rate']))
-        if episode % save_check_point == 0 and params['trained_model_path'] == None: # save the model every 10 episodes
-          save_model(params['write_model_dir'], agt, best_res['success_rate'], best_model['model'], best_res['epoch'], episode)
-          save_performance_records(params['write_model_dir'], agt, performance_records)
+        # best_model['model'] = copy.deepcopy(agent)
+        # best_res['success_rate'] = simulation_res['success_rate']
+        # best_res['ave_reward'] = simulation_res['ave_reward']
+        # best_res['ave_turns'] = simulation_res['ave_turns']
+        # best_res['epoch'] = episode
+      # agent.clone_dqn = copy.deepcopy(agent.dqn)
+      # agent.train(batch_size, 1)
+      # agent.predict_mode = False
+    self.monitor.summarize_results(True)
+    # self.verbose
 
-      print("Progress: %s / %s, Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (episode+1, count, successes, episode+1, float(cumulative_reward)/(episode+1), float(cumulative_turns)/(episode+1)))
-    print("Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (successes, count, float(cumulative_reward)/count, float(cumulative_turns)/count))
-    status['successes'] += successes
-    status['count'] += count
 
-    if (agt == 9 or agt == 12 or agt == 13)  and params['trained_model_path'] == None:
-      save_model(params['write_model_dir'], agt, best_res['success_rate'], best_model['model'], best_res['epoch'], count)
-      save_performance_records(params['write_model_dir'], agt, performance_records)
+"""
+    n_iters = 600 if self.debug else len(train_data)
+    step_size = n_iters/(self.decay_times+1)
+    enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)
+    dec_scheduler = StepLR(dec_optimizer, step_size=step_size, gamma=0.2)
+    enc_scheduler.step()
+    dec_scheduler.step()
+"""

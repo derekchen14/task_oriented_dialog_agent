@@ -1,6 +1,6 @@
-python run.py --task policy --model rulebased --report-quant \
+python run.py --task policy --model rulebased --report-quant -e 7 --user simulate \
     --metrics success_rate avg_reward --dataset ddq/movies --batch-size 16
-
+    # --verbose
 # python run.py --task-name simulation --model-type rule --report-results \
 #     --metrics success_rate --dataset ddq/restaurants
 

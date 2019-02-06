@@ -17,29 +17,36 @@ class Evaluator(object):
     self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
+
+    self.module = None
     self.monitor = None
 
     self.save_dir = os.path.join("results", args.task, args.dataset)
     self.vocab = processor.vocab
-    if args.test_mode:
-      self.data = processor.datasets['test']
-    else:
-      self.data = processor.datasets['val']
+    self.data = processor.datasets['test'] if args.test_mode else processor.datasets['val']
 
-  def run_report(self):
-    if self.task == "glad":
-      self.model.quant_report(self.data, self.config)  # qual_report for qualitative analysis
-      sys.exit()
+  def run_test(self):
+    for example in self.data:
+      output = self.module.forward(example)
 
+  def generate_report(self):
+    self.monitor.summarize_results(verbose=False)
     if self.config.report_visual:
       self.visual_report()
     if self.config.report_qual:
+      # if self.task == "glad":
+      #   self.model.qual_report(self.data, self.config)
       self.qualitative_report()
     if self.config.report_quant:
+      # if self.task == "glad":
+      #   self.model.quant_report(self.data, self.config)
       self.quantitative_report()
 
-  # Qualitative evalution of model performance
   def qualitative_report(self):
+    pass
+
+  # Qualitative evalution of model performance
+  def qualitative_report_real(self):
     qual_report_path = "{}/qual.txt".format(self.save_dir)
     samples = [random.choice(self.data) for i in range(10)]
     with open(qual_report_path, "w") as file:
@@ -63,7 +70,6 @@ class Evaluator(object):
       if param not in extras:
         datarows[param] = value
 
-    self.monitor.generate_summary()
     for metric in self.metrics:
       datarows[metric] = getattr(self.monitor, metric)
 

@@ -1,26 +1,28 @@
 import numpy as np
 
 class MonitorBase(object):
-  def __init__(self, args):
-    self.metrics = args.metrics
-    self.phase = "test" if args.test_mode else "val"
 
-    self.train_steps = []
-    self.train_epoch = 0
-    self.val_steps = []
-    self.val_epoch = 0
-
-  def generate_summary(self):
+  def summarize_results(self):
     """ should summarize all relevant metrics to final score as a scalar
     floating point value, rather than a list of values per epoch"""
+    raise(NotImplementedError)
+
+  def best_so_far(self):
+    # returns a boolean on whether this latest model is the best seen so far
     raise(NotImplementedError)
 
 class LossMonitor(MonitorBase):
   def __init__(self, args):
     super().__init__(args)
+    self.train_steps = []
     self.train_losses = []
-    self.val_losses = []
+    self.train_epoch = 0
 
+    self.val_steps = []
+    self.val_losses = []
+    self.val_epoch = 0
+
+    self.num_epochs = args.epochs
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss
     self.threshold = args.early_stop
@@ -98,50 +100,58 @@ class LossMonitor(MonitorBase):
         return True
     return False
 
-  def generate_summary(self):
+  def summarize_results(self, metrics):
     self.bleu = self.bleu_scores[-1] if len(self.bleu_scores) > 0 else 0.0
     self.rouge = self.rouge_scores[-1] if len(self.rouge_scores) > 0 else 0.0
     self.meteor = self.meteors[-1] if len(self.meteors) > 0 else 0.0
     self.accuracy = self.accuracies[-1] if len(self.accuracies) > 0 else 0.0
     self.eval_loss = self.eval_losses[-1] if len(self.eval_losses) > 0 else 0.0
 
-    if 'macro_f1' in self.metrics or 'micro_f1' in self.metrics:
+    if 'macro_f1' in metrics or 'micro_f1' in metrics:
       self.calculate_f1()
 
 
 class RewardMonitor(MonitorBase):
-  def __init__(self, args):
-    super().__init__(args)
+  """ Tracks global learning status across episodes. """
+  def __init__(self, num_episodes, threshold=0.0):
     self.rewards = []
     self.turns = []
     self.num_successes = 0
-    self.num_episodes = 1
+    self.num_episodes = num_episodes
 
-    self.simulation_epoch_size = 100
-    self.warm_start_epochs = 100
-    self.batch_size = args.batch_size # default = 16
-    self.warm_start = args.warm_start
-    self.success_rate_threshold = args.threshold  # 0.3
-    self.save_check_point = 5   # save the last X checkpoints
+    self.success_rate_threshold = threshold  # 0.3
+    self.best_success_rate = -1
+    # self.warm_start_epochs = 100
+    # self.save_check_point = 5   # save the last X checkpoints
 
-
-    """ Best Model and Performance Records
-    self.best_model = {}
-    self.best_res = {'success_rate': 0, 'ave_reward':float('-inf'), 'ave_turns': float('inf'), 'epoch':0}
-    # self.best_model['model'] = copy.deepcopy(agent)
-    self.best_res['success_rate'] = 0
-    """
   def start_episode(self):
-    self.status = {'turn_count': 0, 'success': False, 'cumulative_reward': 0}
+    self.status = {'turn_count': 0, 'success': False, 'episode_reward': 0}
 
   def end_episode(self):
-    self.rewards.append(self.status["cumulative_reward"])
+    self.rewards.append(self.status["episode_reward"])
     self.turns.append(self.status["turn_count"])
     if self.status["success"]:
       self.num_successes += 1
     self.num_episodes += 1
 
-  def generate_summary(self):
+  def summarize_results(self, verbose):
+    self.success_rate = self.num_successes / float(self.num_episodes)
     self.avg_reward = np.average(self.rewards)
     self.avg_turn = np.average(self.turns)
-    self.success_rate = self.num_successes / float(self.num_episodes)
+    if verbose:
+      print("Success_rate: {}, Average Reward: {:.4f}, Average Turns: {:.4f}".format(
+        self.success_rate, self.avg_reward, self.avg_turn))
+
+  def best_so_far(self, simulator_success_rate):
+    if simulator_success_rate > self.success_rate_threshold:
+      if simulator_success_rate > self.best_success_rate:
+        self.best_success_rate = simulator_success_rate
+        return True
+    return False
+
+def Monitor(epochs, threshold, task):
+  if task == "policy":
+    return RewardMonitor(epochs, threshold)
+  else:
+    return LossMonitor(epochs, threshold)
+
