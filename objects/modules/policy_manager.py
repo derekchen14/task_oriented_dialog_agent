@@ -1,65 +1,134 @@
-import numpy as np
-import os, pdb, sys  # set_trace
 import logging
-import copy
-import random
+import torch
 
-from objects.blocks.base import BasePolicy
-from objects.modules.user import UserSimulator, RealUser
 from objects.modules.dialogue_state import StateTracker
-from torch import nn
+from objects.modules.user import UserSimulator, CommandLineUser
+import datasets.ddq.constants as dialog_config
 
 class BasePolicyManager(object):
-  def __init__(self, args):
-    self.data = data
+  def __init__(self, args, model, kb, ontology):
     self.verbose = args.verbose
-    self.experiences = []  # tuples of state, action, reward, next state
-    self.learning_method = "reinforce" # or "rulebased" or "supervised"
-
-    self.agent = model
-    self.state_tracker = StateTracker(act_set, slot_set, value_set)
-    self.user_action = None
-
-    self.max_turns = args.max_turns
-    self.num_episodes = args.num_iters
+    self.max_turn = args.max_turn
     self.batch_size = args.batch_size
 
-    if args.user == "simulate":
-      self.user = UserSimulator(act_set, slot_set, value_set, goal_set, args)
-      # self.user = MovieUser(act_set, slot_set, value_set, goal_set, args)
-      # self.user = RestaurantUser(act_set, slot_set, value_set, goal_set, args)
-      # self.user = TaxiUser(act_set, slot_set, value_set, goal_set, args)
-    else:
-      self.user = RealUser(act_set, slot_set, value_set, goal_set, args)
+    self.state_tracker = StateTracker(kb, ontology)
+    self.agent = model
+    self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
 
-  def initialize_episode(self):
-    self.reward = 0
+  def action_to_nl(self, agent_action):
+    """ Add natural language capabilities (NL) to Agent Dialogue Act """
+    if agent_action['slot_action']:
+      agent_action['slot_action']['nl'] = ""
+      # self.nlg_model.translate_diaact(agent_action['slot_action']) # NLG
+      # user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(
+      #                               agent_action['slot_action'], 'agt')
+      chosen_action = agent_action['slot_action']
+      user_response = self.user.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = user_response
+    elif agent_action['slot_value_action']:
+      agent_action['slot_value_action']['nl'] = ""
+      # self.nlg_model.translate_diaact(agent_action['slot_value_action'])
+      chosen_action = agent_action['slot_value_action']
+      user_response = self.user.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = user_response
+
+  def store_experience(self, current_state, action, reward, next_state, episode_over):
+    """  Register feedback (s,a,r,s') from the environment,
+    to be stored in experience replay buffer as future training data
+
+    Arguments:
+    current_state    --  The state in which the last action was taken
+    current_action   --  The previous agent action
+    reward           --  The reward received immediately following the action
+    next_state       --  The state transition following the latest action
+    episode_over     --  Boolean value representing whether this is final action.
+
+    Returns: None
+
+    The rulebased agent will keep as identity function because
+      it does not need to store experiences for future training
+    """
+    pass
+
+  def initialize_episode(self, sim=False):
+    self.simulation_mode = sim
+    self.episode_reward = 0
     self.episode_over = False
 
     self.state_tracker.initialize_episode()
-    self.user_action = self.user.initialize_episode()
-    # self.agent.initialize_episode()
-    self.state_tracker.update(user_action = self.user_action)
+    self.user.initialize_episode()
+    self.agent.initialize_episode()
 
-    if args.verbose:
+    ua = self.user.user_action.copy()
+    self.state_tracker.update(user_action=ua)
+    if self.verbose:
       print("New episode, user goal:")
-      print(json.dumps(self.user.goal, indent=2))
-      self.print_function()
+      print(self.user.goal)
+      self.print_function(user_action=self.user_action)
 
-  def print_function(self):
-    print("go back to d3q to find this method for debugging")
+  def print_function(self, agent_action=None, user_action=None):
+    if agent_action:
+      if dialog_config.run_mode == 0:
+        if self.agent.__class__.__name__ != 'AgentCmd':
+          print ("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
+      elif dialog_config.run_mode == 1:
+        if self.agent.__class__.__name__ != 'AgentCmd':
+          print ("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'], agent_action['request_slots']))
+      elif dialog_config.run_mode == 2: # debug mode
+        print ("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'], agent_action['request_slots']))
+        print ("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
 
-  def next_turn(self, record_training_data=True):
-    """ Initiates exchange between agent and user (agent first) """
+      if dialog_config.auto_suggest == 1:
+        print('(Suggested Values: %s)' % (self.state.get_suggest_slots_values(agent_action['request_slots'])))
 
+    elif user_action:
+      if dialog_config.run_mode == 0:
+        print ("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
+      elif dialog_config.run_mode == 1:
+        print ("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (user_action['turn_count'], user_action['diaact'], user_action['inform_slots'], user_action['request_slots']))
+      elif dialog_config.run_mode == 2: # debug mode, show both
+        print ("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (user_action['turn_count'], user_action['diaact'], user_action['inform_slots'], user_action['request_slots']))
+        print ("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
+
+      if self.agent.__class__.__name__ == 'AgentCmd': # command line agent
+        user_request_slots = user_action['request_slots']
+        if 'ticket'in user_request_slots.keys(): del user_request_slots['ticket']
+
+        if 'reservation' in user_request_slots.keys(): del user_request_slots['reservation']
+        if 'taxi' in user_request_slots.keys(): del user_request_slots['taxi']
+
+        if len(user_request_slots) > 0:
+          possible_values = self.state.get_suggest_slots_values(user_action['request_slots'])
+          for slot in possible_values.keys():
+            if len(possible_values[slot]) > 0:
+              print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))
+            elif len(possible_values[slot]) == 0:
+              print('(Suggested Values: there is no available %s)' % (slot))
+        else:
+          pass
+          #kb_results = self.state.get_current_kb_results()
+          #print ('(Number of movies in KB satisfying current constraints: %s)' % len(kb_results))
+
+
+  def next(self, collect_data):
+    """ Initiates exchange between agent and user (agent first)
+    a POMDP takes in the dialogue state with latent intent
+      input - dialogue state consisting of:
+        1) current user intent --> act(slot-relation-value) + confidence score
+        2) previous agent action
+        3) knowledge base query results
+        4) turn count
+        5) complete semantic frame
+      output - next agent action
+    """
     #   CALL AGENT TO TAKE HER TURN
     self.state = self.state_tracker.get_state_for_agent()
     self.agent_action = self.agent.state_to_action(self.state)
-    #   Register AGENT action with the state_tracker
+    #   Register AGENT action within the state_tracker
     self.state_tracker.update(agent_action=self.agent_action)
-    self.agent.add_nl_to_action(self.agent_action) # add NL to BasePolicy Dia_Act
+    self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
     if self.verbose:
-      self.print_function(agent_action = self.agent_action['act_slot_response'])
+      self.print_function(agent_action = self.agent_action['slot_action'])
 
     #   CALL USER TO TAKE HER TURN
     self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
@@ -71,8 +140,9 @@ class BasePolicyManager(object):
       # self.print_function(user_action=self.user_action)
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
-    if record_training_data:
-      self.agent.store_experience(self.state, self.agent_action, self.reward, self.state_tracker.get_state_for_agent(), self.episode_over)
+    if collect_data:
+      self.store_experience(self.state, self.agent_action, self.reward,
+              self.state_tracker.get_state_for_agent(), self.episode_over)
 
     return (self.episode_over, self.reward)
 
@@ -88,219 +158,42 @@ class BasePolicyManager(object):
       reward = -1 if penalty else 0
     return reward
 
-  def learn(self):
-    raise NotImplementedError
 
-  def predict(self):
-    '''
-    a POMDP takes in the dialogue state with latent intent
-      input - dialogue state consisting of:
-        1) current user intent --> act(slot-relation-value) + confidence score
-        2) previous agent action
-        3) knowledge base query results
-        4) turn count
-        5) complete semantic frame
-      output - next agent action
-    '''
-    raise NotImplementedError
+class RulebasedPolicyManager(BasePolicyManager):
 
+  def save_checkpoint(self, monitor, episode):
+    print("New best model found!")
+    print("Episode {} -- Success_rate: {:.4f}, Average Reward: {:.4f}, \
+          Average Turns: {:.4f}".format(episode, monitor.success_rate,
+          monitor.avg_reward, monitor.avg_turn))
 
-
-class InformPolicy(BasePolicy):
-  """ A simple agent to test the system. This agent should simply inform
-  all the slots and then issue: taskcomplete. """
-  def state_to_action(self, state):
-    self.state['turn'] += 2
-    if self.current_slot_id < len(self.slot_set.keys()):
-      slot = self.slot_set.keys()[self.current_slot_id]
-      self.current_slot_id += 1
-      action_slot_only = {'diaact': "inform",
-                          'inform_slots': {slot: "PLACEHOLDER"},
-                          'request_slots':  {},
-                          'turn': self.state['turn'] }
-    else:
-      action_slot_only = {'diaact': "thanks",
-                          'inform_slots': {},
-                          'request_slots': {},
-                          'turn': self.state['turn'] }
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class RequestPolicy(BasePolicy):
-  """ A simple agent to test the system. This agent should simply
-        request all the slots and then issue: thanks(). """
-  def state_to_action(self, state):
-    self.state['turn'] += 2
-    if self.current_slot_id < len(dialog_config.sys_request_slots):
-      slot = dialog_config.sys_request_slots[self.current_slot_id]
-      self.current_slot_id += 1
-
-      action_slot_only = {'diaact': "request",
-                          'inform_slots': {},
-                          'request_slots':  {slot: "PLACEHOLDER"},
-                          'turn': self.state['turn'] }
-    else:
-      action_slot_only = {'diaact': "thanks",
-                          'inform_slots': {},
-                          'request_slots': {},
-                          'turn': self.state['turn'] }
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class RandomPolicy(BasePolicy):
-  """ A simple agent to test the interface which chooses actions randomly. """
-  def state_to_action(self, state):
-    self.state['turn'] += 2
-    random_action = random.choice(dialog_config.feasible_actions)
-    action_slot_only = copy.deepcopy(random_action)
-    action_slot_only['turn'] = self.state['turn']
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class EchoPolicy(BasePolicy):
-  """ A simple agent that informs all requested slots,
-  then issues inform(taskcomplete) when the user stops making requests. """
-  def state_to_action(self, state):
-    user_action = state['user_action']
-    self.state['turn'] += 2
-    action_slot_only = {'diaact': 'thanks',
-                        'inform_slots': {},
-                        'request_slots':  {},
-                        'turn': self.state['turn'] }
-    # find out if the user is requesting anything.  if so, inform it
-    if user_action['diaact'] == 'request':
-      action_slot_only['diaact'] = "inform"
-      requested_slot = user_action['request_slots'].keys()[0]
-      action_slot_only['inform_slots'][requested_slot] = "PLACEHOLDER"
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class RequestBasicsPolicy(BasePolicy):
-  """ A simple agent to test the system. This agent should simply
-      request all the basic slots and then issue: thanks().
-
-      Now there are "phases"???
-      """
-
-  def __init__(self, movie_dict=None, act_set=None, slot_set=None,
-              params=None, request_set=None):
-    self.request_set = request_set
-    #self.request_set = ['moviename', 'starttime', 'city', 'date', 'theater', 'numberofpeople']
-    #self.request_set = ["restaurantname", "date", "numberofpeople", "starttime", "address"]
-
-  def initialize_episode(self):
-    self.state = {'diaact': 'UNK',
-                  'inform_slots': {},
-                  'request_slots': {},
-                  'turn': -1  }
-    self.current_slot_id = 0
-    self.phase = 0
-
-  def state_to_action(self, state):
-    self.state['turn'] += 2
-    if self.current_slot_id < len(self.request_set):
-      slot = self.request_set[self.current_slot_id]
-      self.current_slot_id += 1
-
-      action_slot_only = {'diaact': "request",
-                          'inform_slots': {},
-                          'request_slots': {slot: "UNK"},
-                          'turn': self.state['turn'] }
-    elif self.phase == 0:
-      action_slot_only = {'diaact': "inform",
-                          'inform_slots': {'taskcomplete': "PLACEHOLDER"},
-                          'request_slots': {},
-                          'turn':self.state['turn'] }
-      self.phase += 1
-    elif self.phase == 1:
-      action_slot_only = {'diaact': "thanks",
-                          'inform_slots': {},
-                          'request_slots': {},
-                          'turn': self.state['turn'] }
-    else:
-      raise Exception("IS NOT POSSIBLE! (agent called in unexpected way)")
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class BasicsPolicy(BasePolicy):
-  """ This agent should simply request and inform all the basic slots
-  and then issue: thanks(). """
-
-  def __init__(self, movie_dict=None, act_set=None, slot_set=None, 
-              params=None, request_set=None, inform_set=None):
-    self.request_set = request_set
-    self.inform_set = inform_set
-    #self.request_set = ['or_city', 'dst_city', 'seat', 'depart_date_dep', 'depart_time_dep', 'return_date_dep', 'return_time_dep', 'numberofpeople','hotel_name', 'hotel_city', 'hotel_numberofpeople', 'hotel_date_checkin', 'hotel_date_checkout']
-    #self.inform_set = ['or_city', 'dst_city', 'seat', 'depart_date_dep', 'depart_time_dep', 'return_date_dep', 'return_time_dep','price', 'hotel_name', 'hotel_city', 'hotel_date_checkin', 'hotel_date_checkout', 'hotel_price']
-
-  def initialize_episode(self):
-    self.state = {'diaact': 'UNK',
-                  'inform_slots': {},
-                  'request_slots': {},
-                  'turn': -1  }
-    self.current_request_slot_id = 0
-    self.current_inform_slot_id = 0
-    self.phase = 0
-
-  def state_to_action(self, state):
-    self.state['turn'] += 2
-    if self.current_request_slot_id < len(self.request_set):
-      slot = self.request_set[self.current_request_slot_id]
-      self.current_request_slot_id += 1
-      action_slot_only = {'diaact': "request",
-                          'inform_slots': {},
-                          'request_slots': {slot: "PLACEHOLDER"},
-                          'turn': self.state['turn'] }
-    elif self.current_inform_slot_id < len(self.inform_set):
-      slot = self.inform_set[self.current_inform_slot_id]
-      self.current_inform_slot_id += 1
-      action_slot_only = {'diaact': "inform",
-                          'inform_slots': {slot: "PLACEHOLDER"},
-                          'request_slots': {},
-                          'turn': self.state['turn'] }
-    elif self.phase == 0:
-      action_slot_only = {'diaact': "inform",
-                          'inform_slots': {'taskcomplete': "PLACEHOLDER"},
-                          'request_slots': {},
-                          'turn':self.state['turn'] }
-      self.phase += 1
-    elif self.phase == 1:
-      action_slot_only = {'diaact': "thanks",
-                          'inform_slots': {},
-                          'request_slots': {},
-                          'turn': self.state['turn'] }
-    else:
-      raise Exception("IS NOT POSSIBLE! (agent called in unexpected way)")
-
-    return {'action_slot_only': action_slot_only, 'agent_action': None}
-
-
-class RulePolicyManager(BasePolicyManager):
-  def __init__(self, *args):
-    super().__init__(args)
-
-  def learn(self):
-    print("rule-based policy manager has no training")
-
-  def predict(self, examples, batch_size=1):
-    if batch_size > 1:  # then examples is a list
-      return [self.predict_one(exp) for exp in examples]
-    else:               # examples is a single item
-      self.predict_one(examples)
-
-  def predict_one(self, example):
-    pass
-
-
-class NeuralPolicyManager(BasePolicyManager, nn.Module):
-  def __init__(self, args):
-    super().__init__(args)
+class NeuralPolicyManager(BasePolicyManager):
+  def __init__(self, args, model, ontology):
+    super().__init__(args, model, ontology)
     self.hidden_dim = args.hidden_dim
     self.gamma = args.discount_rate
     self.warm_start = args.warm_start
-    self.experience_replay_pool_size = args.pool_size
+    self.max_pool_size = args.pool_size
+    self.epsilon = args.epsilon
+
+  def save_checkpoint(self, monitor, episode):
+    filename = '{}/{}.pt'.format(self.save_dir, identifier)
+    logging.info('saving model to {}.pt'.format(identifier))
+    state = {
+      'args': vars(self.args),
+      'model': self.state_dict(),
+      'summary': summary,
+      'optimizer': self.optimizer.state_dict(),
+    }
+    torch.save(state, filename)
+
+  def store_experience(self, current_state, action, reward, next_state, episode_over):
+    current_rep = self.prepare_state_representation(current_state)
+    next_rep = self.prepare_state_representation(next_state)
+    training_example = (current_rep, action, reward, next_rep, episode_over)
+
+    if (len(self.experience_replay_pool) == self.max_pool_size):
+      chosen_idx = random.randint(0,self.max_pool_size)
+      self.experience_replay_pool[chosen_idx] = training_example
+    else:
+      self.experience_replay_pool.append(training_example)

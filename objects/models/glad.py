@@ -3,12 +3,12 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
-from objects.blocks.basics import ModelTemplate  # should be blocks.base
+from objects.blocks.base import BaseBeliefTracker
 from objects.blocks.attention import Attention
 from objects.components import device
 
 # the GlobalLocalModel model described in https://arxiv.org/abs/1805.09655.
-class GLAD(ModelTemplate):
+class GLAD(BaseBeliefTracker):
   def __init__(self, args, ontology, vocab, Eword, GLADEncoder):
     super().__init__(args)
     self.optimizer = None
