@@ -11,7 +11,7 @@ import numpy as np
 import copy
 
 
-class StateTracker:
+class DialogueState:
   """ Tracks local dialogue state across turns.  (see also: RewardMonitor)
     Main responsibility is to maintain a record six (6) items:
       1a) user intent - a one-hot vector with size equal to number of

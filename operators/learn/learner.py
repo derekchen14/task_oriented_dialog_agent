@@ -194,7 +194,7 @@ class Learner(object):
       self.monitor = self.run_one_episode(self.monitor)
 
       # run simulation to generate experiences that are stored in replay buffer
-      num_simulations = 10 # typically 100
+      num_simulations = 3 if self.debug else 100
       if self.verbose: print("Running {} simulations".format(num_simulations))
       sim_monitor = RewardMonitor(num_simulations)
       for sim_episode in range(num_simulations):

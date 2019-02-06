@@ -1,7 +1,7 @@
 import logging
 import torch
 
-from objects.modules.dialogue_state import StateTracker
+from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
 import datasets.ddq.constants as dialog_config
 
@@ -11,7 +11,7 @@ class BasePolicyManager(object):
     self.max_turn = args.max_turn
     self.batch_size = args.batch_size
 
-    self.state_tracker = StateTracker(kb, ontology)
+    self.state = DialogueState(kb, ontology)
     self.agent = model
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
 
@@ -55,18 +55,19 @@ class BasePolicyManager(object):
     self.episode_reward = 0
     self.episode_over = False
 
-    self.state_tracker.initialize_episode()
+    self.state.initialize_episode()
     self.user.initialize_episode()
     self.agent.initialize_episode()
 
-    ua = self.user.user_action.copy()
-    self.state_tracker.update(user_action=ua)
+    self.user_action = self.user.user_action.copy()
+    self.state.update(user_action=self.user_action)
     if self.verbose:
       print("New episode, user goal:")
       print(self.user.goal)
       self.print_function(user_action=self.user_action)
 
   def print_function(self, agent_action=None, user_action=None):
+    if not self.verbose: return
     if agent_action:
       if dialog_config.run_mode == 0:
         if self.agent.__class__.__name__ != 'AgentCmd':
@@ -122,27 +123,26 @@ class BasePolicyManager(object):
       output - next agent action
     """
     #   CALL AGENT TO TAKE HER TURN
-    self.agent_state = self.state_tracker.get_state_for_agent()
+    self.agent_state = self.state.get_state_for_agent()
     self.agent_action = self.agent.state_to_action(self.agent_state)
-    #   Register AGENT action within the state_tracker
-    self.state_tracker.update(agent_action=self.agent_action)
+    #   Register AGENT action within the state
+    self.state.update(agent_action=self.agent_action)
     self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
-    if self.verbose:
-      self.print_function(agent_action = self.agent_action['slot_action'])
+    self.print_function(agent_action=self.agent_action['slot_action'])
 
     #   CALL USER TO TAKE HER TURN
-    self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
+    self.sys_action = self.state.dialog_history_dictionaries()[-1]
     self.user_action, self.episode_over, dialog_status = self.user.next(self.sys_action)
     self.reward = self.reward_function(dialog_status)
     #   Update state tracker with latest user action
     if self.episode_over != True:
-      self.state_tracker.update(user_action=self.user_action)
-      # self.print_function(user_action=self.user_action)
+      self.state.update(user_action=self.user_action)
+      self.print_function(user_action=self.user_action)
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
     if collect_data:
       self.store_experience(self.agent_state, self.agent_action, self.reward,
-              self.state_tracker.get_state_for_agent(), self.episode_over)
+              self.state.get_state_for_agent(), self.episode_over)
 
     return (self.episode_over, self.reward)
 
