@@ -79,7 +79,7 @@ class BasePolicyManager(object):
         print ("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
 
       if dialog_config.auto_suggest == 1:
-        print('(Suggested Values: %s)' % (self.state.get_suggest_slots_values(agent_action['request_slots'])))
+        print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
 
     elif user_action:
       if dialog_config.run_mode == 0:
@@ -98,7 +98,7 @@ class BasePolicyManager(object):
         if 'taxi' in user_request_slots.keys(): del user_request_slots['taxi']
 
         if len(user_request_slots) > 0:
-          possible_values = self.state.get_suggest_slots_values(user_action['request_slots'])
+          possible_values = self.agent_state.get_suggest_slots_values(user_action['request_slots'])
           for slot in possible_values.keys():
             if len(possible_values[slot]) > 0:
               print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))
@@ -106,7 +106,7 @@ class BasePolicyManager(object):
               print('(Suggested Values: there is no available %s)' % (slot))
         else:
           pass
-          #kb_results = self.state.get_current_kb_results()
+          #kb_results = self.agent_state.get_current_kb_results()
           #print ('(Number of movies in KB satisfying current constraints: %s)' % len(kb_results))
 
 
@@ -122,8 +122,8 @@ class BasePolicyManager(object):
       output - next agent action
     """
     #   CALL AGENT TO TAKE HER TURN
-    self.state = self.state_tracker.get_state_for_agent()
-    self.agent_action = self.agent.state_to_action(self.state)
+    self.agent_state = self.state_tracker.get_state_for_agent()
+    self.agent_action = self.agent.state_to_action(self.agent_state)
     #   Register AGENT action within the state_tracker
     self.state_tracker.update(agent_action=self.agent_action)
     self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
@@ -141,7 +141,7 @@ class BasePolicyManager(object):
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
     if collect_data:
-      self.store_experience(self.state, self.agent_action, self.reward,
+      self.store_experience(self.agent_state, self.agent_action, self.reward,
               self.state_tracker.get_state_for_agent(), self.episode_over)
 
     return (self.episode_over, self.reward)
