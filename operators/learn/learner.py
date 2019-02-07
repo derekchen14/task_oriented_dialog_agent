@@ -16,6 +16,7 @@ class Learner(object):
     self.verbose = args.verbose
     self.debug = args.debug
     self.epochs = args.epochs
+    self.user = args.user
     self.decay_times = args.decay_times
     self.teach_ratio = args.teacher_forcing
 
@@ -189,34 +190,34 @@ class Learner(object):
     return monitor
 
   def run_episodes(self, num_episodes):
-    print("Running {} training episodes".format(num_episodes))
-    for episode in progress_bar(range(num_episodes)):
+    for episode in range(num_episodes):  # progress_bar
       self.monitor = self.run_one_episode(self.monitor)
-
-      # run simulation to generate experiences that are stored in replay buffer
-      num_simulations = 3 if self.debug else 100
-      if self.verbose: print("Running {} simulations".format(num_simulations))
-      sim_monitor = RewardMonitor(num_simulations)
-      for sim_episode in range(num_simulations):
-        sim_monitor = self.run_one_episode(sim_monitor, collect_data=True)
-      sim_monitor.summarize_results(self.verbose)
-
-      if self.monitor.best_so_far(sim_monitor.success_rate):
-        self.module.save_checkpoint(sim_monitor, episode)
-
-        # best_model['model'] = copy.deepcopy(agent)
-        # best_res['success_rate'] = simulation_res['success_rate']
-        # best_res['ave_reward'] = simulation_res['ave_reward']
-        # best_res['ave_turns'] = simulation_res['ave_turns']
-        # best_res['epoch'] = episode
-      # agent.clone_dqn = copy.deepcopy(agent.dqn)
-      # agent.train(batch_size, 1)
-      # agent.predict_mode = False
+      if self.user != "command": self.run_simulations()
     self.monitor.summarize_results(True)
-    # self.verbose
+
+  def run_simulations(self):
+    """ run simulation to generate experiences that are stored in replay buffer """
+    num_simulations = 3 if self.debug else 100
+    if self.verbose: print("Running {} simulations".format(num_simulations))
+    sim_monitor = RewardMonitor(num_simulations)
+    for sim_episode in range(num_simulations):
+      sim_monitor = self.run_one_episode(sim_monitor, collect_data=True)
+    sim_monitor.summarize_results(self.verbose)
+
+    if self.monitor.best_so_far(sim_monitor.success_rate):
+      self.module.save_checkpoint(sim_monitor, episode)
 
 
 """
+    best_model['model'] = copy.deepcopy(agent)
+    best_res['success_rate'] = simulation_res['success_rate']
+    best_res['ave_reward'] = simulation_res['ave_reward']
+    best_res['ave_turns'] = simulation_res['ave_turns']
+    best_res['epoch'] = episode
+      agent.clone_dqn = copy.deepcopy(agent.dqn)
+      agent.train(batch_size, 1)
+      agent.predict_mode = False
+
     n_iters = 600 if self.debug else len(train_data)
     step_size = n_iters/(self.decay_times+1)
     enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)

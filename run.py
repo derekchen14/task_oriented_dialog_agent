@@ -31,7 +31,9 @@ if __name__ == "__main__":
   system.evaluate(args.test_mode)
 
 """
-TODO:
-Change all "diaact" to "dialogue_act"
-Change all "nl" to "utterance"
+TODO: Change all
+"diaact" to "dialogue_act"
+"nl" to "utterance"
+"usr" to "user"
+"sys" to "agent"
 """

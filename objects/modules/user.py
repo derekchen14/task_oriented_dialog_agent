@@ -2,29 +2,37 @@ import pdb, sys
 import random, copy
 from datasets.ddq import constants as dialog_config
 
-
-# Used for simulating the user portion of a cycle, mostly template retrieval
-class UserSimulator(object):
-
+class BaseUser(object):
   def __init__(self, args, ontology, kind="movie"):
     self.max_turn = args.max_turn
     self.num_episodes = args.epochs
     self.kind = kind
-
-    self.slot_error_prob = 0.0
-    self.intent_error_prob = 0.0
-    self.text_generator = None
-    self.learning_phase = None
-    self.goal_sets = None
+    self.do_print= True
 
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
     self.relation_set = ontology.relations
     self.value_set = ontology.values
 
+  def _sample_goal(self):
+    return random.choice(self.goal_sets[self.learning_phase])
+
   def initialize_episode(self):
-    # print("Initializing user simulator, generating a user goal")
-    # logger.info("Initializing user simulator, generating a user goal")
+    raise(NotImplementedError, "User episode is not initialized")
+  def next(self, agent_action):
+    raise(NotImplementedError, "User cannot take next step")
+
+# Used for simulating the user portion of a cycle, mostly template retrieval
+class UserSimulator(BaseUser):
+  def __init__(self, args, ontology, kind="movie"):
+    super().__init__(args, ontology, kind)
+    self.slot_error_prob = 0.0
+    self.intent_error_prob = 0.0
+    self.text_generator = None
+    self.learning_phase = None
+    self.goal_sets = None
+
+  def initialize_episode(self):
     self.state = {
       'history_slots': {},
       'inform_slots': {},
@@ -35,14 +43,11 @@ class UserSimulator(object):
 
     self.goal = self._sample_goal()
     self.goal['request_slots']['ticket'] = 'UNK'
-    self.constraint_check = dialog_config.CONSTRAINT_CHECK_FAILURE
-
     self.episode_over = False
     self.user_action = self._sample_action()
-    self.dialogue_status = dialog_config.NO_OUTCOME_YET
 
-  def _sample_goal(self):
-    return random.choice(self.goal_sets[self.learning_phase])
+    self.constraint_check = dialog_config.CONSTRAINT_CHECK_FAILURE
+    self.dialogue_status = dialog_config.NO_OUTCOME_YET
 
   def _sample_action(self):
     """ randomly sample a start action based on user goal """
@@ -89,8 +94,6 @@ class UserSimulator(object):
 
     return self.act_to_nl(sample_action)
 
-  # def next(self):
-  #   raise(NotImplementedError, "User simulator cannot take next step")
   def next(self, system_action):
     """ Generate next User Action based on last System Action """
     self.state['turn_count'] += 2
@@ -365,7 +368,65 @@ class UserSimulator(object):
       #self.goal['request_slots']['starttime'] = 'UNK'
       #self.goal['request_slots']['date'] = 'UNK'
 
+class CommandLineUser(BaseUser):
+  def __init__(self, args, ontology, kind="movie"):
+    super().__init__(args, ontology, kind)
+    self.learning_phase = "train"
+    self.agent_input_mode = "raw_text" # or "dialogue_act"
+    self.do_print = False
 
-class CommandLineUser(object):
-  def __init__(self, args, ontology, goal_sets):
-    print("figure out how to add command line user here")
+  def initialize_episode(self):
+    self.goal = self._sample_goal()
+    self.turn_count = -2
+    self.user_action = {'diaact':'UNK', 'inform_slots':{}, 'request_slots':{}}
+
+    if self.agent_input_mode == "raw_text":
+      print("Your input will be raw text so the system expects the dialogue \
+        model to include a NLU module for intent classification")
+    elif self.agent_input_mode == "dialogue_act":
+      print("The system expects a properly written user intent of the form \
+        act(slot=value) such as inform(city=Los_Angeles).  Multiple intents \
+        can be included by joining them with a comma. Spaces will be removed.")
+    print("Your goal: {}".format(self.goal))
+    self.next(agent_action={})
+
+  def next(self, agent_action):
+    # Generate an action by getting input interactively from the command line
+    self.turn_count += 2
+    command_line_input = input("{}) user: ".format(self.turn_count))
+    """ a command line user cannot end the dialogue.  thus, they cannot
+    decide that the episode is over and the dialogue status is always 0.
+    (meaning No Outcome Yet, as opposed to -1 of Fail and 1 of Success)"""
+    episode_over = (self.max_turn < self.turn_count)
+    dialog_status = 0
+
+    if self.agent_input_mode == "raw_text":
+      self.user_action['nl'] = command_line_input
+    elif self.agent_input_mode == "dialogue_act":
+      self.parse_intent(command_line_input)
+    self.user_action['turn_count'] = self.turn_count
+
+    return self.user_action, episode_over, dialog_status
+
+  def parse_intent(self, command_line_input):
+    """ Parse input from command line into dialogue act form """
+    intents = command_line_input.strip(' ').strip('\n').strip('\r').split(',')
+    for intent in intents:
+      idx = intent.find('(')
+      act = intent[0:idx]
+      slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
+
+      self.error_checking(idx, act, slot, value)
+      self.user_action["diaact"] = act
+      self.user_action["nl"] = "N/A"
+      self.user_action["{}_slots".format(act)][slot] = value
+
+  def error_checking(self, idx, act, slot, value):
+    if idx < 0:
+      raise(ValueError("input is not properly formatted as a user intent"))
+    if act not in self.act_set:
+      raise(ValueError("dialogue act is not part of allowable act set"))
+    if slot not in self.slot_set:
+      raise(ValueError("slot is not part of allowable slot set"))
+    if value not in self.value_set[slot]:
+      raise(ValueError("value is not part of the available value set"))

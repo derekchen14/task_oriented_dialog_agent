@@ -7,6 +7,7 @@ import datasets.ddq.constants as dialog_config
 
 class BasePolicyManager(object):
   def __init__(self, args, model, kb, ontology):
+    self.debug = args.debug
     self.verbose = args.verbose
     self.max_turn = args.max_turn
     self.batch_size = args.batch_size
@@ -59,57 +60,21 @@ class BasePolicyManager(object):
     self.user.initialize_episode()
     self.agent.initialize_episode()
 
-    self.user_action = self.user.user_action.copy()
+    self.user_action = self.user.user_action
     self.state.update(user_action=self.user_action)
-    if self.verbose:
+    if self.verbose and self.user.do_print:
       print("New episode, user goal:")
       print(self.user.goal)
-      self.print_function(user_action=self.user_action)
+      self.print_function(self.user_action, "user")
 
-  def print_function(self, agent_action=None, user_action=None):
+  def print_function(self, action_dict, kind):
     if not self.verbose: return
-    if agent_action:
-      if dialog_config.run_mode == 0:
-        if self.agent.__class__.__name__ != 'AgentCmd':
-          print ("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-      elif dialog_config.run_mode == 1:
-        if self.agent.__class__.__name__ != 'AgentCmd':
-          print ("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'], agent_action['request_slots']))
-      elif dialog_config.run_mode == 2: # debug mode
-        print ("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'], agent_action['request_slots']))
-        print ("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-
-      if dialog_config.auto_suggest == 1:
-        print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
-
-    elif user_action:
-      if dialog_config.run_mode == 0:
-        print ("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
-      elif dialog_config.run_mode == 1:
-        print ("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (user_action['turn_count'], user_action['diaact'], user_action['inform_slots'], user_action['request_slots']))
-      elif dialog_config.run_mode == 2: # debug mode, show both
-        print ("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (user_action['turn_count'], user_action['diaact'], user_action['inform_slots'], user_action['request_slots']))
-        print ("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
-
-      if self.agent.__class__.__name__ == 'AgentCmd': # command line agent
-        user_request_slots = user_action['request_slots']
-        if 'ticket'in user_request_slots.keys(): del user_request_slots['ticket']
-
-        if 'reservation' in user_request_slots.keys(): del user_request_slots['reservation']
-        if 'taxi' in user_request_slots.keys(): del user_request_slots['taxi']
-
-        if len(user_request_slots) > 0:
-          possible_values = self.agent_state.get_suggest_slots_values(user_action['request_slots'])
-          for slot in possible_values.keys():
-            if len(possible_values[slot]) > 0:
-              print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))
-            elif len(possible_values[slot]) == 0:
-              print('(Suggested Values: there is no available %s)' % (slot))
-        else:
-          pass
-          #kb_results = self.agent_state.get_current_kb_results()
-          #print ('(Number of movies in KB satisfying current constraints: %s)' % len(kb_results))
-
+    if self.debug:
+      for k, v in action_dict.items(): print(kind, k, v)
+    else:
+      print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
+    if dialog_config.auto_suggest == 1:
+      print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
 
   def next(self, collect_data):
     """ Initiates exchange between agent and user (agent first)
@@ -128,7 +93,7 @@ class BasePolicyManager(object):
     #   Register AGENT action within the state
     self.state.update(agent_action=self.agent_action)
     self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
-    self.print_function(agent_action=self.agent_action['slot_action'])
+    self.print_function(self.agent_action['slot_action'], "agent")
 
     #   CALL USER TO TAKE HER TURN
     self.sys_action = self.state.dialog_history_dictionaries()[-1]
@@ -137,7 +102,8 @@ class BasePolicyManager(object):
     #   Update state tracker with latest user action
     if self.episode_over != True:
       self.state.update(user_action=self.user_action)
-      self.print_function(user_action=self.user_action)
+      if self.user.do_print:
+        self.print_function(self.user_action, "user")
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
     if collect_data:
