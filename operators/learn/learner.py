@@ -190,16 +190,16 @@ class Learner(object):
     return monitor
 
   def run_episodes(self, num_episodes):
-    for episode in range(num_episodes):  # progress_bar
+    for episode in range(num_episodes):  #progress_bar(
       self.monitor = self.run_one_episode(self.monitor)
-      if self.user != "command": self.run_simulations()
+      # if self.user != "command": self.run_simulations()
     self.monitor.summarize_results(True)
 
   def run_simulations(self):
     """ run simulation to generate experiences that are stored in replay buffer """
-    num_simulations = 3 if self.debug else 100
+    num_simulations = 3 if self.debug or self.verbose else 100
     if self.verbose: print("Running {} simulations".format(num_simulations))
-    sim_monitor = RewardMonitor(num_simulations)
+    sim_monitor = RewardMonitor()
     for sim_episode in range(num_simulations):
       sim_monitor = self.run_one_episode(sim_monitor, collect_data=True)
     sim_monitor.summarize_results(self.verbose)

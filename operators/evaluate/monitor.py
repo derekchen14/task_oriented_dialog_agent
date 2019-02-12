@@ -12,7 +12,7 @@ class MonitorBase(object):
     raise(NotImplementedError)
 
 class LossMonitor(MonitorBase):
-  def __init__(self, args):
+  def __init__(self, epochs, threshold):
     super().__init__(args)
     self.train_steps = []
     self.train_losses = []
@@ -22,10 +22,10 @@ class LossMonitor(MonitorBase):
     self.val_losses = []
     self.val_epoch = 0
 
-    self.num_epochs = args.epochs
+    self.num_epochs = epochs
     self.completed_training = True
     # Minimum loss we are willing to accept for calculating absolute loss
-    self.threshold = args.early_stop
+    self.threshold = threshold
     self.absolute_range = 4
     # Trailing average storage for calculating relative loss
     self.trailing_average = []
@@ -113,11 +113,11 @@ class LossMonitor(MonitorBase):
 
 class RewardMonitor(MonitorBase):
   """ Tracks global learning status across episodes. """
-  def __init__(self, num_episodes, threshold=0.0):
+  def __init__(self, threshold=0.0):
     self.rewards = []
     self.turns = []
     self.num_successes = 0
-    self.num_episodes = num_episodes
+    self.num_episodes = 0
 
     self.success_rate_threshold = threshold  # 0.3
     self.best_success_rate = -1
@@ -151,7 +151,7 @@ class RewardMonitor(MonitorBase):
 
 def Monitor(epochs, threshold, task):
   if task == "policy":
-    return RewardMonitor(epochs, threshold)
+    return RewardMonitor(threshold)
   else:
     return LossMonitor(epochs, threshold)
 

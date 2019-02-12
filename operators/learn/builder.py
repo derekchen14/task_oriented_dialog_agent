@@ -8,8 +8,7 @@ from torch.nn.parameter import Parameter
 from objects.components import device
 from objects.models import encoders as enc
 from objects.models import decoders as dec
-from objects.models import Transformer, EntNet, NPN, GLAD, Seq2Seq
-from objects.models import InformPolicy
+from objects.models import *
 from objects.modules import *
 
 class Builder(object):
@@ -74,7 +73,7 @@ class Builder(object):
       glad_model.save_config(self.dir)
       return glad_model.to(device)
     elif self.model_type == "rulebased":
-      return InformPolicy(processor.ontology)
+      return EchoPolicy(processor.ontology)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)
