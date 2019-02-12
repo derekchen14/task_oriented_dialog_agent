@@ -22,75 +22,83 @@ class TextGenerator(object):
     self.params = parameters
     self.learning_method = "rulebased" # or "reinforce" or "supervised"
 
-  def post_process(self, pred_template, slot_val_dict, slot_dict):
-    """ post_process to fill the slot in the template sentence """
-
-    sentence = pred_template
-    suffix = "_PLACEHOLDER"
-
-    for slot in slot_val_dict.keys():
-      slot_vals = slot_val_dict[slot]
-      slot_placeholder = slot + suffix
-      if slot == 'result' or slot == 'numberofpeople': continue
-      if slot_vals == dialog_config.NO_VALUE_MATCH: continue
-      tmp_sentence = sentence.replace(slot_placeholder, slot_vals, 1)
-      sentence = tmp_sentence
+  def post_process(self, sentence, slot_val_dict, slot_dict):
+    """ post_process to fill the slot in the template sentence
 
     if 'numberofpeople' in slot_val_dict.keys():
       slot_vals = slot_val_dict['numberofpeople']
       slot_placeholder = 'numberofpeople' + suffix
       tmp_sentence = sentence.replace(slot_placeholder, slot_vals, 1)
       sentence = tmp_sentence
+    """
+    for slot in slot_val_dict.keys():
+      slot_vals = slot_val_dict[slot]
+      slot_placeholder = slot + "_PLACEHOLDER"
+      if slot == 'result': continue
+      if slot_vals == dialog_config.NO_VALUE_MATCH: continue
+      sentence = sentence.replace(slot_placeholder, slot_vals, 1)
 
     for slot in slot_dict.keys():
-      slot_placeholder = slot + suffix
-      tmp_sentence = sentence.replace(slot_placeholder, '')
-      sentence = tmp_sentence
-
+      slot_placeholder = slot + "_PLACEHOLDER"
+      sentence = sentence.replace(slot_placeholder, '')
     return sentence
 
-
-  def generate(self, dia_act, turn_msg):
-    """ convert_diaact_to_nl(self, dia_act, turn_msg):
+  def generate(self, chosen_action, turn_msg):
+    """ convert_diaact_to_nl(self, chosen_action, turn_msg):
     Convert Dia_Act into NL: Rule + Model """
 
     sentence = ""
-    boolean_in = False
+    sentence_filled = False
 
     # remove I do not care slot in task(complete)
-    if dia_act['diaact'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] != dialog_config.NO_VALUE_MATCH:
-      inform_slot_set = dia_act['inform_slots'].keys()
-      for slot in inform_slot_set:
-        if dia_act['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE: del dia_act['inform_slots'][slot]
+    is_inform = chosen_action['diaact'] == 'inform'
+    is_complete = 'taskcomplete' in chosen_action['inform_slots'].keys()
+    if is_complete: task_state = chosen_action['inform_slots']['taskcomplete']
 
-    if dia_act['diaact'] in self.diaact_nl_pairs['dia_acts'].keys():
-      for ele in self.diaact_nl_pairs['dia_acts'][dia_act['diaact']]:
-        if set(ele['inform_slots']) == set(dia_act['inform_slots'].keys()) and set(ele['request_slots']) == set(dia_act['request_slots'].keys()):
-          sentence = self.diaact_to_nl_slot_filling(dia_act, ele['nl'][turn_msg])
-          boolean_in = True
+    if is_inform and is_complete and task_state != dialog_config.NO_VALUE_MATCH:
+      inform_slot_set = chosen_action['inform_slots'].keys()
+      for slot in inform_slot_set:
+        does_not_care = chosen_action['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE
+        if does_not_care: del chosen_action['inform_slots'][slot]
+
+    # if the slots and values match the template, then fill that template
+    if chosen_action['diaact'] in self.diaact_nl_pairs['dia_acts'].keys():
+      for ele in self.diaact_nl_pairs['dia_acts'][chosen_action['diaact']]:
+        has_inform = set(ele['inform_slots']) == set(chosen_action['inform_slots'].keys())
+        has_request = set(ele['request_slots']) == set(chosen_action['request_slots'].keys())
+        if has_inform and has_request:
+          sentence = self.diaact_to_nl_slot_filling(chosen_action, ele['nl'][turn_msg])
+          sentence_filled = True
           break
 
-    if dia_act['diaact'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
-      sentence = "Oh sorry, there is no ticket available."
+    if is_inform and is_complete and task_state == dialog_config.NO_VALUE_MATCH:
+      if 'moviename' in chosen_action['inform_slots'].keys():
+        sentence = "Oh sorry, there is no ticket available."
+      if 'restaurantname' in chosen_action['inform_slots'].keys():
+        sentence = "Oh sorry, there is no restaurant available."
+      if 'pickup_location' in chosen_action['inform_slots'].keys():
+        sentence = "Oh sorry, there is no taxi available."
+      sentence_filled = True
 
-      if 'restaurantname' in dia_act['inform_slots'].keys(): sentence = "Oh sorry, there is no restaurant available."
-      if 'pickup_location' in dia_act['inform_slots'].keys(): sentence = "Oh sorry, there is no taxi available."
+    if not sentence_filled:
+      sentence = self.translate_diaact(chosen_action)
 
-    if boolean_in == False: sentence = self.translate_diaact(dia_act)
     return sentence
 
 
-  def translate_diaact(self, dia_act):
-    """ prepare the diaact into vector representation, and generate the sentence by Model """
+  def translate_diaact(self, agent_action):
+    """ embed the agent action into a vector representation
+      then generate the sentence with the neural encoding model
+      finally post process the sentence to replace 'PLACEHOLDER' terms """
     if self.params['dia_slot_val'] != 1:
       if not hasattr(self, "nlg_cache"):
         self.nlg_cache = {}
-      tmp_dia_act = copy.deepcopy(dia_act)
-      tmp_dia_act['inform_slots'] = {inform_slot_name: "" for inform_slot_name in tmp_dia_act['inform_slots'].keys()}
+      tmp_dia_act = copy.deepcopy(agent_action)
+      tmp_dia_act['inform_slots'] = {slot: "" for slot, val in tmp_dia_act['inform_slots'].items()}
       dia_act_key = repr(to_consistent_data_structure(tmp_dia_act))
       pred_sentence = self.nlg_cache.get(dia_act_key, None)
       if pred_sentence is not None:
-        sentence = self.post_process(pred_sentence, dia_act['inform_slots'], self.slot_dict)
+        sentence = self.post_process(pred_sentence, agent_action['inform_slots'], self.slot_dict)
         return sentence
 
     word_dict = self.word_dict
@@ -100,7 +108,7 @@ class TextGenerator(object):
     inverse_word_dict = self.inverse_word_dict
 
     act_rep = np.zeros((1, len(act_dict)))
-    act_rep[0, act_dict[dia_act['diaact']]] = 1.0
+    act_rep[0, act_dict[agent_action['diaact']]] = 1.0
 
     slot_rep_bit = 2
     slot_rep = np.zeros((1, len(slot_dict)*slot_rep_bit))
@@ -115,11 +123,11 @@ class TextGenerator(object):
       words = np.zeros((1, len(word_dict)))
       words[0, word_dict['s_o_s']] = 1.0
 
-    for slot in dia_act['inform_slots'].keys():
+    for slot in agent_action['inform_slots'].keys():
       slot_index = slot_dict[slot]
       slot_rep[0, slot_index*slot_rep_bit] = 1.0
 
-      for slot_val in dia_act['inform_slots'][slot]:
+      for slot_val in agent_action['inform_slots'][slot]:
         if self.params['dia_slot_val'] == 2:
           slot_placeholder = slot + suffix
           if slot_placeholder in template_word_dict.keys():
@@ -128,7 +136,7 @@ class TextGenerator(object):
           if slot_val in word_dict.keys():
             word_rep[0, word_dict[slot_val]] = 1.0
 
-    for slot in dia_act['request_slots'].keys():
+    for slot in agent_action['request_slots'].keys():
       slot_index = slot_dict[slot]
       slot_rep[0, slot_index*slot_rep_bit + 1] = 1.0
 
@@ -148,7 +156,7 @@ class TextGenerator(object):
     if self.params['dia_slot_val'] != 1:
       self.nlg_cache[dia_act_key] = pred_sentence
 
-    sentence = self.post_process(pred_sentence, dia_act['inform_slots'], slot_dict)
+    sentence = self.post_process(pred_sentence, agent_action['inform_slots'], slot_dict)
     return sentence
 
   def diaact_to_nl_slot_filling(self, dia_act, template_sentence):
@@ -243,8 +251,7 @@ def to_consistent_data_structure(obj):
 
   >>> to_consistent_data_structure([
     {"a" : 3, "b": 4},
-    ( {"e" : 5}, (6, 7)
-    ),
+    ( {"e" : 5}, (6, 7) ),
     set([10, ]),
     11
   ])
