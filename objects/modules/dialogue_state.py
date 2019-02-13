@@ -68,8 +68,8 @@ class DialogueState:
     self.history_vectors = np.zeros((1, self.action_dimension))
     self.history_dictionaries = []
     self.turn_count = 0
-    self.current_slots = {}
 
+    self.current_slots = {}
     self.current_slots['inform_slots'] = {}
     self.current_slots['request_slots'] = {}
     self.current_slots['proposed_slots'] = {}
@@ -128,7 +128,8 @@ class DialogueState:
       if agent_action['slot_action']:
         response = copy.deepcopy(agent_action['slot_action'])
 
-        inform_slots = self.kb_helper.fill_inform_slots(response['inform_slots'], self.current_slots)
+        inform_slots = self.kb_helper.fill_inform_slots(
+                                response['inform_slots'], self.current_slots)
         agent_action_values = {'speaker': "agent",
                                 'diaact': response['diaact'],
                                 'inform_slots': inform_slots,

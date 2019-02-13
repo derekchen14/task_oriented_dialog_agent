@@ -1,12 +1,9 @@
-# python run.py --task policy --model rulebased --report-quant -e 5 --user simulate \
-#     --metrics success_rate avg_reward --dataset ddq/movies --batch-size 16
-    # --verbose
-python run.py --task policy --model rulebased --report-quant -e 5 --user command \
+python run.py --task policy --model rulebased --report-quant -e 5 --user simulate \
     --metrics success_rate avg_reward --dataset ddq/movies --batch-size 16 \
-    --verbose
-
-# python run.py --task-name simulation --model-type rule --report-results \
-#     --metrics success_rate --dataset ddq/restaurants
+    --verbose --debug
+# python run.py --task policy --model rulebased --report-quant -e 5 --user command \
+#     --metrics success_rate avg_reward --dataset ddq/movies --batch-size 16 \
+#     --verbose --debug
 
 
 # python run.py --task-name simulation --model-type attention --report-results \

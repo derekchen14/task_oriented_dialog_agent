@@ -51,20 +51,20 @@ class TextGenerator(object):
     sentence_filled = False
 
     # remove I do not care slot in task(complete)
+    current_keys = list(chosen_action['inform_slots'].keys()).copy()
     is_inform = chosen_action['diaact'] == 'inform'
-    is_complete = 'taskcomplete' in chosen_action['inform_slots'].keys()
+    is_complete = 'taskcomplete' in current_keys
     if is_complete: task_state = chosen_action['inform_slots']['taskcomplete']
 
     if is_inform and is_complete and task_state != dialog_config.NO_VALUE_MATCH:
-      inform_slot_set = chosen_action['inform_slots'].keys()
-      for slot in inform_slot_set:
+      for slot in current_keys:
         does_not_care = chosen_action['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE
         if does_not_care: del chosen_action['inform_slots'][slot]
 
     # if the slots and values match the template, then fill that template
     if chosen_action['diaact'] in self.diaact_nl_pairs['dia_acts'].keys():
       for ele in self.diaact_nl_pairs['dia_acts'][chosen_action['diaact']]:
-        has_inform = set(ele['inform_slots']) == set(chosen_action['inform_slots'].keys())
+        has_inform = set(ele['inform_slots']) == set(current_keys)
         has_request = set(ele['request_slots']) == set(chosen_action['request_slots'].keys())
         if has_inform and has_request:
           sentence = self.diaact_to_nl_slot_filling(chosen_action, ele['nl'][turn_msg])

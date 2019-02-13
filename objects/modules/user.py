@@ -45,7 +45,7 @@ class UserSimulator(BaseUser):
     self.item_in_use = False
 
     self.goal = self._sample_goal()
-    if self.debug: self.override_with_fake_goal()
+    self.override_with_fake_goal()
     self.goal['request_slots']['ticket'] = 'UNK'
     self.episode_over = False
     self.user_action = self._sample_action()
@@ -153,6 +153,7 @@ class UserSimulator(BaseUser):
     if informs['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
       self.state['history_slots']['ticket'] = dialog_config.NO_VALUE_MATCH
       self.clear_option(slot='ticket')
+
     # Assume, but verify that all constraints are met
     self.constraint_check = dialog_config.CONSTRAINT_CHECK_SUCCESS
     for slot in self.goal['inform_slots'].keys():
@@ -166,6 +167,7 @@ class UserSimulator(BaseUser):
         self.state['request_slots'].clear()
         self.state['inform_slots'].clear()
         self.constraint_check = dialog_config.CONSTRAINT_CHECK_FAILURE
+        pdb.set_trace()
         break
     #if 'ticket' in self.state['remaining_slots']: self.state['request_slots']['ticket'] = 'UNK'
 
@@ -236,13 +238,14 @@ class UserSimulator(BaseUser):
 
     if len(requests.keys()) > 0:
       slot = list(requests.keys())[0] # only one slot
+      is_inform = slot in self.goal['inform_slots'].keys()
       is_request = slot in self.goal['request_slots'].keys()
       is_remaining = slot in self.state['remaining_slots']
       is_history = slot in self.state['history_slots'].keys()
 
       # if the agents asks about a slot value,
       # and the user has the answer, then the user will inform the agent
-      if slot in self.goal['inform_slots'].keys():
+      if is_inform:
         #and slot not in self.state['request_slots'].keys():
         self.state['inform_slots'][slot] = self.goal['inform_slots'][slot]
         self.state['diaact'] = "inform"
@@ -269,12 +272,12 @@ class UserSimulator(BaseUser):
           if info_slot in self.state['remaining_slots']:
             self.state['remaining_slots'].remove(info_slot)
       else:
-        no_more_requests = len(self.state['request_slots']) == 0
-        no_more_remaining = len(self.state['remaining_slots']) == 0
-        if no_more_requests and no_more_remaining:
-          self.state['diaact'] = "thanks"
-        else:
-          self.state['diaact'] = "inform"
+        # no_more_requests = len(self.state['request_slots']) == 0
+        # no_more_remaining = len(self.state['remaining_slots']) == 0
+        # if no_more_requests and no_more_remaining:
+        #   self.state['diaact'] = "thanks"
+        # else:
+        self.state['diaact'] = "inform"
         self.state['inform_slots'][slot] = dialog_config.I_DO_NOT_CARE
     else: # this case should not appear
       if len(self.state['remaining_slots']) > 0:
@@ -315,6 +318,7 @@ class UserSimulator(BaseUser):
       goals = self.goal['inform_slots'].keys()
       goal = self.goal['inform_slots']
       found_wrong_match = (hist_slot in goals) and (hist_value != goal[hist_slot])
+      """
       print("For {}, we found value of {}".format(hist_slot, hist_value))
       if failed_to_find_match:
         print("we failed to find a match")
@@ -322,20 +326,21 @@ class UserSimulator(BaseUser):
         print("we found a wrong match, the correct value is", goal[hist_slot])
       else:
         print("looks like you passed this level")
+      """
 
       if failed_to_find_match or found_wrong_match:
         self.dialog_status = dialog_config.FAILED_DIALOG
-    print("matches    ", self.dialog_status)
+    # print("matches    ", self.dialog_status)
 
     if 'ticket' in informs.keys():
       if informs['ticket'] == dialog_config.NO_VALUE_MATCH:
         self.dialog_status = dialog_config.FAILED_DIALOG
-    print("ticket slot", self.dialog_status)
+    # print("ticket slot", self.dialog_status)
 
     if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
       self.dialog_status = dialog_config.FAILED_DIALOG
-    print("constraints", self.dialog_status)
-    sys.exit()
+    # print("constraints", self.dialog_status)
+    # print(self.state)
 
   def clear_option(self, slot):
     if slot in self.state['remaining_slots']:
@@ -414,8 +419,11 @@ class UserSimulator(BaseUser):
       # self.goal['inform_slots']['numberofpeople'] = '14'
       # self.goal['inform_slots']['theater'] = 'amc pacific place 11 theater'
       # self.goal['inform_slots']['date'] = 'March 16th'
-      self.goal['inform_slots']['date'] = 'tomorrow'
-      del self.goal['inform_slots']['other']
+      if "date" in self.goal['inform_slots'].keys():
+        if self.goal['inform_slots']['date'] == 'tomorrow night':
+          self.goal['inform_slots']['date'] = 'tomorrow'
+      if "other" in self.goal['inform_slots'].keys():
+        del self.goal['inform_slots']['other']
       # self.goal['inform_slots']['moviename'] = 'zootopia'
       # self.goal['inform_slots']['distanceconstraints'] = 'close to 95833'
       # self.goal['request_slots'].clear()

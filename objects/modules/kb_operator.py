@@ -1,10 +1,9 @@
-import numpy as np
 import os, pdb, sys  # set_trace
+import copy
 import logging
+import random
 
 from torch import nn
-
-import copy
 from collections import defaultdict
 import datasets.ddq.constants as dialog_config
 
@@ -30,31 +29,28 @@ class KBHelper(object):
           dictionary of the already filled-in slots
 
     Returns:
-    filled_in_slots  --  A dictionary of form {slot1:value1, slot2:value2}
-          for each sloti in inform_slots_to_be_filled
+    filled_slots  --  A dictionary of form {slot1:value1, slot2:value2}
+          for each slot in inform_slots_to_be_filled
     """
     kb_results = self.available_results_from_kb(current_slots)
-    # print("<<<<<<<<<<<<<, KB Results")
-    # print(kb_results)
-    # pdb.set_trace()
     #if dialog_config.auto_suggest == 1:
     #    print 'Number of entries in KB satisfying current constraints: ',
     #    len(kb_results)
 
-    filled_in_slots = {}
+    filled_slots = {}
     if 'taskcomplete' in inform_slots_to_be_filled.keys():
-      filled_in_slots.update(current_slots['inform_slots'])
+      filled_slots.update(current_slots['inform_slots'])
 
     for slot in inform_slots_to_be_filled.keys():
       if slot == 'numberofpeople':
         if slot in current_slots['inform_slots'].keys():
-          filled_in_slots[slot] = current_slots['inform_slots'][slot]
+          filled_slots[slot] = current_slots['inform_slots'][slot]
         elif slot in inform_slots_to_be_filled.keys():
-          filled_in_slots[slot] = inform_slots_to_be_filled[slot]
+          filled_slots[slot] = inform_slots_to_be_filled[slot]
         continue
 
       if slot == 'ticket' or slot == 'reservation' or slot == 'taxi' or slot == 'taskcomplete':
-        filled_in_slots[slot] = dialog_config.TICKET_AVAILABLE if len(kb_results)>0 else dialog_config.NO_VALUE_MATCH
+        filled_slots[slot] = dialog_config.TICKET_AVAILABLE # if len(kb_results) > 0 else dialog_config.NO_VALUE_MATCH
         continue
 
       if slot == 'closing': continue
@@ -70,17 +66,17 @@ class KBHelper(object):
           # print("aaa")
           # - means largest goes first, [1] sort by count,
           # [0] grab the largest tuple, [0] get the value rather than the count
-          filled_in_slots[slot] = sorted(values_counts, key=lambda x: -x[1])[0][0]
+          filled_slots[slot] = sorted(values_counts, key=lambda x: -x[1])[0][0]
         else:
           # print("bbb")
-          filled_in_slots[slot] = inform_slots_to_be_filled[slot]
+          filled_slots[slot] = inform_slots_to_be_filled[slot]
       else:
         # print("ccc")
-        filled_in_slots[slot] = dialog_config.NO_VALUE_MATCH #"NO VALUE MATCHES SNAFU!!!"
-        # filled_in_slots["{}_alt".format(slot)] = find_alternate(slot, current_slots)
+        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH
+        #"NO VALUE MATCHES SNAFU!!!"
+        filled_slots[slot] = self.find_alternate(slot, current_slots)
 
-    # print("filled in slots:", filled_in_slots)
-    return filled_in_slots
+    return filled_slots
 
   """
   def available_values_for_slot_and_constraints(self, slot, constraints):
@@ -101,9 +97,22 @@ class KBHelper(object):
           all_slots_match = False
   """
 
-  def find_alternate(self, slot, current_slots):
-    constraints = list(current_slots["inform_slots"].keys())
-    kb_results = self.available_results_from_kb(current_slots)
+  def find_alternate(self, desired_slot, current_slots):
+    constraints = current_slots["inform_slots"].copy()
+    c_keys = list(constraints.keys())
+
+    results = self.search_by_constraint(c_keys, constraints)
+    while len(results) < 1:
+      random_key = random.choice(c_keys)
+      c_keys.remove(random_key)
+      del constraints[random_key]
+      results = self.search_by_constraint(c_keys, constraints)
+
+    ticket_options = [options for _, options in results.items()]
+    golden_ticket = random.choice(ticket_options)
+    desired_value = golden_ticket[desired_slot]
+
+    return desired_value
 
   def available_slot_values(self, slot, kb_results):
     """ Return the set of values available for the slot based on the current constraints """
@@ -149,7 +158,7 @@ class KBHelper(object):
     elif cached_kb_length == -1:
       return dict([])
 
-    results = self.search_by_constraint(constrain_keys, cache_keys, informs)
+    results = self.search_by_constraint(constrain_keys, informs, cache_keys)
     return results
 
     """
@@ -167,7 +176,7 @@ class KBHelper(object):
     """
 
 
-  def search_by_constraint(self, constrain_keys, cache_keys, informs):
+  def search_by_constraint(self, constrain_keys, constraints, cache_keys=None):
     results = []
     # kb_results = copy.deepcopy(self.knowledge_base)
     for movie_id, movie in self.knowledge_base.items():
@@ -179,17 +188,17 @@ class KBHelper(object):
       if len(set_union ^ set_diff) == len(constrain_keys):
         match = True
         for idx, k in enumerate(constrain_keys):
-          if str(informs[k]).lower() == str(movie[k]).lower():
+          if str(constraints[k]).lower() == str(movie[k]).lower():
             continue
           else:
             match = False
 
         if match:
-          self.cached_kb[cache_keys].append((movie_id, movie))
           results.append((movie_id, movie))
-          #print 'res', id
+          if cache_keys is not None:
+            self.cached_kb[cache_keys].append((movie_id, movie))
 
-    if len(results) == 0:
+    if len(results) == 0 and cache_keys is not None:
       self.cached_kb[cache_keys] = None
     return dict(results)
 

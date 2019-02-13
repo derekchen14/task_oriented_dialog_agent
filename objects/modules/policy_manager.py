@@ -1,3 +1,4 @@
+import pdb, sys
 import logging
 import torch
 
@@ -19,7 +20,7 @@ class BasePolicyManager(object):
   def action_to_nl(self, agent_action):
     """ Add natural language capabilities (NL) to Agent Dialogue Act """
     if agent_action['slot_action']:
-      agent_action['slot_action']['nl'] = ""
+      # agent_action['slot_action']['nl'] = ""
       # self.nlg_model.translate_diaact(agent_action['slot_action']) # NLG
       # user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(
       #                               agent_action['slot_action'], 'agt')
@@ -103,6 +104,8 @@ class BasePolicyManager(object):
     if self.episode_over != True:
       self.state.update(user_action=self.user_action)
       if self.user.do_print:
+        # print(self.user.state)
+        # print("above is user state >>>>>>>>>>>>>>. below is user action")
         self.print_function(self.user_action, "user")
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
@@ -117,11 +120,11 @@ class BasePolicyManager(object):
     if penalty is True, then there is also a negative reward for each turn
     """
     if dialog_status == dialog_config.FAILED_DIALOG:
-      reward = -self.user.max_turn if penalty else 0 # 10
+      reward = -self.user.max_turn if penalty else 0   # -20
     elif dialog_status == dialog_config.SUCCESS_DIALOG:
-      reward = 2 * self.user.max_turn #20
+      reward = 2 * self.user.max_turn                  # +40
     else:  # for per turn
-      reward = -1 if penalty else 0
+      reward = -1 if penalty else 0                    # -10 over time
     return reward
 
 

@@ -73,7 +73,7 @@ class Builder(object):
       glad_model.save_config(self.dir)
       return glad_model.to(device)
     elif self.model_type == "rulebased":
-      return EchoPolicy(processor.ontology)
+      return HackPolicy(processor.ontology)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)

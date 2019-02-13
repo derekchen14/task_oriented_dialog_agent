@@ -1,7 +1,9 @@
 import os, pdb, sys  # set_trace
 import logging
+import json
 import copy
 import random
+import datasets.ddq.constants as dialog_config
 
 class BaseAgent(object):
   """ Prototype for all agent policy models """
@@ -50,14 +52,11 @@ class BaseAgent(object):
 class InformPolicy(BaseAgent):
   """ A simple agent to test the system. This agent should simply inform
   all the slots and then issue: taskcomplete. """
-  def __init__(self, ontology):
-    super().__init__(ontology)
-    self.model_type = "rulebased"
-
   def state_to_action(self, state, available=None):
-    self.agent_turn_count += 2   # state['turn_count'] += 2
-    if self.current_slot_id < self.slot_cardinality:
-      slot = self.slot_set[self.current_slot_id]
+    self.agent_turn_count += 2
+    allowed_slots = dialog_config.movie_agent_inform_slots
+    if self.current_slot_id < len(allowed_slots):
+      slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
       slot_action = {'diaact': "inform",
                           'inform_slots': {slot: "PLACEHOLDER"},
@@ -71,154 +70,187 @@ class InformPolicy(BaseAgent):
 
     return {'slot_action': slot_action, 'slot_value_action': None}
 
-
 class RequestPolicy(BaseAgent):
   """ A simple agent to test the system. This agent should simply
         request all the slots and then issue: thanks(). """
   def state_to_action(self, state):
-    self.state['turn_count'] += 2
-    if self.current_slot_id < len(dialog_config.sys_request_slots):
-      slot = dialog_config.sys_request_slots[self.current_slot_id]
+    self.agent_turn_count += 2
+    allowed_slots = dialog_config.movie_agent_request_slots
+    if self.current_slot_id < len(allowed_slots):
+      slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
 
       slot_action = {'diaact': "request",
                           'inform_slots': {},
                           'request_slots':  {slot: "PLACEHOLDER"},
-                          'turn_count': self.state['turn_count'] }
+                          'turn_count': self.agent_turn_count }
     else:
       slot_action = {'diaact': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
-                          'turn_count': self.state['turn_count'] }
+                          'turn_count': self.agent_turn_count }
 
     return {'slot_action': slot_action, 'slot_value_action': None}
-
 
 class RandomPolicy(BaseAgent):
   """ A simple agent to test the interface which chooses actions randomly. """
   def state_to_action(self, state):
-    self.state['turn_count'] += 2
+    self.agent_turn_count += 2
     random_action = random.choice(dialog_config.feasible_actions)
     slot_action = copy.deepcopy(random_action)
-    slot_action['turn_count'] = self.state['turn_count']
+    slot_action['turn_count'] = self.agent_turn_count
 
     return {'slot_action': slot_action, 'slot_value_action': None}
-
 
 class EchoPolicy(BaseAgent):
   """ A simple agent that informs all requested slots,
   then issues inform(taskcomplete) when the user stops making requests. """
   def state_to_action(self, state):
     user_action = state['user_action']
-    self.state['turn_count'] += 2
+    self.agent_turn_count += 2
     slot_action = {'diaact': 'thanks',
                         'inform_slots': {},
                         'request_slots':  {},
-                        'turn_count': self.state['turn_count'] }
+                        'turn_count': self.agent_turn_count }
     # find out if the user is requesting anything.  if so, inform it
     if user_action['diaact'] == 'request':
       slot_action['diaact'] = "inform"
-      requested_slot = user_action['request_slots'].keys()[0]
+      requested_slot = list(user_action['request_slots'].keys())[0]
       slot_action['inform_slots'][requested_slot] = "PLACEHOLDER"
 
     return {'slot_action': slot_action, 'slot_value_action': None}
 
-
-class RequestBasicsPolicy(BaseAgent):
+class BasicsPolicy(BaseAgent):
   """ A simple agent to test the system. This agent should simply
-      request all the basic slots and then issue: thanks().
+      request all the basic slots and then issue: thanks(). """
 
-      Now there are "phases"???
-      """
-
-  def __init__(self, movie_dict=None, act_set=None, slot_set=None,
-              params=None, request_set=None):
-    self.request_set = request_set
-    #self.request_set = ['moviename', 'starttime', 'city', 'date', 'theater', 'numberofpeople']
-    #self.request_set = ["restaurantname", "date", "numberofpeople", "starttime", "address"]
-
-  def initialize_episode(self):
-    self.state = {'diaact': 'UNK',
-                  'inform_slots': {},
-                  'request_slots': {},
-                  'turn_count': -1  }
-    self.current_slot_id = 0
-    self.phase = 0
+  def __init__(self, ontology):
+    super().__init__(ontology)
+    self.request_set = dialog_config.movie_agent_request_slots
+    self.inform_set = dialog_config.movie_agent_inform_slots
+    self.complete = False
 
   def state_to_action(self, state):
-    self.state['turn_count'] += 2
-    if self.current_slot_id < len(self.request_set):
+    self.agent_turn_count += 2
+    if self.current_slot_id < len(self.request_set) -14:
       slot = self.request_set[self.current_slot_id]
       self.current_slot_id += 1
-
       slot_action = {'diaact': "request",
                           'inform_slots': {},
                           'request_slots': {slot: "UNK"},
-                          'turn_count': self.state['turn_count'] }
-    elif self.phase == 0:
+                          'turn_count': self.agent_turn_count }
+    elif not self.complete:
+      self.complete = True
       slot_action = {'diaact': "inform",
                           'inform_slots': {'taskcomplete': "PLACEHOLDER"},
                           'request_slots': {},
-                          'turn_count':self.state['turn_count'] }
-      self.phase += 1
-    elif self.phase == 1:
+                          'turn_count':self.agent_turn_count }
+    elif self.complete:
       slot_action = {'diaact': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
-                          'turn_count': self.state['turn_count'] }
+                          'turn_count': self.agent_turn_count }
     else:
       raise Exception("IS NOT POSSIBLE! (agent called in unexpected way)")
 
     return {'slot_action': slot_action, 'slot_value_action': None}
 
-class BasicsPolicy(BaseAgent):
-  """ This agent should simply request and inform all the basic slots
-  and then issue: thanks(). """
+class RequestThenInformPolicy(BaseAgent):
+  """ This agent requests and informs basic slots and then concludes. """
 
-  def __init__(self, movie_dict=None, act_set=None, slot_set=None, 
-              params=None, request_set=None, inform_set=None):
-    self.request_set = request_set
-    self.inform_set = inform_set
-    #self.request_set = ['or_city', 'dst_city', 'seat', 'depart_date_dep', 'depart_time_dep', 'return_date_dep', 'return_time_dep', 'numberofpeople','hotel_name', 'hotel_city', 'hotel_numberofpeople', 'hotel_date_checkin', 'hotel_date_checkout']
-    #self.inform_set = ['or_city', 'dst_city', 'seat', 'depart_date_dep', 'depart_time_dep', 'return_date_dep', 'return_time_dep','price', 'hotel_name', 'hotel_city', 'hotel_date_checkin', 'hotel_date_checkout', 'hotel_price']
+  def __init__(self, ontology):
+    super().__init__(ontology)
+    self.request_set = dialog_config.movie_agent_request_slots
+    self.inform_set = dialog_config.movie_agent_inform_slots
+    self.complete = False
 
   def initialize_episode(self):
-    self.state = {'diaact': 'UNK',
-                  'inform_slots': {},
-                  'request_slots': {},
-                  'turn_count': -1  }
-    self.current_request_slot_id = 0
-    self.current_inform_slot_id = 0
-    self.phase = 0
+    self.request_slot_id = 0
+    self.inform_slot_id = 0
+    self.agent_turn_count = -1
 
   def state_to_action(self, state):
-    self.state['turn_count'] += 2
-    if self.current_request_slot_id < len(self.request_set):
-      slot = self.request_set[self.current_request_slot_id]
-      self.current_request_slot_id += 1
+    self.agent_turn_count += 2
+    if self.request_slot_id < len(self.request_set) -14:
+      slot = self.request_set[self.request_slot_id]
+      self.request_slot_id += 1
       slot_action = {'diaact': "request",
                           'inform_slots': {},
                           'request_slots': {slot: "PLACEHOLDER"},
-                          'turn_count': self.state['turn_count'] }
-    elif self.current_inform_slot_id < len(self.inform_set):
-      slot = self.inform_set[self.current_inform_slot_id]
-      self.current_inform_slot_id += 1
+                          'turn_count': self.agent_turn_count }
+    elif self.inform_slot_id < len(self.inform_set) -14:
+      slot = self.inform_set[self.inform_slot_id]
+      self.inform_slot_id += 1
       slot_action = {'diaact': "inform",
                           'inform_slots': {slot: "PLACEHOLDER"},
                           'request_slots': {},
-                          'turn_count': self.state['turn_count'] }
-    elif self.phase == 0:
+                          'turn_count': self.agent_turn_count }
+    elif not self.complete:
+      self.complete = True
       slot_action = {'diaact': "inform",
                           'inform_slots': {'taskcomplete': "PLACEHOLDER"},
                           'request_slots': {},
-                          'turn_count':self.state['turn_count'] }
-      self.phase += 1
-    elif self.phase == 1:
+                          'turn_count':self.agent_turn_count }
+    elif self.complete:
       slot_action = {'diaact': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
-                          'turn_count': self.state['turn_count'] }
+                          'turn_count': self.agent_turn_count }
     else:
-      raise Exception("IS NOT POSSIBLE! (agent called in unexpected way)")
+      raise Exception("Conversation should have ended!")
 
     return {'slot_action': slot_action, 'slot_value_action': None}
+
+
+class HackPolicy(BaseAgent):
+  """ This agent requests and informs basic slots and then concludes. """
+  def initialize_episode(self):
+    self.request_slot_id = 0
+    self.inform_slot_id = 0
+    self.agent_turn_count = -1
+    self.unknown_set = dialog_config.start_dia_acts["request"].copy()
+    self.known_set = []
+    self.complete = False
+
+  def state_to_action(self, state):
+    self.agent_turn_count += 2
+    slot_action = {'diaact': None, 'inform_slots': {}, 'request_slots': {},
+                                          'turn_count': self.agent_turn_count}
+    if state["user_action"]["diaact"] == "thanks":
+      if len(self.unknown_set) > 0:
+        chosen_slot = random.choice(self.unknown_set)
+        slot_action['diaact'] = "request"
+        slot_action['request_slots'] = {chosen_slot: "PLACEHOLDER"}
+      elif self.complete:
+        slot_action['diaact'] = "thanks"
+      else:
+        slot_action['diaact'] = "inform"
+        slot_action['inform_slots']['taskcomplete'] = True
+        self.complete = True
+
+    else:
+      self.remember_user_action(state["user_action"])
+      # user made a request
+      if len(state["user_action"]["request_slots"]) > 0:
+        chosen_slot = list(state["user_action"]["request_slots"].keys())[0]
+        slot_action['diaact'] = "inform"
+        slot_action['inform_slots'] = {chosen_slot: "PLACEHOLDER"}
+      # user informed us of a constraint
+      elif len(state["user_action"]["inform_slots"]) > 0:
+        if len(self.unknown_set) > 0:
+          chosen_slot = random.choice(self.unknown_set)
+          slot_action['diaact'] = "request"
+          slot_action['request_slots'] = {chosen_slot: "PLACEHOLDER"}
+        else:
+          slot_action['diaact'] = "inform"
+          slot_action['inform_slots']['taskcomplete'] = True
+
+    return {'slot_action': slot_action, 'slot_value_action': None}
+
+  def remember_user_action(self, action):
+    slots = {**action["request_slots"], **action["inform_slots"]}
+    for slot in slots.keys():
+      try:
+        self.unknown_set.remove(slot)
+        self.known_set.append(slot)
+      except(ValueError): pass
