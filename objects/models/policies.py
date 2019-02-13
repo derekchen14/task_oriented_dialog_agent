@@ -217,6 +217,8 @@ class HackPolicy(BaseAgent):
     slot_action = {'diaact': None, 'inform_slots': {}, 'request_slots': {},
                                           'turn_count': self.agent_turn_count}
     if state["user_action"]["diaact"] == "thanks":
+      # print("unknown_set", self.unknown_set)
+      # print("compelte", self.complete)
       if len(self.unknown_set) > 0:
         chosen_slot = random.choice(self.unknown_set)
         slot_action['diaact'] = "request"
@@ -244,6 +246,7 @@ class HackPolicy(BaseAgent):
         else:
           slot_action['diaact'] = "inform"
           slot_action['inform_slots']['taskcomplete'] = True
+          self.complete = True
 
     return {'slot_action': slot_action, 'slot_value_action': None}
 

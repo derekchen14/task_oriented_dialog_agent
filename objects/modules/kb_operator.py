@@ -110,7 +110,10 @@ class KBHelper(object):
 
     ticket_options = [options for _, options in results.items()]
     golden_ticket = random.choice(ticket_options)
-    desired_value = golden_ticket[desired_slot]
+    try:
+      desired_value = golden_ticket[desired_slot]
+    except:
+      desired_value = dialog_config.DONT_KNOW
 
     return desired_value
 

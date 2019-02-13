@@ -299,7 +299,6 @@ class UserSimulator(BaseUser):
     self.dialog_status = dialog_config.SUCCESS_DIALOG
 
     request_slot_set = copy.deepcopy(list(self.state['request_slots'].keys()))
-    print("request    ", self.dialog_status)
     if 'ticket' in request_slot_set:
       request_slot_set.remove('ticket')
     remaining_slot_set = copy.deepcopy(self.state['remaining_slots'])
@@ -309,8 +308,6 @@ class UserSimulator(BaseUser):
     # if there are unmet requests or constraints
     if len(request_slot_set) > 0 or len(remaining_slot_set) > 0:
       self.dialog_status = dialog_config.FAILED_DIALOG
-    print("remaining  ", self.dialog_status)
-
     for hist_slot, hist_value in self.state['history_slots'].items():
       # if we failed to find a value from the user goal
       failed_to_find_match = (hist_value == dialog_config.NO_VALUE_MATCH)
@@ -318,29 +315,15 @@ class UserSimulator(BaseUser):
       goals = self.goal['inform_slots'].keys()
       goal = self.goal['inform_slots']
       found_wrong_match = (hist_slot in goals) and (hist_value != goal[hist_slot])
-      """
-      print("For {}, we found value of {}".format(hist_slot, hist_value))
-      if failed_to_find_match:
-        print("we failed to find a match")
-      elif found_wrong_match:
-        print("we found a wrong match, the correct value is", goal[hist_slot])
-      else:
-        print("looks like you passed this level")
-      """
 
       if failed_to_find_match or found_wrong_match:
         self.dialog_status = dialog_config.FAILED_DIALOG
-    # print("matches    ", self.dialog_status)
 
     if 'ticket' in informs.keys():
       if informs['ticket'] == dialog_config.NO_VALUE_MATCH:
         self.dialog_status = dialog_config.FAILED_DIALOG
-    # print("ticket slot", self.dialog_status)
-
     if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
       self.dialog_status = dialog_config.FAILED_DIALOG
-    # print("constraints", self.dialog_status)
-    # print(self.state)
 
   def clear_option(self, slot):
     if slot in self.state['remaining_slots']:
