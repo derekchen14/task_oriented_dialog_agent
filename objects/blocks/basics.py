@@ -1,7 +1,3 @@
-import os, pdb, sys  # set_trace
-from pprint import pformat
-from collections import defaultdict
-
 import torch
 import torch.nn as nn
 from torch import optim
