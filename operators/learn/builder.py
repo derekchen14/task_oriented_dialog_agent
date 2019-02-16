@@ -73,7 +73,12 @@ class Builder(object):
       glad_model.save_config(self.dir)
       return glad_model.to(device)
     elif self.model_type == "rulebased":
-      return HackPolicy(processor.ontology)
+      if self.args.batch_size == 16:
+        return EchoPolicy(processor.ontology)
+      elif self.args.batch_size == 17:
+        return RequestThenInformPolicy(processor.ontology)
+      elif self.args.batch_size == 18:
+        return HackPolicy(processor.ontology)
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)

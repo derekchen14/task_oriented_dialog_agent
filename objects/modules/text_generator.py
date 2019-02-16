@@ -52,7 +52,7 @@ class TextGenerator(object):
 
     # remove I do not care slot in task(complete)
     current_keys = list(chosen_action['inform_slots'].keys()).copy()
-    is_inform = chosen_action['diaact'] == 'inform'
+    is_inform = chosen_action['dialogue_act'] == 'inform'
     is_complete = 'taskcomplete' in current_keys
     if is_complete: task_state = chosen_action['inform_slots']['taskcomplete']
 
@@ -62,8 +62,8 @@ class TextGenerator(object):
         if does_not_care: del chosen_action['inform_slots'][slot]
 
     # if the slots and values match the template, then fill that template
-    if chosen_action['diaact'] in self.diaact_nl_pairs['dia_acts'].keys():
-      for ele in self.diaact_nl_pairs['dia_acts'][chosen_action['diaact']]:
+    if chosen_action['dialogue_act'] in self.diaact_nl_pairs['dia_acts'].keys():
+      for ele in self.diaact_nl_pairs['dia_acts'][chosen_action['dialogue_act']]:
         has_inform = set(ele['inform_slots']) == set(current_keys)
         has_request = set(ele['request_slots']) == set(chosen_action['request_slots'].keys())
         if has_inform and has_request:
@@ -108,7 +108,7 @@ class TextGenerator(object):
     inverse_word_dict = self.inverse_word_dict
 
     act_rep = np.zeros((1, len(act_dict)))
-    act_rep[0, act_dict[agent_action['diaact']]] = 1.0
+    act_rep[0, act_dict[agent_action['dialogue_act']]] = 1.0
 
     slot_rep_bit = 2
     slot_rep = np.zeros((1, len(slot_dict)*slot_rep_bit))
@@ -146,7 +146,7 @@ class TextGenerator(object):
       final_representation = np.hstack([act_rep, slot_rep, word_rep])
 
     dia_act_rep = {}
-    dia_act_rep['diaact'] = final_representation
+    dia_act_rep['dialogue_act'] = final_representation
     dia_act_rep['words'] = words
 
     #pred_ys, pred_words = nlg_model['model'].forward(inverse_word_dict, dia_act_rep, nlg_model['params'], predict_model=True)

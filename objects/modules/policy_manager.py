@@ -97,8 +97,8 @@ class BasePolicyManager(object):
     self.print_function(self.agent_action['slot_action'], "agent")
 
     #   CALL USER TO TAKE HER TURN
-    self.sys_action = self.state.dialog_history_dictionaries()[-1]
-    self.user_action, self.episode_over, dialog_status = self.user.next(self.sys_action)
+    self.agent_action = self.state.dialog_history_dictionaries()[-1]
+    self.user_action, self.episode_over, dialog_status = self.user.next(self.agent_action)
     self.reward = self.reward_function(dialog_status)
     #   Update state tracker with latest user action
     if self.episode_over != True:

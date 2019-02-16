@@ -58,12 +58,12 @@ class InformPolicy(BaseAgent):
     if self.current_slot_id < len(allowed_slots):
       slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
-      slot_action = {'diaact': "inform",
+      slot_action = {'dialogue_act': "inform",
                           'inform_slots': {slot: "PLACEHOLDER"},
                           'request_slots':  {},
                           'turn_count': self.agent_turn_count }
     else:
-      slot_action = {'diaact': "thanks",
+      slot_action = {'dialogue_act': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
                           'turn_count': self.agent_turn_count }
@@ -80,12 +80,12 @@ class RequestPolicy(BaseAgent):
       slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
 
-      slot_action = {'diaact': "request",
+      slot_action = {'dialogue_act': "request",
                           'inform_slots': {},
                           'request_slots':  {slot: "PLACEHOLDER"},
                           'turn_count': self.agent_turn_count }
     else:
-      slot_action = {'diaact': "thanks",
+      slot_action = {'dialogue_act': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
                           'turn_count': self.agent_turn_count }
@@ -108,13 +108,13 @@ class EchoPolicy(BaseAgent):
   def state_to_action(self, state):
     user_action = state['user_action']
     self.agent_turn_count += 2
-    slot_action = {'diaact': 'thanks',
+    slot_action = {'dialogue_act': 'thanks',
                         'inform_slots': {},
                         'request_slots':  {},
                         'turn_count': self.agent_turn_count }
     # find out if the user is requesting anything.  if so, inform it
-    if user_action['diaact'] == 'request':
-      slot_action['diaact'] = "inform"
+    if user_action['dialogue_act'] == 'request':
+      slot_action['dialogue_act'] = "inform"
       requested_slot = list(user_action['request_slots'].keys())[0]
       slot_action['inform_slots'][requested_slot] = "PLACEHOLDER"
 
@@ -135,18 +135,18 @@ class BasicsPolicy(BaseAgent):
     if self.current_slot_id < len(self.request_set) -14:
       slot = self.request_set[self.current_slot_id]
       self.current_slot_id += 1
-      slot_action = {'diaact': "request",
+      slot_action = {'dialogue_act': "request",
                           'inform_slots': {},
                           'request_slots': {slot: "UNK"},
                           'turn_count': self.agent_turn_count }
     elif not self.complete:
       self.complete = True
-      slot_action = {'diaact': "inform",
+      slot_action = {'dialogue_act': "inform",
                           'inform_slots': {'taskcomplete': "PLACEHOLDER"},
                           'request_slots': {},
                           'turn_count':self.agent_turn_count }
     elif self.complete:
-      slot_action = {'diaact': "thanks",
+      slot_action = {'dialogue_act': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
                           'turn_count': self.agent_turn_count }
@@ -174,25 +174,25 @@ class RequestThenInformPolicy(BaseAgent):
     if self.request_slot_id < len(self.request_set) -14:
       slot = self.request_set[self.request_slot_id]
       self.request_slot_id += 1
-      slot_action = {'diaact': "request",
+      slot_action = {'dialogue_act': "request",
                           'inform_slots': {},
                           'request_slots': {slot: "PLACEHOLDER"},
                           'turn_count': self.agent_turn_count }
     elif self.inform_slot_id < len(self.inform_set) -14:
       slot = self.inform_set[self.inform_slot_id]
       self.inform_slot_id += 1
-      slot_action = {'diaact': "inform",
+      slot_action = {'dialogue_act': "inform",
                           'inform_slots': {slot: "PLACEHOLDER"},
                           'request_slots': {},
                           'turn_count': self.agent_turn_count }
     elif not self.complete:
       self.complete = True
-      slot_action = {'diaact': "inform",
+      slot_action = {'dialogue_act': "inform",
                           'inform_slots': {'taskcomplete': "PLACEHOLDER"},
                           'request_slots': {},
                           'turn_count':self.agent_turn_count }
     elif self.complete:
-      slot_action = {'diaact': "thanks",
+      slot_action = {'dialogue_act': "thanks",
                           'inform_slots': {},
                           'request_slots': {},
                           'turn_count': self.agent_turn_count }
@@ -214,19 +214,19 @@ class HackPolicy(BaseAgent):
 
   def state_to_action(self, state):
     self.agent_turn_count += 2
-    slot_action = {'diaact': None, 'inform_slots': {}, 'request_slots': {},
+    slot_action = {'dialogue_act': None, 'inform_slots': {}, 'request_slots': {},
                                           'turn_count': self.agent_turn_count}
-    if state["user_action"]["diaact"] == "thanks":
+    if state['user_action']['dialogue_act'] == 'thanks':
       # print("unknown_set", self.unknown_set)
       # print("compelte", self.complete)
       if len(self.unknown_set) > 0:
         chosen_slot = random.choice(self.unknown_set)
-        slot_action['diaact'] = "request"
+        slot_action['dialogue_act'] = 'request'
         slot_action['request_slots'] = {chosen_slot: "PLACEHOLDER"}
       elif self.complete:
-        slot_action['diaact'] = "thanks"
+        slot_action['dialogue_act'] = 'thanks'
       else:
-        slot_action['diaact'] = "inform"
+        slot_action['dialogue_act'] = 'inform'
         slot_action['inform_slots']['taskcomplete'] = True
         self.complete = True
 
@@ -235,16 +235,16 @@ class HackPolicy(BaseAgent):
       # user made a request
       if len(state["user_action"]["request_slots"]) > 0:
         chosen_slot = list(state["user_action"]["request_slots"].keys())[0]
-        slot_action['diaact'] = "inform"
+        slot_action['dialogue_act'] = "inform"
         slot_action['inform_slots'] = {chosen_slot: "PLACEHOLDER"}
       # user informed us of a constraint
       elif len(state["user_action"]["inform_slots"]) > 0:
         if len(self.unknown_set) > 0:
           chosen_slot = random.choice(self.unknown_set)
-          slot_action['diaact'] = "request"
+          slot_action['dialogue_act'] = "request"
           slot_action['request_slots'] = {chosen_slot: "PLACEHOLDER"}
         else:
-          slot_action['diaact'] = "inform"
+          slot_action['dialogue_act'] = "inform"
           slot_action['inform_slots']['taskcomplete'] = True
           self.complete = True
 

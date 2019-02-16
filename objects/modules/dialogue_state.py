@@ -131,13 +131,13 @@ class DialogueState:
         inform_slots = self.kb_helper.fill_inform_slots(
                                 response['inform_slots'], self.current_slots)
         agent_action_values = {'speaker': "agent",
-                                'diaact': response['diaact'],
+                                'dialogue_act': response['dialogue_act'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count': self.turn_count }
 
         agent_action['slot_action'].update({
-                                'diaact': response['diaact'],
+                                'dialogue_act': response['dialogue_act'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count':self.turn_count })
@@ -177,7 +177,7 @@ class DialogueState:
           self.current_slots['request_slots'][slot] = "UNK"
 
       self.history_vectors = np.vstack([self.history_vectors, np.zeros((1,self.action_dimension))])
-      new_move = {'turn_count': self.turn_count, 'speaker': "user", 'request_slots': user_action['request_slots'], 'inform_slots': user_action['inform_slots'], 'diaact': user_action['diaact']}
+      new_move = {'turn_count': self.turn_count, 'speaker': "user", 'request_slots': user_action['request_slots'], 'inform_slots': user_action['inform_slots'], 'dialogue_act': user_action['dialogue_act']}
       self.history_dictionaries.append(copy.deepcopy(new_move))
 
     ########################################################################
