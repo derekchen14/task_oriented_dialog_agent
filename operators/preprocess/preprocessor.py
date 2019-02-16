@@ -24,7 +24,7 @@ class PreProcessor(object):
   def input_output_cardinality(self):
     """ get the input size and output size to set model attributes"""
     if self.task in ["glad", "intent", "belief"]:
-      return self.vocab.ulary_size(), self.vocab.label_size()
+      return "self.vocab.ulary_size()", "self.vocab.label_size()"
     elif self.task == "policy":
       num_slots = len(self.ontology.slots)
       from datasets.ddq.constants import feasible_actions

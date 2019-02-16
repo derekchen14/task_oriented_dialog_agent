@@ -1,3 +1,4 @@
+import os
 import re
 import math
 import json
@@ -6,6 +7,7 @@ import logging
 import torch
 import torch.nn as nn
 from torch import optim
+from collections import defaultdict
 
 class BaseBeliefTracker(nn.Module):
   def __init__(self, args):
@@ -37,7 +39,7 @@ class BaseBeliefTracker(nn.Module):
     logger.addHandler(file_handler)
     return logger
 
-  def learn(self, datasets, args):
+  def learn(self, args, datasets):
     train, dev = datasets['train'], datasets['val']
     track = defaultdict(list)
     iteration = 0

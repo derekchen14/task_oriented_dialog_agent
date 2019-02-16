@@ -13,7 +13,7 @@ class MonitorBase(object):
 
 class LossMonitor(MonitorBase):
   def __init__(self, epochs, threshold):
-    super().__init__(args)
+    super().__init__()
     self.train_steps = []
     self.train_losses = []
     self.train_epoch = 0
