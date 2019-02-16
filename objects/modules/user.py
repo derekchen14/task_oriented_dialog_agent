@@ -419,7 +419,7 @@ class CommandLineUser(BaseUser):
   def __init__(self, args, ontology, kind="movie"):
     super().__init__(args, ontology, kind)
     self.learning_phase = "train"
-    self.agent_input_mode = "raw_text" # or "dialogue_act"
+    self.agent_input_mode =  "dialogue_act" # "raw_text"
     self.do_print = False
 
   def initialize_episode(self):
@@ -457,7 +457,8 @@ class CommandLineUser(BaseUser):
 
   def parse_intent(self, command_line_input):
     """ Parse input from command line into dialogue act form """
-    intents = command_line_input.strip(' ').strip('\n').strip('\r').split(',')
+    cleaned = command_line_input.strip(' ').strip('\n').strip('\r')
+    intents = cleaned.lower().split(',')
     for intent in intents:
       idx = intent.find('(')
       act = intent[0:idx]
@@ -472,8 +473,8 @@ class CommandLineUser(BaseUser):
     if idx < 0:
       raise(ValueError("input is not properly formatted as a user intent"))
     if act not in self.act_set:
-      raise(ValueError("dialogue act is not part of allowable act set"))
+      raise(ValueError("{} is not part of allowable dialogue act set".format(act)))
     if slot not in self.slot_set:
-      raise(ValueError("slot is not part of allowable slot set"))
+      raise(ValueError("{} is not part of allowable slot set".format(slot)))
     if value not in self.value_set[slot]:
-      raise(ValueError("value is not part of the available value set"))
+      raise(ValueError("{} is not part of the available value set".format(value)))
