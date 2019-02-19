@@ -12,7 +12,8 @@ class BasicClassifer(BaseBeliefTracker):
     super().__init__(args)
     self.encoder = encoder.to(device)
     self.decoder = ff_network.to(device)
-    self.type = "basic"
+    self.model_type = "basic"
+
   def forward(self, sources, hidden):
     self.encoder.rnn.flatten_parameters()
     encoder_outputs, hidden = self.encoder(sources, hidden)

@@ -1,6 +1,7 @@
 import pdb, sys
 import logging
 import torch
+import json
 
 from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
@@ -126,6 +127,12 @@ class BasePolicyManager(object):
     else:  # for per turn
       reward = -1 if penalty else 0                    # -10 over time
     return reward
+
+  def save_config(self, args, save_directory):
+    filename = '{}/config.json'.format(save_directory)
+    with open(filename, 'wt') as save_file:
+      logging.info('Saving config to {}'.format(filename))
+      json.dump(vars(args), save_file, indent=2)
 
 
 class RulebasedPolicyManager(BasePolicyManager):
