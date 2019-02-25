@@ -20,10 +20,10 @@ class Learner(object):
 
     self.processor = processor
     self.monitor = monitor
+    self.logger = monitor.logger
     self.vocab = processor.vocab
     self.module = module
     self.task = task
-    self.logger = monitor.build_logger(module.dir)
 
   def supervise(self, params):
     supervise_start_time = tm.time()

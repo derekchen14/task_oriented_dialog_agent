@@ -11,7 +11,7 @@ class SingleSystem(object):
     else:
       self.monitor = LossMonitor(args.threshold, args.metrics, args.early_stop)
 
-    model = builder.get_model(processor)
+    model = builder.get_model(processor, self.monitor)
     model.save_config(args, builder.dir)
     self.module = builder.configure_module(args, model, loader)
     if not args.test_mode:

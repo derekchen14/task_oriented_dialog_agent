@@ -19,21 +19,19 @@ class MonitorBase(object):
     raise(NotImplementedError)
 
   def build_logger(self, save_dir):
-    logger = logging.getLogger(self.__class__.__name__)
+    self.logger = logging.getLogger(self.__class__.__name__)
 
     file_handler = logging.FileHandler(os.path.join(save_dir, 'results.log'))
     file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s]  %(message)s')
     file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+    self.logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.WARNING)
-    console_formatter = logging.Formatter('%(levelname)-5.5s: %(message)s')
+    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
     console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    return logger
+    self.logger.addHandler(console_handler)
 
 class LossMonitor(MonitorBase):
   def __init__(self, threshold, metrics, early_stop):

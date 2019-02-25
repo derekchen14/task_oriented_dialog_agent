@@ -1,6 +1,5 @@
 import os, pdb, sys  # set_trace
 import random
-import logging
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
@@ -23,20 +22,21 @@ class Builder(object):
     self.data_dir = data_loader.data_dir
     self.embeddings = data_loader.embeddings if args.pretrained else None
 
-  def get_model(self, processor):
+  def get_model(self, processor, monitor):
     self.prepare_directory()
     model = self.create_model(processor)
+    monitor.build_logger(self.dir)
 
     if self.test_mode:
-      logging.info("Loading model at {} for testing".format(self.dir))
+      monitor.logger.info("Loading model at {} for testing".format(self.dir))
       # if self.model_type == "glad":
       #   model.load_best_save(directory=self.dir)
       model = self.load_model(self.dir, model)
     elif self.use_existing:
-      logging.info("Resuming model at {} for training".format(self.dir))
+      monitor.logger.info("Resuming model at {} for training".format(self.dir))
       model = self.load_model(self.dir, model)
     else:
-      logging.info("Building model at {}".format(self.dir))
+      monitor.logger.info("Building model at {}".format(self.dir))
       model.save_dir = self.dir
     return model
 
