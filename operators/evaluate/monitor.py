@@ -70,8 +70,11 @@ class LossMonitor(MonitorBase):
       self.train_losses = []  # reset the monitor
     self.iteration += 1
 
-  def update_val(self, results):
-    self.status.update(results)
+  def update_val(self, val_results, train_results):
+    self.status.update(val_results)
+    for tr_key, tr_value, in train_results.items():
+      train_key = "train_" + tr_key
+      self.status[train_key] = tr_value
     # for metric in metrics:
     #   if metric == 'bleu':
     #     score = self.calculate_bleu(batch)
@@ -169,8 +172,9 @@ class LossMonitor(MonitorBase):
   def summarize_results(self, verbose=False):
     self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
     summary = self.status.copy()
-    for metric, metric_value in self.best.items():
-      summary["best_{}".format(metric)] = metric_value
+    if verbose:
+      for metric, metric_value in self.best.items():
+        summary["best_{}".format(metric)] = metric_value
     for metric, metric_value in summary.items():
       self.logger.info("{}: {:.4f}".format(metric, metric_value))
 

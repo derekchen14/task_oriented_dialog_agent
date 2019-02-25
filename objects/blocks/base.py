@@ -31,63 +31,6 @@ class BaseBeliefTracker(nn.Module):
     elif self.opt == 'rmsprop':
       self.optimizer = optim.RMSprop(self.parameters(), self.lr, self.reg)
 
-  # def get_train_logger(self):
-  #   logger = logging.getLogger('train-{}'.format(self.__class__.__name__))
-  #   formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
-  #   file_handler = logging.FileHandler(os.path.join(self.save_dir, 'train.log'))
-  #   file_handler.setFormatter(formatter)
-  #   logger.addHandler(file_handler)
-  #   return logger
-
-  # def learn(self, args, datasets):
-    # train_data, dev_data = datasets['train'], datasets['val']
-    # track = defaultdict(list)
-    # iteration = 0
-    # best = {}
-    # logger = self.get_train_logger()
-    # self.init_optimizer()
-
-    # for epoch in range(args.epochs):
-    #   logger.info('starting epoch {}'.format(epoch))
-
-      # train and update parameters
-       # self.train()
-      # for batch in train_data.batch(batch_size=args.batch_size, shuffle=True):
-      #   iteration += 1
-      #   self.zero_grad()
-      #   loss, scores = self.forward(batch)
-      #   loss.backward()
-      #   self.optimizer.step()
-      #   track['loss'].append(loss.item())
-
-      # evalute on train and dev_data
-      # summary = {'iteration': iteration, 'epoch': epoch}
-      # for k, v in track.items():
-      #   summary[k] = sum(v) / len(v)
-      # summary.update({'eval_train_{}'.format(k): v for k, v in self.quant_report(train_data).items()})
-      # summary.update({'eval_dev_{}'.format(k): v for k, v in self.quant_report(dev_data).items()})
-
-      # do early stopping saves
-      # stop_key = 'eval_dev_{}'.format(args.stop_early)
-      # train_key = 'eval_train_{}'.format(args.stop_early)
-      # if best.get(stop_key, 0) <= summary[stop_key]:
-      #   best_dev = '{:f}'.format(summary[stop_key])
-      #   best_train = '{:f}'.format(summary[train_key])
-      #   best.update(summary)
-        # self.save(best,
-        #   identifier='epoch={epoch},iter={iteration},train_{key}={train},dev_{key}={dev}'.format(
-        #     epoch=epoch, iteration=iteration, train=best_train, dev=best_dev, key=args.stop_early,
-        #   )
-        # )
-        # self.prune_saves()
-        # dev_data.record_preds(
-        #   preds=self.run_glad_inference(dev_data),
-        #   to_file=os.path.join(self.save_dir, 'dev.pred.json'),
-        # )
-      # summary.update({'best_{}'.format(k): v for k, v in best.items()})
-      # logger.info(pformat(summary))
-      # track.clear()
-
   def learn(self, args, datasets):
     train_data, dev_data = datasets['train'], datasets['val']
     track = defaultdict(list)

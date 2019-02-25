@@ -48,15 +48,14 @@ class Learner(object):
 
         if self.monitor.time_to_validate():
           val_results = self.validate(model, val_data)
-          self.monitor.update_val(val_results)
+          train_results = self.validate(model, train_data, self.verbose)
+          self.monitor.update_val(val_results, train_results)
+          summary, unique_id = self.monitor.summarize_results(self.verbose)
           if self.monitor.best_so_far():
-            summary, unique_id = self.monitor.summarize_results()
             model.save(summary, unique_id)
             model.prune_saves()
             val_data.record_preds(preds=model.run_glad_inference(val_data),
                 to_file=os.path.join(model.save_dir, 'dev.pred.json'))
-          else:
-            self.logger.info("Epoch {} iteration {} completed".format(epoch, self.monitor.iteration))
           if self.monitor.should_early_stop():
             break
       self.monitor.end_epoch()
@@ -71,7 +70,8 @@ class Learner(object):
     model.optimizer.step()
     return loss.item()
 
-  def validate(self, model, val_data):
+  def validate(self, model, val_data, this_time):
+    if not this_time: return {}
     model.eval()  # val period has no training, so teach ratio is 0
     predictions = []
 

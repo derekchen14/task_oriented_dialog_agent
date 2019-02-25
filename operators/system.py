@@ -22,7 +22,6 @@ class SingleSystem(object):
       self.learner.reinforce(self.args)
     else:
       self.learner.supervise(self.args)
-      # self.module.learn(self.args, self.learner.processor.datasets)
 
   def evaluate(self, test_mode):
     self.evaluator.module = self.module

@@ -106,8 +106,8 @@ def run_rnn(rnn, inputs, lens):
 def unique_identifier(summary, epoch, iteration, early_stop_metric):
   uid = 'epoch={epoch},iter={iter},train_{key}={train:.4f},dev_{key}={dev:.4f}'.format(
           epoch=epoch, iter=iteration, key=early_stop_metric,
-          train=summary["best_{}".format(early_stop_metric)],
-          dev=summary["best_{}".format(early_stop_metric)] )
+          train=summary.get(f'train_{early_stop_metric}', 0.0),
+          dev=summary[f'best_{early_stop_metric}'] )
   return uid
 
 def show_dialogues(val_data, encoder, decoder, task):
