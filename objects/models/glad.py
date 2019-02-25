@@ -12,6 +12,7 @@ class GLAD(BaseBeliefTracker):
   def __init__(self, args, ontology, vocab, Eword, GLADEncoder):
     super().__init__(args)
     self.optimizer = None
+    self.model_type = "glad"
     self.attend = Attention()
 
     self.vocab = vocab
@@ -82,7 +83,7 @@ class GLAD(BaseBeliefTracker):
 
       loss = 0
       for s in self.ontology.slots:
-        loss += F.binary_cross_entropy(ys[s], labels[s])
+        loss += self.criterion(ys[s], labels[s])
     else:
       loss = torch.Tensor([0]).to(device)
     return loss, {s: v.data.tolist() for s, v in ys.items()}

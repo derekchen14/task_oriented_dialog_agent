@@ -60,7 +60,7 @@ def solicit_args():
               help='minimum confidence level to keep, minimum success rate for \
               experience replay, minimum loss value we are willing to accept \
               for early stopping (with -1 to turn off), or other threshold')
-  parser.add_argument('--stop-early', default='joint_goal', type=str,
+  parser.add_argument('--early-stop', default='joint_goal', type=str,
               help='slot to early stop on, used for GLAD')
 
   # --------- REINFORCEMENT LEARNING ----------
@@ -97,7 +97,7 @@ def solicit_args():
               help='when true, the values selected by the metrics argument will \
               be calculated, displayed and stored into a results.log file')
   parser.add_argument('--metrics', nargs='+', default=['accuracy'],
-              choices=['bleu', 'rouge', 'meteor', 'accuracy', 'eval_loss', \
+              choices=['bleu', 'rouge', 'meteor', 'accuracy', 'val_loss', \
               'macro_f1', 'micro_f1', 'avg_reward', 'avg_turn', 'success_rate'],
               help='list of evaluation metrics, each metric is a single float')
 

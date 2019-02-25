@@ -1,7 +1,6 @@
 import os, pdb, sys
 import json
 import pickle as pkl
-import logging
 
 from vocab import Vocab
 from utils.internal.vocabulary import Vocabulary
@@ -45,7 +44,7 @@ class DataLoader(object):
         if self.task == 'glad':
           dataset = Dataset.from_dict(dataset)
       self.datasets[split] = dataset
-      logging.info("{} loaded with {} items!".format(data_path, len(dataset)))
+      print("{} loaded with {} items!".format(data_path, len(dataset)))
 
   def load_entity_embeddings(self, vocab):
     # made for EntNet

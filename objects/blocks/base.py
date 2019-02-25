@@ -2,12 +2,10 @@ import os, pdb, sys
 import re
 import math
 import json
-import logging
 
 import torch
 import torch.nn as nn
 from torch import optim
-from pprint import pformat
 from collections import defaultdict
 
 class BaseBeliefTracker(nn.Module):
@@ -17,6 +15,7 @@ class BaseBeliefTracker(nn.Module):
     self.opt = args.optimizer
     self.lr = args.learning_rate
     self.reg = args.weight_decay
+    self.batch_size = args.batch_size
 
     self.dhid = args.hidden_dim
     self.demb = args.embedding_size
@@ -32,16 +31,8 @@ class BaseBeliefTracker(nn.Module):
     elif self.opt == 'rmsprop':
       self.optimizer = optim.RMSprop(self.parameters(), self.lr, self.reg)
 
-  def get_train_logger(self):
-    logger = logging.getLogger('train-{}'.format(self.__class__.__name__))
-    formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
-    file_handler = logging.FileHandler(os.path.join(self.save_dir, 'train.log'))
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    return logger
-
   def learn(self, args, datasets):
-    train, dev = datasets['train'], datasets['val']
+    train_data, dev_data = datasets['train'], datasets['val']
     track = defaultdict(list)
     iteration = 0
     best = {}
@@ -53,7 +44,7 @@ class BaseBeliefTracker(nn.Module):
 
       # train and update parameters
       self.train()
-      for batch in train.batch(batch_size=args.batch_size, shuffle=True):
+      for batch in train_data.batch(batch_size=args.batch_size, shuffle=True):
         iteration += 1
         self.zero_grad()
         loss, scores = self.forward(batch)
@@ -65,8 +56,8 @@ class BaseBeliefTracker(nn.Module):
       summary = {'iteration': iteration, 'epoch': epoch}
       for k, v in track.items():
         summary[k] = sum(v) / len(v)
-      summary.update({'eval_train_{}'.format(k): v for k, v in self.quant_report(train, args).items()})
-      summary.update({'eval_dev_{}'.format(k): v for k, v in self.quant_report(dev, args).items()})
+      summary.update({'eval_train_{}'.format(k): v for k, v in self.quant_report(train_data).items()})
+      summary.update({'eval_dev_{}'.format(k): v for k, v in self.quant_report(dev_data).items()})
 
       # do early stopping saves
       stop_key = 'eval_dev_{}'.format(args.stop_early)
@@ -81,13 +72,14 @@ class BaseBeliefTracker(nn.Module):
           )
         )
         self.prune_saves()
-        dev.record_preds(
-          preds=self.run_inference(dev, self.args),
+        dev_data.record_preds(
+          preds=self.run_glad_inference(dev_data),
           to_file=os.path.join(self.save_dir, 'dev.pred.json'),
         )
       summary.update({'best_{}'.format(k): v for k, v in best.items()})
       logger.info(pformat(summary))
       track.clear()
+
 
   def extract_predictions(self, scores, threshold=0.5):
     batch_size = len(list(scores.values())[0])
@@ -104,35 +96,35 @@ class BaseBeliefTracker(nn.Module):
           predictions[i].add((sort[0][0], sort[0][1]))
     return predictions
 
-  def run_inference(self, data, args):
+  def run_glad_inference(self, data):
     self.eval()
     predictions = []
-    for batch in data.batch(batch_size=args.batch_size):
+    for batch in data.batch(self.batch_size):
       loss, scores = self.forward(batch)
       predictions += self.extract_predictions(scores)
     return predictions
 
-  def quant_report(self, data, args):
-    predictions = self.run_inference(data, args)
+  def quant_report(self, data):
+    predictions = self.run_glad_inference(data)
     return data.evaluate_preds(predictions)
 
-  def qual_report(self, data, args):
+  def qual_report(self, data):
     self.eval()
-    one_batch = next(dev.batch(args.batch_size, shuffle=True))
+    one_batch = next(dev_data.batch(self.batch_size, shuffle=True))
     loss, scores = self.forward(one_batch)
     predictions = self.extract_predictions(scores)
     return data.run_report(one_batch, predictions, scores)
 
-  def save_config(self, save_directory):
+  def save_config(self, args, save_directory):
     fname = '{}/config.json'.format(save_directory)
-    with open(fname, 'wt') as f:
-      logging.info('Saving config to {}'.format(fname))
-      json.dump(vars(self.args), f, indent=2)
+    with open(fname, 'wt') as save_file:
+      print('Saving config to {}'.format(fname))
+      json.dump(vars(args), save_file, indent=2)
 
   @classmethod
   def load_config(cls, fname, ontology, **kwargs):
     with open(fname) as f:
-      logging.info('Loading config from {}'.format(fname))
+      print('Loading config from {}'.format(fname))
       args = object()
       for k, v in json.load(f):
         setattr(args, k, kwargs.get(k, v))
@@ -140,7 +132,7 @@ class BaseBeliefTracker(nn.Module):
 
   def save(self, summary, identifier):
     fname = '{}/{}.pt'.format(self.save_dir, identifier)
-    logging.info('saving model to {}.pt'.format(identifier))
+    print('saving model to {}.pt'.format(identifier))
     state = {
       'args': vars(self.args),
       'model': self.state_dict(),
@@ -150,7 +142,7 @@ class BaseBeliefTracker(nn.Module):
     torch.save(state, fname)
 
   def load(self, fname):
-    logging.info('loading model from {}'.format(fname))
+    print('loading model from {}'.format(fname))
     state = torch.load(fname)
     self.load_state_dict(state['model'])
     self.init_optimizer()
@@ -162,7 +154,7 @@ class BaseBeliefTracker(nn.Module):
     files = [f for f in os.listdir(directory) if f.endswith('.pt')]
     scores = []
     for fname in files:
-      re_str = r'dev_{}=([0-9\.]+)'.format(self.args.stop_early)
+      re_str = r'dev_{}=([0-9\.]+)'.format(self.args.early_stop)
       dev_acc = re.findall(re_str, fname)
       if dev_acc:
         score = float(dev_acc[0].strip('.'))

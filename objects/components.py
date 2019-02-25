@@ -25,14 +25,19 @@ def var(data, dtype="float"):
 
 def clip_gradient(model, clip):
   if clip is None: return
-  clip_grad_norm_(model.encoder.parameters(), clip)
-  clip_grad_norm_(model.decoder.parameters(), clip)
+  try:
+    clip_grad_norm_(model.encoder.parameters(), clip)
+    clip_grad_norm_(model.decoder.parameters(), clip)
+  except(AttributeError):
+    pass
 
-def run_inference(model, sources, targets, criterion, teach_ratio):
-  if model.type in ["basic", "dual", "multi"]:
-    return basic_inference(model, sources, targets, criterion)
-  elif model.type == "transformer":
-    return transformer_inference(model, sources, targets, criterion)
+def run_inference(model, batch):
+  if model.model_type in ["basic", "dual", "multi"]:
+    return basic_inference(model, sources, targets)
+  elif model.model_type == "transformer":
+    return transformer_inference(model, sources, targets)
+  elif model.model_type == "glad":
+    return model.forward(batch)
   else:
     assert(model.type == "seq2seq")
 
@@ -49,14 +54,14 @@ def run_inference(model, sources, targets, criterion, teach_ratio):
 
   return model(sources, targets, enc_hidden, enc_length, dec_length, track)
 
-def basic_inference(model, sources, targets, criterion):
+def basic_inference(model, batch):
   hidden = model.encoder.initHidden()
   output = model(sources, hidden)
   topv, topi = output.data.topk(2)
   pred = topi[0]  # returns full list of predictions as a tensor
   # pred = topi[0][0] # instead to select just the first
-  loss = 0 if criterion is None else criterion(output, targets)
-  return loss, pred, None
+  loss = model.criterion(output, targets)
+  return loss, pred
 
 def transformer_inference(model, sources, targets, criterion):
   loss = 0
@@ -97,6 +102,13 @@ def run_rnn(rnn, inputs, lens):
     # recovered_lens = [reindexed_lens[i] for i in reverse_order]
     # assert recovered_lens == lens
     return recovered
+
+def unique_identifier(summary, epoch, iteration, early_stop_metric):
+  uid = 'epoch={epoch},iter={iter},train_{key}={train:.4f},dev_{key}={dev:.4f}'.format(
+          epoch=epoch, iter=iteration, key=early_stop_metric,
+          train=summary.get(f'train_{early_stop_metric}', 0.0),
+          dev=summary[f'best_{early_stop_metric}'] )
+  return uid
 
 def show_dialogues(val_data, encoder, decoder, task):
   encoder.eval()
