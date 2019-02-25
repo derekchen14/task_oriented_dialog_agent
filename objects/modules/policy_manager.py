@@ -1,5 +1,4 @@
 import pdb, sys
-import logging
 import torch
 import json
 
@@ -131,7 +130,7 @@ class BasePolicyManager(object):
   def save_config(self, args, save_directory):
     filename = '{}/config.json'.format(save_directory)
     with open(filename, 'wt') as save_file:
-      logging.info('Saving config to {}'.format(filename))
+      print('Saving config to {}'.format(filename))
       json.dump(vars(args), save_file, indent=2)
 
 
@@ -154,7 +153,7 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def save_checkpoint(self, monitor, episode):
     filename = '{}/{}.pt'.format(self.save_dir, identifier)
-    logging.info('saving model to {}.pt'.format(identifier))
+    print('saving model to {}.pt'.format(identifier))
     state = {
       'args': vars(self.args),
       'model': self.state_dict(),

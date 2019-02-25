@@ -18,11 +18,10 @@ class MonitorBase(object):
     # returns a boolean on whether this latest model is the best seen so far
     raise(NotImplementedError)
 
-  def build_logger(self, args, save_dir):
+  def build_logger(self, save_dir):
     logger = logging.getLogger(self.__class__.__name__)
 
-    log_filename = os.path.join(save_dir, '{}results.log'.format(args.prefix))
-    file_handler = logging.FileHandler(log_filename)
+    file_handler = logging.FileHandler(os.path.join(save_dir, 'results.log'))
     file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s]  %(message)s')
     file_handler.setFormatter(file_formatter)
@@ -65,13 +64,13 @@ class LossMonitor(MonitorBase):
   def update_train(self, loss):
     it = self.iteration
     self.train_losses.append(loss)
-    self.logger.debug("This should print to screen and also append to file")
-    print("This should print to screen, but not append to file")
-    self.logger.info("This should append to file, but not print to screen")
+    self.logger.debug("debug level")
+    self.logger.info("info level")
+    self.logger.warning("warning level")
     sys.exit()
     if it > 0 and it % self.print_every == 0:
       avg_loss = np.average(self.train_losses)
-      self.logger.info('{}) Train Loss: {0:.4f}'.format(it, avg_loss))
+      self.logger.info('{}) Train Loss: {:.4f}'.format(it, avg_loss))
       self.train_losses = []  # reset the monitor
     self.iteration += 1
 
@@ -80,7 +79,7 @@ class LossMonitor(MonitorBase):
     print(results)
     print("status before")
     print(self.status)
-    self.status.udpate(results)
+    self.status.update(results)
     print("status after")
     print(self.status)
     # for metric in metrics:

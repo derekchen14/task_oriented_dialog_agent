@@ -1,7 +1,6 @@
 import time as tm
 import os, pdb, sys
 import random
-import logging
 
 # from torch.optim.lr_scheduler import StepLR
 from operators.evaluate import RewardMonitor
@@ -24,7 +23,7 @@ class Learner(object):
     self.vocab = processor.vocab
     self.module = module
     self.task = task
-    self.logger = monitor.build_logger(args, module.dir)
+    self.logger = monitor.build_logger(module.dir)
 
   def supervise(self, params):
     supervise_start_time = tm.time()
@@ -96,7 +95,7 @@ class Learner(object):
   def reinforce(self, params):
     """ main methods are run_episodes, store_experience, and next """
     reinforce_start_time = tm.time()
-    logging.info('Starting reinforcement learning ...')
+    self.logger.info('Starting reinforcement learning ...')
     self.success_rate_threshold = params.threshold
 
     if params.warm_start:  #  TODO: check that a pretrained model doesn't already exist
@@ -106,7 +105,7 @@ class Learner(object):
     self.module.user.learning_phase = "train"
     self.run_episodes(params.epochs)
 
-    logging.info("Done training {}".format(params.task))
+    self.logger.info("Done training {}".format(params.task))
     time_past(reinforce_start_time)
 
   def run_one_episode(self, monitor, collect_data=False):

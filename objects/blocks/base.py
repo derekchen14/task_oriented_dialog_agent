@@ -2,7 +2,6 @@ import os, pdb, sys
 import re
 import math
 import json
-import logging
 
 import torch
 import torch.nn as nn
@@ -32,13 +31,13 @@ class BaseBeliefTracker(nn.Module):
     elif self.opt == 'rmsprop':
       self.optimizer = optim.RMSprop(self.parameters(), self.lr, self.reg)
 
-  def get_train_logger(self):
-    logger = logging.getLogger('train-{}'.format(self.__class__.__name__))
-    formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
-    file_handler = logging.FileHandler(os.path.join(self.save_dir, 'train.log'))
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    return logger
+  # def get_train_logger(self):
+  #   logger = logging.getLogger('train-{}'.format(self.__class__.__name__))
+  #   formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
+  #   file_handler = logging.FileHandler(os.path.join(self.save_dir, 'train.log'))
+  #   file_handler.setFormatter(formatter)
+  #   logger.addHandler(file_handler)
+  #   return logger
 
   # def learn(self, args, datasets):
     # train_data, dev_data = datasets['train'], datasets['val']
@@ -176,13 +175,13 @@ class BaseBeliefTracker(nn.Module):
   def save_config(self, args, save_directory):
     fname = '{}/config.json'.format(save_directory)
     with open(fname, 'wt') as save_file:
-      logging.info('Saving config to {}'.format(fname))
+      print('Saving config to {}'.format(fname))
       json.dump(vars(args), save_file, indent=2)
 
   @classmethod
   def load_config(cls, fname, ontology, **kwargs):
     with open(fname) as f:
-      logging.info('Loading config from {}'.format(fname))
+      print('Loading config from {}'.format(fname))
       args = object()
       for k, v in json.load(f):
         setattr(args, k, kwargs.get(k, v))
@@ -190,7 +189,7 @@ class BaseBeliefTracker(nn.Module):
 
   def save(self, summary, identifier):
     fname = '{}/{}.pt'.format(self.save_dir, identifier)
-    logging.info('saving model to {}.pt'.format(identifier))
+    print('saving model to {}.pt'.format(identifier))
     state = {
       'args': vars(self.args),
       'model': self.state_dict(),
@@ -200,7 +199,7 @@ class BaseBeliefTracker(nn.Module):
     torch.save(state, fname)
 
   def load(self, fname):
-    logging.info('loading model from {}'.format(fname))
+    print('loading model from {}'.format(fname))
     state = torch.load(fname)
     self.load_state_dict(state['model'])
     self.init_optimizer()

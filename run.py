@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import torch
-import logging, sys
+import sys
 from random import seed
 
 from utils.internal.arguments import solicit_args
@@ -14,7 +14,6 @@ if __name__ == "__main__":
   # ------ BASIC SYSTEM SETUP ------
   torch.manual_seed(args.seed)
   seed(args.seed)
-  logging.basicConfig(level=logging.INFO)
   # ----- INITIALIZE OPERATORS -----
   loader = DataLoader(args)
   builder = Builder(args, loader)
@@ -27,5 +26,5 @@ if __name__ == "__main__":
     system = SingleSystem(args, loader, builder, processor, evaluator)
   if not args.test_mode:
     system.run_main()
-    logging.info(args)
+    system.monitor.logger.info(args)
   system.evaluate(args.test_mode)
