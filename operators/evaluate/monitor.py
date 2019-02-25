@@ -1,4 +1,4 @@
-import os, pdb
+import os, pdb, sys
 import numpy as np
 import time as tm
 import logging
@@ -18,13 +18,22 @@ class MonitorBase(object):
     # returns a boolean on whether this latest model is the best seen so far
     raise(NotImplementedError)
 
-  def build_logger(self, save_dir, split='train'):
-    logger = logging.getLogger('{}-{}'.format(split, self.__class__.__name__))
-    log_filename = os.path.join(save_dir, '{}.log'.format(split))
+  def build_logger(self, args, save_dir):
+    logger = logging.getLogger(self.__class__.__name__)
+
+    log_filename = os.path.join(save_dir, '{}results.log'.format(args.prefix))
     file_handler = logging.FileHandler(log_filename)
-    formatter = logging.Formatter('%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
-    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    file_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s]  %(message)s')
+    file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.WARNING)
+    console_formatter = logging.Formatter('%(levelname)-5.5s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+
     return logger
 
 class LossMonitor(MonitorBase):
@@ -56,6 +65,10 @@ class LossMonitor(MonitorBase):
   def update_train(self, loss):
     it = self.iteration
     self.train_losses.append(loss)
+    self.logger.debug("This should print to screen and also append to file")
+    print("This should print to screen, but not append to file")
+    self.logger.info("This should append to file, but not print to screen")
+    sys.exit()
     if it > 0 and it % self.print_every == 0:
       avg_loss = np.average(self.train_losses)
       self.logger.info('{}) Train Loss: {0:.4f}'.format(it, avg_loss))

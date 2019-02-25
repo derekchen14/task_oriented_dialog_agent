@@ -24,7 +24,7 @@ class Learner(object):
     self.vocab = processor.vocab
     self.module = module
     self.task = task
-    self.logger = monitor.build_logger(module.dir)
+    self.logger = monitor.build_logger(args, module.dir)
 
   def supervise(self, params):
     supervise_start_time = tm.time()
