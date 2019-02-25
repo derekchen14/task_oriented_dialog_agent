@@ -49,7 +49,7 @@ class Learner(object):
         if self.monitor.time_to_validate():
           val_results = self.validate(model, val_data)
           self.monitor.update_val(val_results)
-          if self.monitor.best_so_far(val_loss):
+          if self.monitor.best_so_far():
             summary = self.monitor.summarize_results(self.logger)
             model.save(summary, unique_identifier(summary))
             model.prune_saves()

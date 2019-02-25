@@ -36,12 +36,13 @@ class MonitorBase(object):
 
 class LossMonitor(MonitorBase):
   def __init__(self, threshold, metrics, early_stop):
-    self.best = {'val_loss': np.inf}
     self.completed_training = True
     if threshold > 0.0:
       self._prepare_early_stop(threshold)
 
-    self.status = defaultdict(list)
+    self.best = {}
+    self.status = {}
+    
     self.metrics = metrics
     self.early_stop_metric = early_stop
 
@@ -70,18 +71,10 @@ class LossMonitor(MonitorBase):
     self.iteration += 1
 
   def update_val(self, results):
-    print("results being passed to val update:")
-    print(results)
-    print("status before")
-    print(self.status)
     self.status.update(results)
-    print("status after")
-    print(self.status)
     # for metric in metrics:
     #   if metric == 'bleu':
     #     score = self.calculate_bleu(batch)
-    #   if metric == 'accuracy':
-    #     score = self.calculate_accuracy(batch)
     #   if metric == 'val_loss':
     #     score = loss
     #   self.status[metric].append(score)
@@ -124,10 +117,10 @@ class LossMonitor(MonitorBase):
   def time_to_validate(self):
     return self.iteration > 0 and self.iteration % self.val_every == 0
 
-  def best_so_far(self, early_stop_metric):
-    candidate_result = self.status[early_stop_metric]
-    best_result = self.best.get(early_stop_metric, 0)
-    if early_stop_metric in ['val_loss', 'avg_turn']:
+  def best_so_far(self):
+    candidate_result = self.status[self.early_stop_metric]
+    best_result = self.best.get(self.early_stop_metric, 0)
+    if self.early_stop_metric in ['val_loss', 'avg_turn']:
       candidate_result *= -1  # reverse  since lower is better
       best_result *= -1
 
@@ -178,7 +171,7 @@ class LossMonitor(MonitorBase):
     summary = self.status.copy()
     for metric, metric_value in self.best.items():
       summary["best_{}".format(metric)] = metric_value
-    for metric, metric_value in self.summary.items():
+    for metric, metric_value in summary.items():
       logger.info("{}: {:.4f}".format(metric, metric_value))
 
     unique_id = unique_identifier(summary, self.epoch, self.iteration, self.early_stop_metric)
