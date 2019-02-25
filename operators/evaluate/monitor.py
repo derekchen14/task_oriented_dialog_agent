@@ -20,15 +20,16 @@ class MonitorBase(object):
 
   def build_logger(self, save_dir):
     self.logger = logging.getLogger(self.__class__.__name__)
+    self.logger.setLevel(logging.DEBUG)  # set root to be very relaxed
 
     file_handler = logging.FileHandler(os.path.join(save_dir, 'results.log'))
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.INFO)  # log anything info or above
     file_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s]  %(message)s')
     file_handler.setFormatter(file_formatter)
     self.logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.WARNING)
+    console_handler.setLevel(logging.WARNING)  # print out only warning or above
     console_formatter = logging.Formatter('%(levelname)s: %(message)s')
     console_handler.setFormatter(console_formatter)
     self.logger.addHandler(console_handler)
@@ -39,7 +40,7 @@ class LossMonitor(MonitorBase):
     self.completed_training = True
     if threshold > 0.0:
       self._prepare_early_stop(threshold)
-    # self.build_logger()
+
     self.status = defaultdict(list)
     self.metrics = metrics
     self.early_stop_metric = early_stop
@@ -62,10 +63,6 @@ class LossMonitor(MonitorBase):
   def update_train(self, loss):
     it = self.iteration
     self.train_losses.append(loss)
-    self.logger.debug("debug level")
-    self.logger.info("info level")
-    self.logger.warning("warning level")
-    sys.exit()
     if it > 0 and it % self.print_every == 0:
       avg_loss = np.average(self.train_losses)
       self.logger.info('{}) Train Loss: {:.4f}'.format(it, avg_loss))
