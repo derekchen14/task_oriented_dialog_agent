@@ -156,7 +156,7 @@ class BaseBeliefTracker(nn.Module):
   def run_glad_inference(self, data):
     self.eval()
     predictions = []
-    for batch in data.batch(batch_size):
+    for batch in data.batch(self.batch_size):
       loss, scores = self.forward(batch)
       predictions += self.extract_predictions(scores)
     return predictions
@@ -211,7 +211,7 @@ class BaseBeliefTracker(nn.Module):
     files = [f for f in os.listdir(directory) if f.endswith('.pt')]
     scores = []
     for fname in files:
-      re_str = r'dev_{}=([0-9\.]+)'.format(self.args.stop_early)
+      re_str = r'dev_{}=([0-9\.]+)'.format(self.args.early_stop)
       dev_acc = re.findall(re_str, fname)
       if dev_acc:
         score = float(dev_acc[0].strip('.'))

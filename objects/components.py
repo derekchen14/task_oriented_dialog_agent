@@ -104,7 +104,7 @@ def run_rnn(rnn, inputs, lens):
     return recovered
 
 def unique_identifier(summary, epoch, iteration, early_stop_metric):
-  uid = 'epoch={epoch},iter={iter},train_{key}={train},dev_{key}={dev}'.format(
+  uid = 'epoch={epoch},iter={iter},train_{key}={train:.4f},dev_{key}={dev:.4f}'.format(
           epoch=epoch, iter=iteration, key=early_stop_metric,
           train=summary["best_{}".format(early_stop_metric)],
           dev=summary["best_{}".format(early_stop_metric)] )

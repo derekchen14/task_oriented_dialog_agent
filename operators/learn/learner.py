@@ -55,6 +55,8 @@ class Learner(object):
             model.prune_saves()
             val_data.record_preds(preds=model.run_glad_inference(val_data),
                 to_file=os.path.join(model.save_dir, 'dev.pred.json'))
+          else:
+            self.logger.info("Epoch {} iteration {} completed".format(epoch, self.monitor.iteration))
           if self.monitor.should_early_stop():
             break
       self.monitor.end_epoch()
