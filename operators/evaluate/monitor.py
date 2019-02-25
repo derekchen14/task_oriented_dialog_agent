@@ -172,9 +172,8 @@ class LossMonitor(MonitorBase):
   def summarize_results(self, verbose=False):
     self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
     summary = self.status.copy()
-    if verbose:
-      for metric, metric_value in self.best.items():
-        summary["best_{}".format(metric)] = metric_value
+    for metric, metric_value in self.best.items():
+      summary["best_{}".format(metric)] = metric_value
     for metric, metric_value in summary.items():
       self.logger.info("{}: {:.4f}".format(metric, metric_value))
 
