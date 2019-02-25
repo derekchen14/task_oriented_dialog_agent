@@ -50,8 +50,8 @@ class Learner(object):
           val_results = self.validate(model, val_data)
           self.monitor.update_val(val_results)
           if self.monitor.best_so_far():
-            summary = self.monitor.summarize_results(self.logger)
-            model.save(summary, unique_identifier(summary))
+            summary, unique_id = self.monitor.summarize_results(self.logger)
+            model.save(summary, unique_id)
             model.prune_saves()
             val_data.record_preds(preds=model.run_glad_inference(val_data),
                 to_file=os.path.join(model.save_dir, 'dev.pred.json'))
@@ -77,6 +77,7 @@ class Learner(object):
       loss, scores = run_inference(model, val_batch)
       predictions += model.extract_predictions(scores)
 
+    # TODO: user the summary method to get finer control of metrics returned
     # return self.monitor.summarize_results(self.logger)
     return val_data.evaluate_preds(predictions)
 

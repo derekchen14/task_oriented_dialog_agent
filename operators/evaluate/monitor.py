@@ -42,7 +42,7 @@ class LossMonitor(MonitorBase):
 
     self.best = {}
     self.status = {}
-    
+
     self.metrics = metrics
     self.early_stop_metric = early_stop
 
