@@ -38,9 +38,10 @@ class LossMonitor(MonitorBase):
     self.metrics = metrics
     self.early_stop_metric = early_stop
 
-  def start_epoch(self, debug, epoch):
+  def start_epoch(self, debug, epoch, logger):
     self.debug = debug
     self.epoch = epoch
+    self.logger = logger
     self._print_frequency(debug)
     self.epoch_start_time = tm.time()
 
@@ -53,13 +54,11 @@ class LossMonitor(MonitorBase):
     time_past(self.epoch_start_time)
 
   def update_train(self, loss):
+    it = self.iteration
     self.train_losses.append(loss)
-    if self.iteration > 0 and self.iteration % self.print_every == 0:
-      percent_complete = (self.iteration / self.iters_per_epoch) * 100.0
+    if it > 0 and it % self.print_every == 0:
       avg_loss = np.average(self.train_losses)
-      time_left = timeSince(self.epoch_start_time, percent_complete)
-      print('{:3.1f}% complete {}, Train Loss: {0:.4f}'.format(
-              percent_complete, time_left, avg_loss))
+      self.logger.info('{}) Train Loss: {0:.4f}'.format(it, avg_loss))
       self.train_losses = []  # reset the monitor
     self.iteration += 1
 

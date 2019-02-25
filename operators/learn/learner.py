@@ -32,7 +32,6 @@ class Learner(object):
     self.module.init_optimizer()
 
     train_data = self.processor.datasets['train']
-    pdb.set_trace()
     val_data = self.processor.datasets['val']
     self.run_epochs(self.module, train_data, val_data)
 
@@ -42,7 +41,7 @@ class Learner(object):
   def run_epochs(self, model, train_data, val_data):
     """ main methods are run_epochs, train, validate, predict, and inference """
     for epoch in range(self.epochs):
-      val_every = self.monitor.start_epoch(self.debug, epoch)
+      val_every = self.monitor.start_epoch(self.debug, epoch, self.logger)
       starting_checkpoint(epoch, self.epochs, use_cuda)
       for batch in train_data.batch(self.batch_size, shuffle=True):
         loss = self.train(model, batch)
