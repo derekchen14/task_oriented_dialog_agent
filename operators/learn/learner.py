@@ -50,7 +50,7 @@ class Learner(object):
           val_results = self.validate(model, val_data)
           self.monitor.update_val(val_results)
           if self.monitor.best_so_far():
-            summary, unique_id = self.monitor.summarize_results(self.logger)
+            summary, unique_id = self.monitor.summarize_results()
             model.save(summary, unique_id)
             model.prune_saves()
             val_data.record_preds(preds=model.run_glad_inference(val_data),

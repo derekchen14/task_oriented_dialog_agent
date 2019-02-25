@@ -166,13 +166,13 @@ class LossMonitor(MonitorBase):
         return True
     return False
 
-  def summarize_results(self, logger):
-    logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
+  def summarize_results(self, verbose=False):
+    self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
     summary = self.status.copy()
     for metric, metric_value in self.best.items():
       summary["best_{}".format(metric)] = metric_value
     for metric, metric_value in summary.items():
-      logger.info("{}: {:.4f}".format(metric, metric_value))
+      self.logger.info("{}: {:.4f}".format(metric, metric_value))
 
     unique_id = unique_identifier(summary, self.epoch, self.iteration, self.early_stop_metric)
     return summary, unique_id
