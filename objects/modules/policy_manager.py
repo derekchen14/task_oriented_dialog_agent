@@ -127,12 +127,6 @@ class BasePolicyManager(object):
       reward = -1 if penalty else 0                    # -10 over time
     return reward
 
-  def save_config(self, args, save_directory):
-    filename = '{}/config.json'.format(save_directory)
-    with open(filename, 'wt') as save_file:
-      print('Saving config to {}'.format(filename))
-      json.dump(vars(args), save_file, indent=2)
-
 
 class RulebasedPolicyManager(BasePolicyManager):
 

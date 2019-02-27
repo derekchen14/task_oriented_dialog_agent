@@ -48,6 +48,13 @@ class BaseAgent(object):
     """
     return {"slot_action": None, "slot_value_action": None}
 
+  def save_config(self, args, save_directory):
+    filename = '{}/config.json'.format(save_directory)
+    with open(filename, 'wt') as save_file:
+      print('Saving config to {}'.format(filename))
+      json.dump(vars(args), save_file, indent=2)
+
+
 class InformPolicy(BaseAgent):
   """ A simple agent to test the system. This agent should simply inform
   all the slots and then issue: taskcomplete. """

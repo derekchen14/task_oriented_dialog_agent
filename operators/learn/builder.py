@@ -84,12 +84,8 @@ class Builder(object):
       model = self.add_loss_function(model, "binary_cross_entropy")
       # return glad_model.to(device)
     elif self.model_type == "rulebased":
-      if self.args.batch_size == 16:
-        return EchoPolicy(processor.ontology)
-      elif self.args.batch_size == 17:
-        return RequestThenInformPolicy(processor.ontology)
-      elif self.args.batch_size == 18:
-        return HackPolicy(processor.ontology)
+      model = HackPolicy(processor.ontology)
+      model.model_type = self.model_type
     elif self.model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)
