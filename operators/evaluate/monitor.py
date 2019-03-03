@@ -195,7 +195,7 @@ class RewardMonitor(MonitorBase):
 
     self.metrics = metrics
     self.success_rate_threshold = threshold  # 0.3
-    self.best_success_rate = -1
+    self.best_success_rate = -1.0
     # self.warm_start_epochs = 100
     # self.save_check_point = 5   # save the last X checkpoints
   def start_episode(self):
@@ -212,9 +212,12 @@ class RewardMonitor(MonitorBase):
     self.success_rate = self.num_successes / float(self.num_episodes)
     self.avg_reward = np.average(self.rewards)
     self.avg_turn = np.average(self.turns)
+    self.unique_id =  "episode_{}_best_success_{:.4f}_current_{:.4f}".format(
+                  self.num_episodes, self.best_success_rate, self.success_rate)
     if verbose:
-      print("Success_rate: {}, Average Reward: {:.4f}, Average Turns: {:.4f}".format(
-        self.success_rate, self.avg_reward, self.avg_turn))
+      print("{}) Success_rate: {:.4f}, Average Reward: {:.4f}, Average Turns: {:.4f}".format(
+        self.num_episodes, self.success_rate, self.avg_reward, self.avg_turn))
+
 
   def best_so_far(self, simulator_success_rate):
     if simulator_success_rate > self.success_rate_threshold:
@@ -222,4 +225,3 @@ class RewardMonitor(MonitorBase):
         self.best_success_rate = simulator_success_rate
         return True
     return False
-

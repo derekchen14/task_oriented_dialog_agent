@@ -6,10 +6,7 @@ class SingleSystem(object):
     self.args = args
     self.task = args.task
     self.evaluator = evaluator
-    if self.task == "policy":
-      self.monitor = RewardMonitor(args.threshold, args.metrics)
-    else:
-      self.monitor = LossMonitor(args.threshold, args.metrics, args.early_stop)
+    self.monitor = LossMonitor(args.threshold, args.metrics, args.early_stop)
 
     model = builder.get_model(processor, self.monitor)
     model.save_config(args, builder.dir)
@@ -18,10 +15,7 @@ class SingleSystem(object):
       self.learner = Learner(args, self.module, processor, self.monitor)
 
   def run_main(self):
-    if self.task == "policy":
-      self.learner.reinforce(self.args)
-    else:
-      self.learner.supervise(self.args)
+    self.learner.supervise(self.args)
 
   def evaluate(self, test_mode):
     self.evaluator.module = self.module
@@ -34,21 +28,27 @@ class EndToEndSystem(object):
   def __init__(self, args, loader, builder, processor, evaluator):
     self.args = args
     self.metrics = args.metrics
-    self.task = loader.categories
     self.evaluator = evaluator
+    self.monitor = RewardMonitor(args.threshold, args.metrics)
 
-    belief_tracker = builder.configure_module(args, "belief monitor")
-    policy_manager = builder.configure_module(args, "policy manager")
-    text_generator = builder.configure_module(args, "text generator")
+    nlu_model = builder.get_model(processor, self.monitor, "belief_tracker")
+    pm_model = builder.get_model(processor, self.monitor, "policy_manager")
+    nlg_model = builder.get_model(processor, self.monitor, "text_generator")
+
+    belief_tracker = builder.configure_module(args, nlu_model)
+    policy_manager = builder.configure_module(args, pm_model)
+    text_generator = builder.configure_module(args, nlg_model)
+
     modules = [belief_tracker, policy_manager, text_generator]
-    self.dialogue_agent = builder.create_agent(args, modules)
+    self.dialogue_agent = builder.create_agent(*modules)
 
     if not args.test_mode:
-      self.learner = Learner(args, self.dialogue_agent, processor)
+      self.learner = Learner(args, self.dialogue_agent, processor, self.monitor)
 
   def run_main(self):
-    self.learner.learn(self.task)
+    self.learner.reinforce(self.args)
 
   def evaluate(self):
-    self.evalutor.set_agent(self.dialogue_agent)
-    self.evaluator.run_report(self.metrics)
+    self.evaluator.agent = self.dialogue_agent
+    self.evaluator.monitor = self.monitor
+    self.evaluator.generate_report()
