@@ -8,9 +8,9 @@ import json
 import copy
 import torch
 import os
+import numpy as np
 from objects.modules.dialogue_state import DialogueState
 from utils.external import dialog_config
-
 
 class DialogManager:
     """ A dialog manager to mediate the interaction between an agent and a customer """
@@ -30,9 +30,8 @@ class DialogManager:
         self.use_world_model = False
         self.running_user = self.user_sim
 
-    def initialize_episode(self, use_environment=False):
+    def initialize_episode(self, simulator_type):
         """ Refresh state for new dialog """
-
         self.reward = 0
         self.episode_over = False
 
@@ -40,19 +39,16 @@ class DialogManager:
         self.running_user = self.user_sim
         self.use_world_model = False
 
-        if not use_environment:
-            # comes here for first time when error starts
-            self.running_user = self.world_model
-            self.use_world_model = True
-        else:
+        if simulator_type == 'rule':
             self.running_user = self.user_sim
             self.use_world_model = False
+        elif simulator_type == 'neural':
+            self.running_user = self.world_model
+            self.use_world_model = True
 
         self.user_action = self.running_user.initialize_episode()
-
-        if use_environment:
+        if simulator_type == 'rule':
             self.world_model.sample_goal = self.user_sim.sample_goal
-
         self.state_tracker.update(user_action=self.user_action)
 
         if dialog_config.run_mode < 3:
@@ -62,7 +58,7 @@ class DialogManager:
 
         self.model.initialize_episode()
 
-    def next(self, record_training_data=True, record_training_data_for_user=True):
+    def next(self, record_agent_data=True, record_user_data=True):
         """ This function initiates each subsequent exchange between agent and user (agent first) """
 
         ########################################################################
@@ -104,7 +100,7 @@ class DialogManager:
         ########################################################################
         #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
         ########################################################################
-        if record_training_data:
+        if record_agent_data:
             self.model.register_experience_replay_tuple(self.state, self.model_action, self.reward,
                                                         self.state_tracker.get_state_for_agent(), self.episode_over,
                                                         self.state_user, self.use_world_model)
@@ -114,7 +110,7 @@ class DialogManager:
         # (s_t, a_t, s_{t+1}, r, t, ua_t)
         ########################################################################
 
-        if record_training_data_for_user and not self.use_world_model:
+        if record_user_data and not self.use_world_model:
             self.world_model.register_experience_replay_tuple(self.state_user, self.model.action,
                                                               self.state_user_next, self.reward, self.episode_over,
                                                               self.user_action)
@@ -141,7 +137,8 @@ class DialogManager:
             reward = 0
         return reward
 
-    def save_checkpoint(monitor, episode):
+    def save_checkpoint(self, monitor, episode):
+        monitor.summarize_results()
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
             print("Created directory at {}".format(self.save_dir))
@@ -149,26 +146,15 @@ class DialogManager:
         torch.save(self.model.dqn.state_dict(), filepath)
         print("Saved model at {}".format(filepath))
 
-    def save_model(self, agent, cur_epoch, best_epoch, success_rate):
-        path = self.save_dir
-        filename = 'ep %s) best_%s_%.4f.pkl' % (cur_epoch, best_epoch, success_rate)
-        filepath = os.path.join(path, filename)
-        try:
-            agent.save(filepath)
-            print('saved model in %s' % (filepath,))
-        except Exception as e:
-            print('Error: Writing model failed %s' % (filepath,))
-            print(e)
-
-    def save_performance_records(self, records):
-        path = self.save_dir
-        filepath = os.path.join(path, 'agt_performance_records.json')
-        try:
-            json.dump(records, open(filepath, "w"))
-            print('saved performance records in %s' % (filepath,))
-        except Exception as e:
-            print('Error: Writing performance records failed %s' % (filepath,))
-            print(e)
+    def save_performance_records(self, monitor, episode):
+        filepath = os.path.join(self.save_dir, f'results_{episode}.json')
+        records = {'turns': monitor.turns, 'avg_turn': monitor.avg_turn,
+            'rewards': monitor.rewards, 'avg_reward': monitor.avg_reward,
+            'successes': monitor.simulation_successes, 'episode': episode,
+            'avg_sim_success': np.average(monitor.simulation_successes),
+            'avg_true_success': monitor.success_rate }
+        json.dump(records, open(filepath, "w"))
+        print('Saved performance records at {}'.format(filepath))
 
     def print_function(self, agent_action=None, user_action=None):
         if agent_action:

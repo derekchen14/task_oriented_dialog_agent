@@ -29,7 +29,7 @@ class EndToEndSystem(object):
     self.args = args
     self.metrics = args.metrics
     self.evaluator = evaluator
-    self.monitor = RewardMonitor(args.threshold, args.metrics)
+    self.monitor = RewardMonitor(args.metrics, args.threshold)
 
     nlu_model = builder.get_model(processor, self.monitor, "belief_tracker")
     pm_model = builder.get_model(processor, self.monitor, "policy_manager")
