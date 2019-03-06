@@ -9,7 +9,7 @@ def solicit_args():
               'ddq/movies', 'ddq/taxis', 'ddq/restaurants'], default='woz2',
               help='Choose the data to train on, defines labels', )
   parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
-              'basic', 'attention', 'transformer', 'match', 'bilstm', 'glad'],
+              'basic', 'attention', 'transformer', 'ddq', 'bilstm', 'glad'],
               help='Choose the model type used',)
 
   parser.add_argument('--debug', default=False, action='store_true',
@@ -68,7 +68,7 @@ def solicit_args():
               help='discount rate for value, commonly known as gamma')
   parser.add_argument('--pool-size', default=1000, type=int,
               help='number of examples to hold in experience replay pool')
-  parser.add_argument('--epsilon', default=0.1, type=int,
+  parser.add_argument('--epsilon', default=0.1, type=float,
               help='Amount to start looking around in epsilon-greedy exploration')
   parser.add_argument('--warm-start', default=False, action='store_true',
               help='when true, agent has warm start phase for training')

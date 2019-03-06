@@ -31,7 +31,18 @@ class DialogueState:
         of all prior and current user beliefs.  This is modeled with EntNet.
   """
 
-  def __init__(self, knowledge_base, ontology):
+  # def __init__(self, knowledge_base, ontology):
+  def __init__(self, act_set, slot_set, movie_dictionary):
+    self.movie_dictionary = movie_dictionary
+    self.initialize_episode()
+    self.history_vectors = None
+    self.history_dictionaries = None
+    self.current_slots = None
+    self.action_dimension = 10      # TODO REPLACE WITH REAL VALUE
+    self.kb_result_dimension = 10   # TODO  REPLACE WITH REAL VALUE
+    self.turn_count = 0
+    self.kb_helper = KBHelper(movie_dictionary)
+
     """ constructor for statetracker takes movie knowledge base and initializes a new episode
 
     Arguments:
@@ -46,7 +57,6 @@ class DialogueState:
     action_dimension        --  # TODO indicates the dimensionality of the vector representaiton of the action
     kb_result_dimension     --  A single integer denoting the dimension of the kb_results features.
     turn_count              --  A running count of which turn we are at in the present dialog
-    """
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
     self.relation_set = ontology.relations
@@ -60,6 +70,7 @@ class DialogueState:
     self.kb_result_dimension = 10   # TODO  REPLACE WITH REAL VALUE
     self.turn_count = 0
     self.kb_helper = KBHelper(knowledge_base)
+    """
 
 
   def initialize_episode(self):
@@ -100,6 +111,14 @@ class DialogueState:
          'agent_action': self.history_dictionaries[-2] if len(self.history_dictionaries) > 1 else None}
     return copy.deepcopy(state)
 
+  def get_state_for_user(self):
+    """ Get the state representatons to send to user """
+    #state = {'user_action': self.history_dictionaries[-1], 'current_slots': self.current_slots, 'kb_results': self.kb_results_for_state()}
+    state = {'user_action': self.history_dictionaries[-2], 'current_slots': self.current_slots, #'kb_results': self.kb_results_for_state(),
+             'kb_results_dict':self.kb_helper.database_results_for_agent(self.current_slots), 'turn_count': self.turn_count, 'history': self.history_dictionaries,
+             'agent_action': self.history_dictionaries[-1] if len(self.history_dictionaries) > 1 else None}
+    return copy.deepcopy(state)
+
   def get_suggest_slots_values(self, request_slots):
     """ Get the suggested values for request slots """
 
@@ -131,13 +150,13 @@ class DialogueState:
         inform_slots = self.kb_helper.fill_inform_slots(
                                 response['inform_slots'], self.current_slots)
         agent_action_values = {'speaker': "agent",
-                                'dialogue_act': response['dialogue_act'],
+                                'diaact': response['diaact'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count': self.turn_count }
 
         agent_action['slot_action'].update({
-                                'dialogue_act': response['dialogue_act'],
+                                'diaact': response['diaact'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count':self.turn_count })
@@ -177,7 +196,10 @@ class DialogueState:
           self.current_slots['request_slots'][slot] = "UNK"
 
       self.history_vectors = np.vstack([self.history_vectors, np.zeros((1,self.action_dimension))])
-      new_move = {'turn_count': self.turn_count, 'speaker': "user", 'request_slots': user_action['request_slots'], 'inform_slots': user_action['inform_slots'], 'dialogue_act': user_action['dialogue_act']}
+      new_move = {'turn_count': self.turn_count, 'speaker': "user", 
+                'request_slots': user_action['request_slots'], 
+                'inform_slots': user_action['inform_slots'], 
+                'diaact': user_action['diaact']}
       self.history_dictionaries.append(copy.deepcopy(new_move))
 
     ########################################################################

@@ -1,6 +1,7 @@
 import time as tm
 import os, pdb, sys
 import random
+import copy
 
 # from torch.optim.lr_scheduler import StepLR
 from operators.evaluate import RewardMonitor
@@ -104,95 +105,109 @@ class Learner(object):
     self.success_rate_threshold = params.threshold
 
     if params.warm_start:  #  TODO: check that a pretrained model doesn't already exist
-      warm_start_simulation()
-
-    self.module.user.goal_sets = self.processor.datasets
-    self.module.user.learning_phase = "train"
+      self.warm_start_simulation()
+    # self.module.user.goal_sets = self.processor.datasets
+    # self.module.user.learning_phase = "train"
     self.run_episodes(params.epochs)
 
     self.logger.info("Done training {}".format(params.task))
     time_past(reinforce_start_time)
 
-  def run_one_episode(self, monitor, collect_data=False):
+  def run_one_episode(self, monitor, simulator_type, collect_data=False):
     monitor.start_episode()
-    self.module.initialize_episode()   # module is policy_manager
+    self.module.initialize_episode(simulator_type)   # module is policy_manager
 
     episode_over = False
     while not episode_over:
-      episode_over, reward = self.module.next(collect_data)
+      episode_over, reward = self.module.next(record_user_data=collect_data)
       monitor.status["episode_reward"] += reward
       monitor.status["turn_count"] += 1
 
       if episode_over:
         if monitor.status["episode_reward"] > 0:
           monitor.status["success"] = True
-        monitor.end_episode()
+    monitor.end_episode()
 
-    return monitor
+  def run_episodes(self, num_episodes, planning_steps=5):
+    self.monitor.simulation_successes = []
 
-  def run_episodes(self, num_episodes):
     for episode in range(num_episodes):  #progress_bar(
-      self.monitor = self.run_one_episode(self.monitor)
-      self.run_simulations()
-    self.monitor.summarize_results(True)
+      self.module.model.predict_mode = False
+      self.run_one_episode(self.monitor, 'rule')
 
-  def run_simulations(self):
-    """ run simulation to generate experiences that are stored in replay buffer """
-    if self.user == "command" or self.module.agent.model_type == "rulebased": return
+      self.module.model.predict_mode = True
+      self.module.world_model.predict_mode = True
+      self.gather_data_for_user(planning_steps, episode)
 
-    num_simulations = 3 if self.debug or self.verbose else 100
-    if self.verbose: print("Running {} simulations".format(num_simulations))
-    sim_monitor = RewardMonitor()
-    for sim_episode in range(num_simulations):
-      sim_monitor = self.run_one_episode(sim_monitor, collect_data=True)
-    sim_monitor.summarize_results(self.verbose)
+      self.module.model.predict_mode = False
+      self.module.world_model.predict_mode = False
+      self.gather_data_for_agent(50, episode)
 
-    if self.monitor.best_so_far(sim_monitor.success_rate):
-      self.module.save_checkpoint(sim_monitor, episode)
+      simulation_success_rate = self.monitor.simulation_successes[-1]
+      if self.monitor.best_so_far(simulation_success_rate):
+        self.module.model.predict_mode = True
+        self.module.world_model.predict_mode = True
+        self.gather_data_for_user(planning_steps, episode)
 
-  def warm_start_simulation(self):
-    successes = 0
-    cumulative_reward = 0
-    cumulative_turns = 0
+      if simulation_success_rate >= self.monitor.best_success_rate:
+        self.module.save_checkpoint(self.monitor, episode)
+        self.module.save_performance_records(self.monitor, episode)
 
-    res = {}
-    warm_start_run_epochs = 0
-    for episode in range(warm_start_epochs):
-      dialog_manager.initialize_episode()
-      episode_over = False
-      while(not episode_over):
-        episode_over, reward = dialog_manager.next(collect_data=True)
-        cumulative_reward += reward
-        if episode_over:
-          if reward > 0:
-            successes += 1
-            print ("warm_start simulation episode %s: Success" % (episode))
-          else: print ("warm_start simulation episode %s: Fail" % (episode))
-          cumulative_turns += dialog_manager.state_tracker.turn_count
+      self.module.model.train(self.batch_size, 1, self.verbose)
+      self.module.model.reset_dqn_target()
+      # should probably be moved up?
+      self.module.world_model.train(self.batch_size, 1)
+      self.monitor.summarize_results(episode % 14 == 0)
 
-      warm_start_run_epochs += 1
+    self.monitor.summarize_results()
+    self.module.save_performance_records(self.monitor, num_episodes)
 
-      if len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
-        break
+  # Use neural-based environment to gather data for training the user simulator
+  def gather_data_for_user(self, num_episodes, global_episode):
+    print("Collect data from neural-based world model")
+    user_monitor = RewardMonitor(['success_rate'])
+    for episode in range(num_episodes):
+      planning_steps = 5
+      if episode % planning_steps == 0:
+        self.run_one_episode(user_monitor, 'rule', collect_data=True)
+      else:
+        self.run_one_episode(user_monitor, 'neural', collect_data=True)
+    if global_episode > 0 and global_episode % 10 == 0:
+      user_monitor.summarize_results(self.verbose, "World Results - ")
 
-    agent.warm_start = 2
-    res['success_rate'] = float(successes)/warm_start_run_epochs
-    res['ave_reward'] = float(cumulative_reward)/warm_start_run_epochs
-    res['ave_turns'] = float(cumulative_turns)/warm_start_run_epochs
-    print ("Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s" % (episode+1, res['success_rate'], res['ave_reward'], res['ave_turns']))
-    print ("Current experience replay buffer size %s" % (len(agent.experience_replay_pool)))
+  # Use rule-based environment to gather data for training the RL agent
+  def gather_data_for_agent(self, num_episodes, global_episode):
+    print("Collect data from rule-based user simulation")
+    agent_monitor = RewardMonitor(['success_rate'])
+    for episode in range(num_episodes):
+      self.run_one_episode(agent_monitor, 'rule')
+    report_results = (global_episode % 10 == 0)
+    agent_monitor.summarize_results(report_results, "Simulation Results - ")
+    self.monitor.simulation_successes.append(agent_monitor.success_rate)
+
+  # Use rule-based environment to gather pre-training warm start data
+  def warm_start_simulation(self, num_episodes=100):
+    """  Load pre-computed training data for warm start
+    loader = self.processor.loader
+    preloaded_buffer = loader.pickle_data('warm_up_experience_pool_seed3081_r5')
+    self.module.model.experience_replay_pool = preloaded_buffer
+    pre_examples = loader.pickle_data('warm_up_experience_pool_seed3081_r5_user')
+    world_model.training_examples = pre_examples
+    """
+    print("Collect data from warm start")    # self.logger.info
+    warm_monitor = RewardMonitor(['success_rate'])
+    for episode in range(num_episodes):
+      # ensure exeprience replay pool is capped to max len using a deque
+      self.run_one_episode(warm_monitor, 'rule', collect_data=True)
+    warm_monitor.summarize_results(self.verbose, "Warm Start Results - ")
+
+    self.module.world_model.train(self.batch_size, num_batches=5)
+    self.module.model.warm_start = 2
+    buffer_size = len(self.module.model.experience_replay_pool)
+    print("Current experience replay buffer size {}".format(buffer_size))
 
 
 """
-    best_model['model'] = copy.deepcopy(agent)
-    best_res['success_rate'] = simulation_res['success_rate']
-    best_res['ave_reward'] = simulation_res['ave_reward']
-    best_res['ave_turns'] = simulation_res['ave_turns']
-    best_res['epoch'] = episode
-      agent.clone_dqn = copy.deepcopy(agent.dqn)
-      agent.train(batch_size, 1)
-      agent.predict_mode = False
-
     n_iters = 600 if self.debug else len(train_data)
     step_size = n_iters/(self.decay_times+1)
     enc_scheduler = StepLR(enc_optimizer, step_size=step_size, gamma=0.2)

@@ -19,10 +19,14 @@ class DataLoader(object):
     if args.pretrained:
       self.embeddings = json.load(self.path('embeddings.json'))
 
-    if self.task == "glad":
+    if self.task == "track_intent":
       self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
       self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
-    elif self.task == "policy":
+    elif self.task == "manage_policy":
+      self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
+      self.ontology = Ontology.from_path(self.data_dir)
+      self.vocab = Vocabulary(args, self.data_dir)
+    elif self.task == 'end_to_end':
       self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
       self.ontology = Ontology.from_path(self.data_dir)
       self.vocab = Vocabulary(args, self.data_dir)
@@ -41,7 +45,7 @@ class DataLoader(object):
       data_path = os.path.join(self.clean_dir, '{}.json'.format(split))
       with open(data_path, 'r') as f:
         dataset = json.load(f)
-        if self.task == 'glad':
+        if self.task == 'track_intent':
           dataset = Dataset.from_dict(dataset)
       self.datasets[split] = dataset
       print("{} loaded with {} items!".format(data_path, len(dataset)))
@@ -59,6 +63,27 @@ class DataLoader(object):
           continue
         vec = tensor(entity_words[word]).to(device)
         self.key_init.weight.data[i] = vec
+
+  def json_data(self, filename):
+    file_path = self.path(filename + '.json', 'r')
+    return json.load(file_path)
+
+  def pickle_data(self, filename, directory=None):
+    if directory is None:
+      file_path = self.path(filename + '.pkl', 'rb')
+      return pkl.load(file_path, encoding='latin1')
+    else:
+      file_path = os.path.join(directory, filename + '.pkl')
+      return pkl.load(open(file_path, 'rb'), encoding='latin1')
+
+  def text_data(self, filename):
+    full_set = {}
+    with self.path(filename + '.txt', 'r') as f:
+      index = 0
+      for line in f.readlines():
+        full_set[line.strip('\n').strip('\r')] = index
+        index += 1
+    return full_set
 
 
   """

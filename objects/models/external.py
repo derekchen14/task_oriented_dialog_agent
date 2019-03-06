@@ -7,6 +7,7 @@ An LSTM decoder - add tanh after cell before output gate
 '''
 import math
 import numpy as np
+import time, os
 
 def initWeights(n,d):
     """ Initialization Strategy """
@@ -20,6 +21,535 @@ def mergeDicts(d0, d1):
         if k in d0: d0[k] += d1[k]
         else: d0[k] = d1[k]
 
+
+class SeqToSeq:
+    def __init__(self, input_size, hidden_size, output_size):
+        pass
+    
+    def get_struct(self):
+        return {'model': self.model, 'update': self.update, 'regularize': self.regularize}
+    
+    
+    """ Forward Function"""
+    def fwdPass(self, Xs, params, **kwargs):
+        pass
+    
+    def bwdPass(self, dY, cache):
+        pass
+    
+    
+    """ Batch Forward & Backward Pass"""
+    def batchForward(self, ds, batch, params, predict_mode = False):
+        caches = []
+        Ys = []
+        for i,x in enumerate(batch):
+            Y, out_cache = self.fwdPass(x, params, predict_mode = predict_mode)
+            caches.append(out_cache)
+            Ys.append(Y)
+           
+        # back up information for efficient backprop
+        cache = {}
+        if not predict_mode:
+            cache['caches'] = caches
+
+        return Ys, cache
+    
+    def batchBackward(self, dY, cache):
+        caches = cache['caches']
+        grads = {}
+        for i in range(len(caches)):
+            single_cache = caches[i]
+            local_grads = self.bwdPass(dY[i], single_cache)
+            mergeDicts(grads, local_grads) # add up the gradients wrt model parameters
+            
+        return grads
+
+
+    """ Cost function, returns cost and gradients for model """
+    def costFunc(self, ds, batch, params):
+        regc = params['reg_cost'] # regularization cost
+        
+        # batch forward RNN
+        Ys, caches = self.batchForward(ds, batch, params, predict_mode = False)
+        
+        loss_cost = 0.0
+        smooth_cost = 1e-15
+        dYs = []
+        
+        for i,x in enumerate(batch):
+            labels = np.array(x['tags_rep'], dtype=int)
+            
+            # fetch the predicted probabilities
+            Y = Ys[i]
+            maxes = np.amax(Y, axis=1, keepdims=True)
+            e = np.exp(Y - maxes) # for numerical stability shift into good numerical range
+            P = e/np.sum(e, axis=1, keepdims=True)
+            
+            # Cross-Entropy Cross Function
+            loss_cost += -np.sum(np.log(smooth_cost + P[range(len(labels)), labels]))
+            
+            for iy,y in enumerate(labels):
+                P[iy,y] -= 1 # softmax derivatives
+            dYs.append(P)
+            
+        # backprop the RNN
+        grads = self.batchBackward(dYs, caches)
+        
+        # add L2 regularization cost and gradients
+        reg_cost = 0.0
+        if regc > 0:    
+            for p in self.regularize:
+                mat = self.model[p]
+                reg_cost += 0.5*regc*np.sum(mat*mat)
+                grads[p] += regc*mat
+
+        # normalize the cost and gradient by the batch size
+        batch_size = len(batch)
+        reg_cost /= batch_size
+        loss_cost /= batch_size
+        for k in grads: grads[k] /= batch_size
+
+        out = {}
+        out['cost'] = {'reg_cost' : reg_cost, 'loss_cost' : loss_cost, 'total_cost' : loss_cost + reg_cost}
+        out['grads'] = grads
+        return out
+
+
+    """ A single batch """
+    def singleBatch(self, ds, batch, params):
+        learning_rate = params.get('learning_rate', 0.0)
+        decay_rate = params.get('decay_rate', 0.999)
+        momentum = params.get('momentum', 0)
+        grad_clip = params.get('grad_clip', 1)
+        smooth_eps = params.get('smooth_eps', 1e-8)
+        sdg_type = params.get('sdgtype', 'rmsprop')
+
+        for u in self.update:
+            if not u in self.step_cache: 
+                self.step_cache[u] = np.zeros(self.model[u].shape)
+        
+        cg = self.costFunc(ds, batch, params)
+        
+        cost = cg['cost']
+        grads = cg['grads']
+        
+        # clip gradients if needed
+        if params['activation_func'] == 'relu':
+            if grad_clip > 0:
+                for p in self.update:
+                    if p in grads:
+                        grads[p] = np.minimum(grads[p], grad_clip)
+                        grads[p] = np.maximum(grads[p], -grad_clip)
+        
+        # perform parameter update
+        for p in self.update:
+            if p in grads:
+                if sdg_type == 'vanilla':
+                    if momentum > 0: dx = momentum*self.step_cache[p] - learning_rate*grads[p]
+                    else: dx = -learning_rate*grads[p]
+                    self.step_cache[p] = dx
+                elif sdg_type == 'rmsprop':
+                    self.step_cache[p] = self.step_cache[p]*decay_rate + (1.0-decay_rate)*grads[p]**2
+                    dx = -(learning_rate*grads[p])/np.sqrt(self.step_cache[p] + smooth_eps)
+                elif sdg_type == 'adgrad':
+                    self.step_cache[p] += grads[p]**2
+                    dx = -(learning_rate*grads[p])/np.sqrt(self.step_cache[p] + smooth_eps)
+                    
+                self.model[p] += dx
+
+        # create output dict and return
+        out = {}
+        out['cost'] = cost
+        return out
+    
+    
+    """ Evaluate on the dataset[split] """
+    def eval(self, ds, split, params):
+        acc = 0
+        total = 0
+        
+        total_cost = 0.0
+        smooth_cost = 1e-15
+        
+        if split == 'test':
+            res_filename = 'res_%s_[%s].txt' % (params['model'], time.time())
+            res_filepath = os.path.join(params['test_res_dir'], res_filename)
+            res = open(res_filepath, 'w')
+            inverse_tag_dict = {ds.data['tag_set'][k]:k for k in ds.data['tag_set'].keys()}
+            
+        for i, ele in enumerate(ds.split[split]):
+            Ys, cache = self.fwdPass(ele, params, predict_model=True)
+            
+            maxes = np.amax(Ys, axis=1, keepdims=True)
+            e = np.exp(Ys - maxes) # for numerical stability shift into good numerical range
+            probs = e/np.sum(e, axis=1, keepdims=True)
+            
+            labels = np.array(ele['tags_rep'], dtype=int)
+            
+            if np.all(np.isnan(probs)): probs = np.zeros(probs.shape)
+            
+            loss_cost = 0
+            loss_cost += -np.sum(np.log(smooth_cost + probs[range(len(labels)), labels]))
+            total_cost += loss_cost
+            
+            pred_words_indices = np.nanargmax(probs, axis=1)
+            
+            tokens = ele['raw_seq']
+            real_tags = ele['tag_seq']
+            for index, l in enumerate(labels):
+                if pred_words_indices[index] == l: acc += 1
+                
+                if split == 'test':
+                    res.write('%s %s %s %s\n' % (tokens[index], 'NA', real_tags[index], inverse_tag_dict[pred_words_indices[index]]))
+            if split == 'test': res.write('\n')
+            total += len(labels)
+            
+        total_cost /= len(ds.split[split])
+        accuracy = 0 if total == 0 else float(acc)/total
+        
+        #print("total_cost: %s, accuracy: %s" % (total_cost, accuracy))
+        result = {'cost': total_cost, 'accuracy': accuracy}
+        return result
+
+class lstm(SeqToSeq):
+    def __init__(self, input_size, hidden_size, output_size):
+        self.model = {}
+        # Recurrent weights: take x_t, h_{t-1}, and bias unit, and produce the 3 gates and the input to cell signal
+        self.model['WLSTM'] = initWeights(input_size + hidden_size + 1, 4*hidden_size)
+        # Hidden-Output Connections
+        self.model['Wd'] = initWeights(hidden_size, output_size)*0.1
+        self.model['bd'] = np.zeros((1, output_size))
+
+        self.update = ['WLSTM', 'Wd', 'bd']
+        self.regularize = ['WLSTM', 'Wd']
+
+        self.step_cache = {}
+        
+    """ Activation Function: Sigmoid, or tanh, or ReLu """
+    def fwdPass(self, Xs, params, **kwargs):
+        predict_mode = kwargs.get('predict_mode', False)
+        
+        Ws = Xs['word_vectors']
+        
+        WLSTM = self.model['WLSTM']
+        n, xd = Ws.shape
+        
+        d = self.model['Wd'].shape[0] # size of hidden layer
+        Hin = np.zeros((n, WLSTM.shape[0])) # xt, ht-1, bias
+        Hout = np.zeros((n, d))
+        IFOG = np.zeros((n, 4*d))
+        IFOGf = np.zeros((n, 4*d)) # after nonlinearity
+        Cellin = np.zeros((n, d))
+        Cellout = np.zeros((n, d))
+    
+        for t in range(n):
+            prev = np.zeros(d) if t==0 else Hout[t-1]
+            Hin[t,0] = 1 # bias
+            Hin[t, 1:1+xd] = Ws[t]
+            Hin[t, 1+xd:] = prev
+            
+            # compute all gate activations. dots:
+            IFOG[t] = Hin[t].dot(WLSTM)
+            
+            IFOGf[t, :3*d] = 1/(1+np.exp(-IFOG[t, :3*d])) # sigmoids; these are three gates
+            IFOGf[t, 3*d:] = np.tanh(IFOG[t, 3*d:]) # tanh for input value
+            
+            Cellin[t] = IFOGf[t, :d] * IFOGf[t, 3*d:]
+            if t>0: Cellin[t] += IFOGf[t, d:2*d]*Cellin[t-1]
+            
+            Cellout[t] = np.tanh(Cellin[t])
+            
+            Hout[t] = IFOGf[t, 2*d:3*d] * Cellout[t]
+
+        Wd = self.model['Wd']
+        bd = self.model['bd']
+            
+        Y = Hout.dot(Wd)+bd
+            
+        cache = {}
+        if not predict_mode:
+            cache['WLSTM'] = WLSTM
+            cache['Hout'] = Hout
+            cache['Wd'] = Wd
+            cache['IFOGf'] = IFOGf
+            cache['IFOG'] = IFOG
+            cache['Cellin'] = Cellin
+            cache['Cellout'] = Cellout
+            cache['Ws'] = Ws
+            cache['Hin'] = Hin
+            
+        return Y, cache
+    
+    """ Backward Pass """
+    def bwdPass(self, dY, cache):
+        Wd = cache['Wd']
+        Hout = cache['Hout']
+        IFOG = cache['IFOG']
+        IFOGf = cache['IFOGf']
+        Cellin = cache['Cellin']
+        Cellout = cache['Cellout']
+        Hin = cache['Hin']
+        WLSTM = cache['WLSTM']
+        Ws = cache['Ws']
+        
+        n,d = Hout.shape
+
+        # backprop the hidden-output layer
+        dWd = Hout.transpose().dot(dY)
+        dbd = np.sum(dY, axis=0, keepdims = True)
+        dHout = dY.dot(Wd.transpose())
+
+        # backprop the LSTM
+        dIFOG = np.zeros(IFOG.shape)
+        dIFOGf = np.zeros(IFOGf.shape)
+        dWLSTM = np.zeros(WLSTM.shape)
+        dHin = np.zeros(Hin.shape)
+        dCellin = np.zeros(Cellin.shape)
+        dCellout = np.zeros(Cellout.shape)
+        
+        for t in reversed(range(n)):
+            dIFOGf[t,2*d:3*d] = Cellout[t] * dHout[t]
+            dCellout[t] = IFOGf[t,2*d:3*d] * dHout[t]
+            
+            dCellin[t] += (1-Cellout[t]**2) * dCellout[t]
+            
+            if t>0:
+                dIFOGf[t, d:2*d] = Cellin[t-1] * dCellin[t]
+                dCellin[t-1] += IFOGf[t,d:2*d] * dCellin[t]
+            
+            dIFOGf[t, :d] = IFOGf[t,3*d:] * dCellin[t]
+            dIFOGf[t,3*d:] = IFOGf[t, :d] * dCellin[t]
+            
+            # backprop activation functions
+            dIFOG[t, 3*d:] = (1-IFOGf[t, 3*d:]**2) * dIFOGf[t, 3*d:]
+            y = IFOGf[t, :3*d]
+            dIFOG[t, :3*d] = (y*(1-y)) * dIFOGf[t, :3*d]
+            
+            # backprop matrix multiply
+            dWLSTM += np.outer(Hin[t], dIFOG[t])
+            dHin[t] = dIFOG[t].dot(WLSTM.transpose())
+      
+            if t > 0: dHout[t-1] += dHin[t, 1+Ws.shape[1]:]
+        
+        #dXs = dXsh.dot(Wxh.transpose())  
+        return {'WLSTM':dWLSTM, 'Wd':dWd, 'bd':dbd}
+
+
+class biLSTM(SeqToSeq):
+    def __init__(self, input_size, hidden_size, output_size):
+        self.model = {}
+        # Recurrent weights: take x_t, h_{t-1}, and bias unit, and produce the 3 gates and the input to cell signal
+        self.model['WLSTM'] = initWeights(input_size + hidden_size + 1, 4*hidden_size)
+        self.model['bWLSTM'] = initWeights(input_size + hidden_size + 1, 4*hidden_size)
+        
+        # Hidden-Output Connections
+        self.model['Wd'] = initWeights(hidden_size, output_size)*0.1
+        self.model['bd'] = np.zeros((1, output_size))
+        
+        # Backward Hidden-Output Connections
+        self.model['bWd'] = initWeights(hidden_size, output_size)*0.1
+        self.model['bbd'] = np.zeros((1, output_size))
+
+        self.update = ['WLSTM', 'bWLSTM', 'Wd', 'bd', 'bWd', 'bbd']
+        self.regularize = ['WLSTM', 'bWLSTM', 'Wd', 'bWd']
+
+        self.step_cache = {}
+        
+    """ Activation Function: Sigmoid, or tanh, or ReLu """
+    def fwdPass(self, Xs, params, **kwargs):
+        predict_mode = kwargs.get('predict_mode', False)
+        
+        Ws = Xs['word_vectors']
+        
+        WLSTM = self.model['WLSTM']
+        bWLSTM = self.model['bWLSTM']
+        
+        n, xd = Ws.shape
+        
+        d = self.model['Wd'].shape[0] # size of hidden layer
+        Hin = np.zeros((n, WLSTM.shape[0])) # xt, ht-1, bias
+        Hout = np.zeros((n, d))
+        IFOG = np.zeros((n, 4*d))
+        IFOGf = np.zeros((n, 4*d)) # after nonlinearity
+        Cellin = np.zeros((n, d))
+        Cellout = np.zeros((n, d))
+        
+        # backward
+        bHin = np.zeros((n, WLSTM.shape[0])) # xt, ht-1, bias
+        bHout = np.zeros((n, d))
+        bIFOG = np.zeros((n, 4*d))
+        bIFOGf = np.zeros((n, 4*d)) # after nonlinearity
+        bCellin = np.zeros((n, d))
+        bCellout = np.zeros((n, d))
+        
+        for t in range(n):
+            prev = np.zeros(d) if t==0 else Hout[t-1]
+            Hin[t,0] = 1 # bias
+            Hin[t, 1:1+xd] = Ws[t]
+            Hin[t, 1+xd:] = prev
+            
+            # compute all gate activations. dots:
+            IFOG[t] = Hin[t].dot(WLSTM)
+            
+            IFOGf[t, :3*d] = 1/(1+np.exp(-IFOG[t, :3*d])) # sigmoids; these are three gates
+            IFOGf[t, 3*d:] = np.tanh(IFOG[t, 3*d:]) # tanh for input value
+            
+            Cellin[t] = IFOGf[t, :d] * IFOGf[t, 3*d:]
+            if t>0: Cellin[t] += IFOGf[t, d:2*d]*Cellin[t-1]
+            
+            Cellout[t] = np.tanh(Cellin[t])
+            Hout[t] = IFOGf[t, 2*d:3*d] * Cellout[t]
+
+            # backward hidden layer
+            b_t = n-1-t
+            bprev = np.zeros(d) if t == 0 else bHout[b_t+1]
+            bHin[b_t, 0] = 1
+            bHin[b_t, 1:1+xd] = Ws[b_t]
+            bHin[b_t, 1+xd:] = bprev
+            
+            bIFOG[b_t] = bHin[b_t].dot(bWLSTM)
+            bIFOGf[b_t, :3*d] = 1/(1+np.exp(-bIFOG[b_t, :3*d]))
+            bIFOGf[b_t, 3*d:] = np.tanh(bIFOG[b_t, 3*d:])
+            
+            bCellin[b_t] = bIFOGf[b_t, :d] * bIFOGf[b_t, 3*d:]
+            if t>0: bCellin[b_t] += bIFOGf[b_t, d:2*d] * bCellin[b_t+1]
+            
+            bCellout[b_t] = np.tanh(bCellin[b_t])
+            bHout[b_t] = bIFOGf[b_t, 2*d:3*d]*bCellout[b_t]
+            
+        Wd = self.model['Wd']
+        bd = self.model['bd']
+        fY = Hout.dot(Wd)+bd
+        
+        bWd = self.model['bWd']
+        bbd = self.model['bbd']
+        bY = bHout.dot(bWd)+bbd
+        
+        Y = fY + bY
+            
+        cache = {}
+        if not predict_mode:
+            cache['WLSTM'] = WLSTM
+            cache['Hout'] = Hout
+            cache['Wd'] = Wd
+            cache['IFOGf'] = IFOGf
+            cache['IFOG'] = IFOG
+            cache['Cellin'] = Cellin
+            cache['Cellout'] = Cellout
+            cache['Hin'] = Hin
+            
+            cache['bWLSTM'] = bWLSTM
+            cache['bHout'] = bHout
+            cache['bWd'] = bWd
+            cache['bIFOGf'] = bIFOGf
+            cache['bIFOG'] = bIFOG
+            cache['bCellin'] = bCellin
+            cache['bCellout'] = bCellout
+            cache['bHin'] = bHin
+            
+            cache['Ws'] = Ws
+            
+        return Y, cache
+    
+    """ Backward Pass """
+    def bwdPass(self, dY, cache):
+        Wd = cache['Wd']
+        Hout = cache['Hout']
+        IFOG = cache['IFOG']
+        IFOGf = cache['IFOGf']
+        Cellin = cache['Cellin']
+        Cellout = cache['Cellout']
+        Hin = cache['Hin']
+        WLSTM = cache['WLSTM']
+        
+        Ws = cache['Ws']
+        
+        bWd = cache['bWd']
+        bHout = cache['bHout']
+        bIFOG = cache['bIFOG']
+        bIFOGf = cache['bIFOGf']
+        bCellin = cache['bCellin']
+        bCellout = cache['bCellout']
+        bHin = cache['bHin']
+        bWLSTM = cache['bWLSTM']
+        
+        n,d = Hout.shape
+
+        # backprop the hidden-output layer
+        dWd = Hout.transpose().dot(dY)
+        dbd = np.sum(dY, axis=0, keepdims = True)
+        dHout = dY.dot(Wd.transpose())
+        
+        # backprop the backward hidden-output layer
+        dbWd = bHout.transpose().dot(dY)
+        dbbd = np.sum(dY, axis=0, keepdims = True)
+        dbHout = dY.dot(bWd.transpose())
+        
+        # backprop the LSTM (forward layer)
+        dIFOG = np.zeros(IFOG.shape)
+        dIFOGf = np.zeros(IFOGf.shape)
+        dWLSTM = np.zeros(WLSTM.shape)
+        dHin = np.zeros(Hin.shape)
+        dCellin = np.zeros(Cellin.shape)
+        dCellout = np.zeros(Cellout.shape)
+        
+        # backward-layer
+        dbIFOG = np.zeros(bIFOG.shape)
+        dbIFOGf = np.zeros(bIFOGf.shape)
+        dbWLSTM = np.zeros(bWLSTM.shape)
+        dbHin = np.zeros(bHin.shape)
+        dbCellin = np.zeros(bCellin.shape)
+        dbCellout = np.zeros(bCellout.shape)
+        
+        for t in reversed(range(n)):
+            dIFOGf[t,2*d:3*d] = Cellout[t] * dHout[t]
+            dCellout[t] = IFOGf[t,2*d:3*d] * dHout[t]
+            
+            dCellin[t] += (1-Cellout[t]**2) * dCellout[t]
+            
+            if t>0:
+                dIFOGf[t, d:2*d] = Cellin[t-1] * dCellin[t]
+                dCellin[t-1] += IFOGf[t,d:2*d] * dCellin[t]
+            
+            dIFOGf[t, :d] = IFOGf[t,3*d:] * dCellin[t]
+            dIFOGf[t,3*d:] = IFOGf[t, :d] * dCellin[t]
+            
+            # backprop activation functions
+            dIFOG[t, 3*d:] = (1-IFOGf[t, 3*d:]**2) * dIFOGf[t, 3*d:]
+            y = IFOGf[t, :3*d]
+            dIFOG[t, :3*d] = (y*(1-y)) * dIFOGf[t, :3*d]
+            
+            # backprop matrix multiply
+            dWLSTM += np.outer(Hin[t], dIFOG[t])
+            dHin[t] = dIFOG[t].dot(WLSTM.transpose())
+      
+            if t>0: dHout[t-1] += dHin[t, 1+Ws.shape[1]:]
+            
+            # Backward Layer
+            b_t = n-1-t
+            dbIFOGf[b_t, 2*d:3*d] = bCellout[b_t] * dbHout[b_t] # output gate
+            dbCellout[b_t] = bIFOGf[b_t, 2*d:3*d] * dbHout[b_t] # dCellout
+            
+            dbCellin[b_t] += (1-bCellout[b_t]**2) * dbCellout[b_t]
+            
+            if t>0: # dcell
+                dbIFOGf[b_t, d:2*d] = bCellin[b_t+1] * dbCellin[b_t] # forgot gate
+                dbCellin[b_t+1] += bIFOGf[b_t, d:2*d] * dbCellin[b_t]
+            
+            dbIFOGf[b_t, :d] = bIFOGf[b_t, 3*d:] * dbCellin[b_t] # input gate
+            dbIFOGf[b_t, 3*d:] = bIFOGf[b_t, :d] * dbCellin[b_t]
+            
+            # backprop activation functions
+            dbIFOG[b_t, 3*d:] = (1-bIFOGf[b_t, 3*d:]**2) * dbIFOGf[b_t, 3*d:]
+            by = bIFOGf[b_t, :3*d]
+            dbIFOG[b_t, :3*d] = (by*(1-by)) * dbIFOGf[b_t, :3*d]
+            
+            dbWLSTM += np.outer(bHin[b_t], dbIFOG[b_t])
+            dbHin[b_t] = dbIFOG[b_t].dot(bWLSTM.transpose())
+      
+            if t>0: dbHout[b_t+1] += dbHin[b_t, 1+Ws.shape[1]:]
+                
+        return {'WLSTM':dWLSTM, 'Wd':dWd, 'bd':dbd, 'bWLSTM':dbWLSTM, 'bWd':dbWd, 'bbd':dbbd}
 
 class Decoder:
     def __init__(self, input_size, hidden_size, output_size):
@@ -279,7 +809,7 @@ class DeepDialogDecoder(Decoder):
         predict_mode = kwargs.get('predict_mode', False)
         feed_recurrence = params.get('feed_recurrence', 0)
         
-        Ds = Xs['dialogue_act']
+        Ds = Xs['diaact']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -353,7 +883,7 @@ class DeepDialogDecoder(Decoder):
         feed_recurrence = params.get('feed_recurrence', 0)
         decoder_sampling = params.get('decoder_sampling', 0)
         
-        Ds = Xs['dialogue_act']
+        Ds = Xs['diaact']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -448,7 +978,7 @@ class DeepDialogDecoder(Decoder):
         beam_size = params.get('beam_size', 10)
         decoder_sampling = params.get('decoder_sampling', 0)
         
-        Ds = Xs['dialogue_act']
+        Ds = Xs['diaact']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -647,7 +1177,7 @@ class DeepDialogDecoder(Decoder):
                 if word_arr[w_index+1] in ds.data['word_dict'].keys():
                     labels[w_index] = ds.data['word_dict'][word_arr[w_index+1]] 
             
-            batch_rep['dialogue_act'] = vec
+            batch_rep['diaact'] = vec
             batch_rep['words'] = word_vecs
             batch_rep['labels'] = labels
             batch_reps.append(batch_rep)

@@ -10,7 +10,7 @@ class PreProcessor(object):
     self.vocab = loader.vocab
     self.ontology = loader.ontology
 
-    if self.task in ["glad", "policy"]:
+    if self.task in ['manage_policy', 'track_intent', 'end_to_end']:
       pass
     elif args.test_mode:
       self.prepare_examples("test", args.context)
@@ -23,16 +23,18 @@ class PreProcessor(object):
 
   def input_output_cardinality(self):
     """ get the input size and output size to set model attributes"""
-    if self.task in ["glad", "intent", "belief"]:
+    if self.task == 'track_intent':
       return "self.vocab.ulary_size()", "self.vocab.label_size()"
-    elif self.task == "policy":
+    elif self.task == 'manage_policy':
       num_slots = len(self.ontology.slots)
       from datasets.ddq.constants import feasible_actions
       num_actions = len(feasible_actions)
       return num_slots, num_actions
-    elif self.task == "generate":
+    elif self.task == 'generate_text':
       num_actions = len(self.ontology.feasible_actions)
       return num_actions, self.vocab.ulary_size()
+    elif self.task == 'end_to_end':
+      return "self.vocab.ulary_size()", "self.vocab.label_size()"
 
   def prepare_examples(self, split, use_context):
     dataset = self.datasets[split]
