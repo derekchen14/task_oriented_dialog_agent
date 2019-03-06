@@ -218,7 +218,6 @@ class RewardMonitor(MonitorBase):
       result_str = "Success Rate: {:.4f}, Average Reward: {:.4f}, Average Turns: {:.4f}".format(
         self.success_rate, self.avg_reward, self.avg_turn)
       if prefix is not None:
-        print("should be 500 every time", self.num_episodes)
         print(prefix + result_str)
       else:
         print("Epoch: {}, ".format(self.num_episodes) + result_str)
