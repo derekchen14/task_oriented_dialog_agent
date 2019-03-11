@@ -105,6 +105,7 @@ class Learner(object):
     self.success_rate_threshold = params.threshold
 
     if params.warm_start:  #  TODO: check that a pretrained model doesn't already exist
+      self.module.run_mode = 3
       self.warm_start_simulation()
     # self.module.user.goal_sets = self.processor.datasets
     # self.module.user.learning_phase = "train"
@@ -149,9 +150,9 @@ class Learner(object):
         self.module.world_model.predict_mode = True
         self.gather_data_for_user(planning_steps, episode)
 
-      if simulation_success_rate >= self.monitor.best_success_rate:
-        self.module.save_checkpoint(self.monitor, episode)
-        self.module.save_performance_records(self.monitor, episode)
+      # if simulation_success_rate >= self.monitor.best_success_rate:
+        # self.module.save_checkpoint(self.monitor, episode)
+        # self.module.save_performance_records(self.monitor, episode)
 
       self.module.model.train(self.batch_size, 1, self.verbose)
       self.module.model.reset_dqn_target()
@@ -164,7 +165,7 @@ class Learner(object):
 
   # Use neural-based environment to gather data for training the user simulator
   def gather_data_for_user(self, num_episodes, global_episode):
-    print("Collect data from neural-based world model")
+    # print("Collect data from neural-based world model")
     user_monitor = RewardMonitor(['success_rate'])
     for episode in range(num_episodes):
       planning_steps = 5
@@ -177,10 +178,15 @@ class Learner(object):
 
   # Use rule-based environment to gather data for training the RL agent
   def gather_data_for_agent(self, num_episodes, global_episode):
-    print("Collect data from rule-based user simulation")
+    if self.monitor.success_rate > 0.7:
+      self.module.run_mode = 0
+
+    # print("Collect data from rule-based user simulation")
     agent_monitor = RewardMonitor(['success_rate'])
     for episode in range(num_episodes):
       self.run_one_episode(agent_monitor, 'rule')
+      if self.module.run_mode == 0 and episode > 10:
+        pdb.set_trace()
     report_results = (global_episode % 10 == 0)
     agent_monitor.summarize_results(report_results, "Simulation Results - ")
     self.monitor.simulation_successes.append(agent_monitor.success_rate)

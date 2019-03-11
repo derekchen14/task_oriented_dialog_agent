@@ -192,6 +192,7 @@ class RewardMonitor(MonitorBase):
     self.turns = []
     self.num_successes = 0
     self.num_episodes = 0
+    self.success_rate = 0.0
 
     self.metrics = metrics
     self.success_threshold = threshold  # 0.3

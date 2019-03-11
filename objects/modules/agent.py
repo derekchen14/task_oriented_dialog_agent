@@ -29,6 +29,7 @@ class DialogManager:
         self.save_dir = model.save_dir
         self.use_world_model = False
         self.running_user = self.user_sim
+        self.run_mode = dialog_config.run_mode
 
     def initialize_episode(self, simulator_type):
         """ Refresh state for new dialog """
@@ -51,7 +52,7 @@ class DialogManager:
             self.world_model.sample_goal = self.user_sim.sample_goal
         self.state_tracker.update(user_action=self.user_action)
 
-        if dialog_config.run_mode < 3:
+        if self.run_mode < 3:
             print("New episode, user goal:")
             print(json.dumps(self.user_sim.goal, indent=2))
         self.print_function(user_action=self.user_action)
@@ -158,15 +159,15 @@ class DialogManager:
 
     def print_function(self, agent_action=None, user_action=None):
         if agent_action:
-            if dialog_config.run_mode == 0:
+            if self.run_mode == 0:
                 if self.model.__class__.__name__ != 'AgentCmd':
                     print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-            elif dialog_config.run_mode == 1:
+            elif self.run_mode == 1:
                 if self.model.__class__.__name__ != 'AgentCmd':
                     print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
                         agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'],
                         agent_action['request_slots']))
-            elif dialog_config.run_mode == 2:  # debug mode
+            elif self.run_mode == 2:  # debug mode
                 print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
                     agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'],
                     agent_action['request_slots']))
@@ -177,13 +178,13 @@ class DialogManager:
                     '(Suggested Values: %s)' % (
                     self.state_tracker.get_suggest_slots_values(agent_action['request_slots'])))
         elif user_action:
-            if dialog_config.run_mode == 0:
+            if self.run_mode == 0:
                 print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
-            elif dialog_config.run_mode == 1:
+            elif self.run_mode == 1:
                 print("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (
                     user_action['turn_count'], user_action['diaact'], user_action['inform_slots'],
                     user_action['request_slots']))
-            elif dialog_config.run_mode == 2:  # debug mode, show both
+            elif self.run_mode == 2:  # debug mode, show both
                 print("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (
                     user_action['turn_count'], user_action['diaact'], user_action['inform_slots'],
                     user_action['request_slots']))

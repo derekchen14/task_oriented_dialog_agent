@@ -988,7 +988,7 @@ class ModelBasedSimulator(RawUserSimulator):
     self.slot_err_mode = 0
     self.intent_err_probability = 0.0
 
-    self.simulator_run_mode = 3
+    self.simulator_run_mode = 0
     self.simulator_act_level = 0
     self.experience_replay_pool_size = params['pool_size']
 

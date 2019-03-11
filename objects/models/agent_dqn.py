@@ -313,7 +313,7 @@ class AgentDQN(BasePolicyManager):
                 self.cur_bellman_err += loss.item()
 
         if verbose and len(self.experience_replay_pool) != 0:
-            print("cur bellman err %.4f, experience replay pool %s, model replay pool %s, cur bellman err for planning %.4f" % (
+            print("cur bellman error %.4f, experience replay pool %s, model replay pool %s, error for planning %.4f" % (
                     float(self.cur_bellman_err) / (len(self.experience_replay_pool) / (float(batch_size))),
                     len(self.experience_replay_pool), len(self.experience_replay_pool_from_model),
                     self.cur_bellman_err_planning))
