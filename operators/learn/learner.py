@@ -178,9 +178,8 @@ class Learner(object):
 
   # Use rule-based environment to gather data for training the RL agent
   def gather_data_for_agent(self, num_episodes, global_episode):
-    if self.monitor.success_rate > 0.7:
-      self.module.run_mode = 0
-
+    # if self.monitor.success_rate > 0.7:
+    #   self.module.run_mode = 0
     # print("Collect data from rule-based user simulation")
     agent_monitor = RewardMonitor(['success_rate'])
     for episode in range(num_episodes):

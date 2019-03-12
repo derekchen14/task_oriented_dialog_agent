@@ -75,7 +75,7 @@ class DialogManager:
 
         self.state_user = self.state_tracker.get_state_for_user()
 
-        self.model.add_nl_to_action(self.model_action)  # add NL to Agent Dia_Act
+        self.model.action_to_nl(self.model_action)  # add NL to Agent Dia_Act
         self.print_function(agent_action=self.model_action['slot_action'])
 
         ########################################################################
@@ -87,7 +87,7 @@ class DialogManager:
                                                                                       self.model.action)
         else:
             self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
-            self.reward = self.reward_function(dialog_status)
+            self.reward = self.model.reward_function(dialog_status)
 
         ########################################################################
         #   Update state tracker with latest user action
@@ -102,7 +102,7 @@ class DialogManager:
         #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
         ########################################################################
         if record_agent_data:
-            self.model.register_experience_replay_tuple(self.state, self.model_action, self.reward,
+            self.model.store_experience(self.state, self.model_action, self.reward,
                                                         self.state_tracker.get_state_for_agent(), self.episode_over,
                                                         self.state_user, self.use_world_model)
 
@@ -112,31 +112,11 @@ class DialogManager:
         ########################################################################
 
         if record_user_data and not self.use_world_model:
-            self.world_model.register_experience_replay_tuple(self.state_user, self.model.action,
+            self.world_model.store_experience(self.state_user, self.model.action,
                                                               self.state_user_next, self.reward, self.episode_over,
                                                               self.user_action)
 
         return (self.episode_over, self.reward)
-
-    def reward_function(self, dialog_status):
-        """ Reward Function 1: a reward function based on the dialog_status """
-        if dialog_status == dialog_config.FAILED_DIALOG:
-            reward = -self.user_sim.max_turn  # 10
-        elif dialog_status == dialog_config.SUCCESS_DIALOG:
-            reward = 2 * self.user_sim.max_turn  # 20
-        else:
-            reward = -1
-        return reward
-
-    def reward_function_without_penalty(self, dialog_status):
-        """ Reward Function 2: a reward function without penalty on per turn and failure dialog """
-        if dialog_status == dialog_config.FAILED_DIALOG:
-            reward = 0
-        elif dialog_status == dialog_config.SUCCESS_DIALOG:
-            reward = 2 * self.user_sim.max_turn
-        else:
-            reward = 0
-        return reward
 
     def save_checkpoint(self, monitor, episode):
         monitor.summarize_results()

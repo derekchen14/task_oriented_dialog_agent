@@ -51,9 +51,7 @@ class NeuralPolicyManager(BasePolicyManager):
     self.predict_mode = False
     self.warm_start = args.warm_start
     self.cur_bellman_err = 0
-
-    self.max_turn = args.max_turn + 5
-    self.state_dimension = 2 * self.act_cardinality + 7 * self.slot_cardinality + 3 + self.max_turn
+    self.max_turn = args.max_turn
 
     self.dqn = model
     self.user_planning = planner
@@ -67,11 +65,6 @@ class NeuralPolicyManager(BasePolicyManager):
     self.lr = args.learning_rate
     self.reg = args.weight_decay
     self.init_optimizer(self.dqn.parameters())
-    # print(self.opt)
-    # print(self.lr)
-    # print(self.reg)
-    # pdb.set_trace()
-    # self.optimizer = optim.RMSprop(self.dqn.parameters(), lr=1e-3)
 
     # Prediction Mode: load trained DQN model
     # if params['trained_model_path'] != None:
@@ -81,7 +74,6 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def initialize_episode(self):
     """ Initialize a new episode. This function is called every time a new episode is run. """
-
     self.current_slot_id = 0
     self.phase = 0
     self.request_set = ['moviename', 'starttime', 'city', 'date', 'theater', 'numberofpeople']
@@ -162,25 +154,8 @@ class NeuralPolicyManager(BasePolicyManager):
     ########################################################################
     #  One-hot representation of the turn count?
     ########################################################################
-    turn_onehot_rep = np.zeros((1, self.max_turn))
+    turn_onehot_rep = np.zeros((1, self.max_turn + 5))
     turn_onehot_rep[0, state['turn_count']] = 1.0
-
-    # ########################################################################
-    # #   Representation of KB results (scaled counts)
-    # ########################################################################
-    # kb_count_rep = np.zeros((1, self.slot_cardinality + 1)) + kb_results_dict['matching_all_constraints'] / 100.
-    # for slot in kb_results_dict:
-    #     if slot in self.slot_set:
-    #         kb_count_rep[0, self.slot_set[slot]] = kb_results_dict[slot] / 100.
-    #
-    # ########################################################################
-    # #   Representation of KB results (binary)
-    # ########################################################################
-    # kb_binary_rep = np.zeros((1, self.slot_cardinality + 1)) + np.sum( kb_results_dict['matching_all_constraints'] > 0.)
-    # for slot in kb_results_dict:
-    #     if slot in self.slot_set:
-    #         kb_binary_rep[0, self.slot_set[slot]] = np.sum( kb_results_dict[slot] > 0.)
-
     kb_count_rep = np.zeros((1, self.slot_cardinality + 1))
 
     ########################################################################
@@ -245,7 +220,7 @@ class NeuralPolicyManager(BasePolicyManager):
     raise(Exception("action index not found"))
     return None
 
-  def register_experience_replay_tuple(self, s_t, a_t, reward, s_tplus1, episode_over, st_user, from_model=False):
+  def store_experience(self, s_t, a_t, reward, s_tplus1, episode_over, st_user, from_model=False):
     """ Register feedback from either environment or world model, to be stored as future training data """
 
     state_t_rep = self.prepare_state_representation(s_t)
@@ -308,6 +283,15 @@ class NeuralPolicyManager(BasePolicyManager):
           len(self.experience_replay_pool), len(self.experience_replay_pool_from_model),
           self.cur_bellman_err_planning))
 
+  def reward_function(self, dialog_status):
+    # Reward Function 1: a reward function based on the dialog_status
+    if dialog_status == dialog_config.FAILED_DIALOG:
+      reward = -self.max_turn                     # -40
+    elif dialog_status == dialog_config.SUCCESS_DIALOG:
+      reward = 2 * self.max_turn                  # +80
+    else:  # for per turn
+      reward = -1                                 # -20 over time
+    return reward
 
   ################################################################################
   #    Debug Functions
@@ -377,68 +361,10 @@ class NeuralPolicyManager(BasePolicyManager):
       self.experience_replay_pool.append(training_example)
 '''
 
-'''
-class BasePolicyManager(object):
+class BasePolicyManagerLater(object):
   def __init__(self, args, model, kb, ontology):
-    self.debug = args.debug
-    self.verbose = args.verbose
-    self.max_turn = args.max_turn
-    self.batch_size = args.batch_size
-
     self.state = DialogueState(kb, ontology)
-    self.agent = model
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
-
-  def action_to_nl(self, agent_action):
-    """ Add natural language capabilities (NL) to Agent Dialogue Act """
-    if agent_action['slot_action']:
-      # agent_action['slot_action']['nl'] = ""
-      # self.nlg_model.translate_diaact(agent_action['slot_action']) # NLG
-      # user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(
-      #                               agent_action['slot_action'], 'agt')
-      chosen_action = agent_action['slot_action']
-      user_response = self.user.text_generator.generate(chosen_action, 'agt')
-      agent_action['slot_action']['nl'] = user_response
-    elif agent_action['slot_value_action']:
-      agent_action['slot_value_action']['nl'] = ""
-      # self.nlg_model.translate_diaact(agent_action['slot_value_action'])
-      chosen_action = agent_action['slot_value_action']
-      user_response = self.user.text_generator.generate(chosen_action, 'agt')
-      agent_action['slot_action']['nl'] = user_response
-
-  def store_experience(self, current_state, action, reward, next_state, episode_over):
-    """  Register feedback (s,a,r,s') from the environment,
-    to be stored in experience replay buffer as future training data
-
-    Arguments:
-    current_state    --  The state in which the last action was taken
-    current_action   --  The previous agent action
-    reward           --  The reward received immediately following the action
-    next_state       --  The state transition following the latest action
-    episode_over     --  Boolean value representing whether this is final action.
-
-    Returns: None
-
-    The rulebased agent will keep as identity function because
-      it does not need to store experiences for future training
-    """
-    pass
-
-  def initialize_episode(self, sim=False):
-    self.simulation_mode = sim
-    self.episode_reward = 0
-    self.episode_over = False
-
-    self.state.initialize_episode()
-    self.user.initialize_episode()
-    self.agent.initialize_episode()
-
-    self.user_action = self.user.user_action
-    self.state.update(user_action=self.user_action)
-    if self.verbose and self.user.do_print:
-      print("New episode, user goal:")
-      print(self.user.goal)
-      self.print_function(self.user_action, "user")
 
   def print_function(self, action_dict, kind):
     if not self.verbose: return
@@ -462,7 +388,7 @@ class BasePolicyManager(object):
     """
     #   CALL AGENT TO TAKE HER TURN
     self.agent_state = self.state.get_state_for_agent()
-    self.agent_action = self.agent.state_to_action(self.agent_state)
+    self.agent_action = self.model.state_to_action(self.agent_state)
     #   Register AGENT action within the state
     self.state.update(agent_action=self.agent_action)
     self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
@@ -486,16 +412,3 @@ class BasePolicyManager(object):
               self.state.get_state_for_agent(), self.episode_over)
 
     return (self.episode_over, self.reward)
-
-  def reward_function(self, dialog_status, penalty=True):
-    """ Reward Function 1: a reward function based on the dialog_status
-    if penalty is True, then there is also a negative reward for each turn
-    """
-    if dialog_status == dialog_config.FAILED_DIALOG:
-      reward = -self.user.max_turn if penalty else 0   # -20
-    elif dialog_status == dialog_config.SUCCESS_DIALOG:
-      reward = 2 * self.user.max_turn                  # +40
-    else:  # for per turn
-      reward = -1 if penalty else 0                    # -10 over time
-    return reward
-'''

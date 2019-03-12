@@ -523,7 +523,7 @@ class BaseUserSimulator:
   def add_nl_to_action(self, user_action):
     """ Add NL to User Dia_Act """
 
-    user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(user_action, 'usr')
+    user_nlg_sentence = self.nlg_model.generate(user_action, 'usr')
     user_action['nl'] = user_nlg_sentence
 
     if self.simulator_act_level == 1:
@@ -1244,7 +1244,7 @@ class NeuralSimulator(BaseUserSimulator):
     raise Exception("action index not found")
     return None
 
-  def register_experience_replay_tuple(self, s_t, agent_a_t, s_tplus1, reward, term, user_a_t):
+  def store_experience(self, s_t, agent_a_t, s_tplus1, reward, term, user_a_t):
     """ Register feedback from the environment, to be stored as future training data for world model"""
 
     state_t_rep = self.prepare_state_representation(s_t)

@@ -76,7 +76,7 @@ class NLG(object):
         return sentence
 
     
-    def convert_diaact_to_nl(self, dia_act, turn_msg):
+    def generate(self, dia_act, turn_msg):
         """ Convert Dia_Act into NL: Rule + Model """
         
         sentence = ""

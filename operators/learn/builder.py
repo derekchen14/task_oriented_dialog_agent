@@ -165,11 +165,11 @@ class Builder(object):
   def create_agent(self, belief_tracker, policy_manager, text_generator):
     agent = policy_manager
 
-    agent.model.nlu_model = belief_tracker
+    agent.model.belief_tracker = belief_tracker
     agent.user_sim.nlu_model = belief_tracker
     agent.world_model.nlu_model = belief_tracker
 
-    agent.model.nlg_model = text_generator
+    agent.model.text_generator = text_generator
     agent.user_sim.nlg_model = text_generator
     agent.world_model.nlg_model = text_generator
 

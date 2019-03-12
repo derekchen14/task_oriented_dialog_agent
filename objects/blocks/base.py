@@ -8,6 +8,8 @@ import torch.nn as nn
 from torch import optim
 from collections import defaultdict
 
+
+
 class BaseModule(object):
   def __init__(self, args, model):
     self.args = args
@@ -108,17 +110,30 @@ class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """
   def __init__(self, args, model):
     super().__init__(args, model)
+    self.debug = args.debug
+    self.verbose = args.verbose
+    self.max_turn = args.max_turn
+    self.batch_size = args.batch_size
 
-    self.nlg_model = None
-    self.nlu_model = None
+    self.belief_tracker = None
+    self.text_generator = None
 
-  def initialize_episode(self):
-    """ Initialize a new episode. This function is called every time a new episode is run. """
-    self.current_action = {}                    #   TODO Changed this variable's name to current_action
-    self.current_action['diaact'] = None        #   TODO Does it make sense to call it a state if it has an act? Which act? The Most recent?
-    self.current_action['inform_slots'] = {}
-    self.current_action['request_slots'] = {}
-    self.current_action['turn'] = 0
+  def initialize_episode(self, sim=False):
+    self.simulation_mode = sim
+    self.episode_reward = 0
+    self.episode_over = False
+
+    self.state.initialize_episode()
+    self.user.initialize_episode()
+    self.agent.initialize_episode()
+
+    self.user_action = self.user.user_action
+    self.state.update(user_action=self.user_action)
+    if self.verbose and self.user.do_print:
+      print("New episode, user goal:")
+      print(self.user.goal)
+      self.print_function(self.user_action, "user")
+
 
   def state_to_action(self, state, available_actions):
     """ Take the current state and return an action according to the current exploration/exploitation policy
@@ -140,34 +155,35 @@ class BasePolicyManager(BaseModule):
     return {"slot_action": act_slot_response, "slot_value_action": act_slot_value_response}
 
 
-  def register_experience_replay_tuple(self, s_t, a_t, reward, s_tplus1, episode_over):
-    """  Register feedback from the environment, to be stored as future training data
+  def store_experience(self, current_state, action, reward, next_state, episode_over):
+    """  Register feedback (s,a,r,s') from the environment,
+    to be stored in experience replay buffer as future training data
 
     Arguments:
-    s_t                 --  The state in which the last action was taken
-    a_t                 --  The previous agent action
-    reward              --  The reward received immediately following the action
-    s_tplus1            --  The state transition following the latest action
-    episode_over        --  A boolean value representing whether the this is the final action.
+    current_state    --  The state in which the last action was taken
+    current_action   --  The previous agent action
+    reward           --  The reward received immediately following the action
+    next_state       --  The state transition following the latest action
+    episode_over     --  Boolean value representing whether this is final action.
 
-    Returns:
-    None
+    Returns: None
+
+    The rulebased agent will keep as identity function because
+      it does not need to store experiences for future training
     """
     pass
 
-  def add_nl_to_action(self, agent_action):
-    """ Add NL to Agent Dia_Act """
-
+  def action_to_nl(self, agent_action):
+    """ Add natural language capabilities (NL) to Agent Dialogue Act """
     if agent_action['slot_action']:
-      agent_action['slot_action']['nl'] = ""
-      #TODO
-      user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(agent_action['slot_action'], 'agt') #self.nlg_model.translate_diaact(agent_action['slot_action']) # NLG
-      agent_action['slot_action']['nl'] = user_nlg_sentence
+      chosen_action = agent_action['slot_action']
+      user_response = self.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = user_response
     elif agent_action['slot_value_action']:
       agent_action['slot_value_action']['nl'] = ""
-      user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(agent_action['slot_value_action'], 'agt') #self.nlg_model.translate_diaact(agent_action['act_slot_value_response']) # NLG
-      agent_action['slot_action']['nl'] = user_nlg_sentence
-
+      chosen_action = agent_action['slot_value_action']
+      user_response = self.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = user_response
 
 class BaseTextGenerator(BaseModule):
   def __init__(self, args, model):
