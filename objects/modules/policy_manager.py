@@ -10,7 +10,7 @@ from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
 from objects.blocks.base import BasePolicyManager
 from objects.models.ddq import DQN
-import datasets.ddq.constants as dialog_config
+from utils.external import dialog_config
 
 
 class RulePolicyManager(BasePolicyManager):
