@@ -150,9 +150,9 @@ class Learner(object):
         self.module.world_model.predict_mode = True
         self.gather_data_for_user(planning_steps, episode)
 
-      # if simulation_success_rate >= self.monitor.best_success_rate:
-        # self.module.save_checkpoint(self.monitor, episode)
-        # self.module.save_performance_records(self.monitor, episode)
+      if simulation_success_rate > self.monitor.best_success_rate:
+        self.module.save_checkpoint(self.monitor, episode)
+        self.module.save_performance_records(self.monitor, episode)
 
       self.module.model.train(self.batch_size, 1, self.verbose)
       self.module.model.reset_dqn_target()
