@@ -9,9 +9,11 @@ from collections import deque
 from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
 from objects.blocks.base import BasePolicyManager
-from objects.models.ddq import DQN
+from objects.models.ddq import DQN, Transition
 from utils.external import dialog_config
 
+import torch.nn.functional as F
+from torch import optim
 
 class RulePolicyManager(BasePolicyManager):
 
@@ -65,6 +67,10 @@ class NeuralPolicyManager(BasePolicyManager):
     self.lr = args.learning_rate
     self.reg = args.weight_decay
     self.init_optimizer(self.dqn.parameters())
+    # print(self.opt)
+    # print(self.lr)
+    # print(self.reg)
+    # pdb.set_trace()
     # self.optimizer = optim.RMSprop(self.dqn.parameters(), lr=1e-3)
 
     # Prediction Mode: load trained DQN model

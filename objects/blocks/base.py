@@ -17,13 +17,13 @@ class BaseModule(object):
     model_params = self.parameters() if parameters is None else parameters
 
     if self.opt == 'sgd':
-      self.optimizer = optim.SGD(model_params, self.lr, self.reg)
+      self.optimizer = optim.SGD(model_params, self.lr, weight_decay=self.reg)
     elif self.opt == 'adam':
       # warmup = step_num * math.pow(4000, -1.5)   -- or -- lr = 0.0158
       # self.lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
       self.optimizer = optim.Adam(model_params, self.lr)
     elif self.opt == 'rmsprop':
-      self.optimizer = optim.RMSprop(model_params, self.lr, self.reg)
+      self.optimizer = optim.RMSprop(model_params, self.lr, weight_decay=self.reg)
 
   def save_config(self, args, save_directory):
     fname = '{}/config.json'.format(save_directory)
