@@ -199,6 +199,8 @@ class BasePolicyManager:
     self.agent_run_mode = params['agent_run_mode']
     self.agent_act_level = params['agent_act_level']
 
+    self.nlg_model = None
+    self.nlu_model = None
 
   def initialize_episode(self):
     """ Initialize a new episode. This function is called every time a new episode is run. """
@@ -242,14 +244,6 @@ class BasePolicyManager:
     None
     """
     pass
-
-
-  def set_nlg_model(self, nlg_model):
-    self.nlg_model = nlg_model
-
-  def set_nlu_model(self, nlu_model):
-    self.nlu_model = nlu_model
-
 
   def add_nl_to_action(self, agent_action):
     """ Add NL to Agent Dia_Act """

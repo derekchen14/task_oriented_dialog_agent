@@ -313,10 +313,46 @@ class AgentDQN(BasePolicyManager):
                 self.cur_bellman_err += loss.item()
 
         if verbose and len(self.experience_replay_pool) != 0:
-            print("cur bellman error %.4f, experience replay pool %s, model replay pool %s, error for planning %.4f" % (
+            print("cur bellman error %.2f, experience replay pool %s, model replay pool %s, error for planning %.2f" % (
                     float(self.cur_bellman_err) / (len(self.experience_replay_pool) / (float(batch_size))),
                     len(self.experience_replay_pool), len(self.experience_replay_pool_from_model),
                     self.cur_bellman_err_planning))
+
+
+    ################################################################################
+    #    Debug Functions
+    ################################################################################
+    def save_experience_replay_to_file(self, path):
+        """ Save the experience replay pool to a file """
+
+        try:
+            pickle.dump(self.experience_replay_pool, open(path, "wb"))
+            print('saved model in %s' % (path,))
+        except Exception as e:
+            print('Error: Writing model fails: %s' % (path,))
+            print(e)
+
+    def load_experience_replay_from_file(self, path):
+        """ Load the experience replay pool from a file"""
+
+        self.experience_replay_pool = pickle.load(open(path, 'rb'), encoding='latin1')
+
+    def load_trained_DQN(self, path):
+        """ Load the trained DQN from a file """
+        trained_file = pickle.load(open(path, 'rb'), encoding='latin1')
+        model = trained_file['model']
+        print("Trained DQN Parameters:", json.dumps(trained_file['params'], indent=2))
+        return model
+
+    def save(self, filename):
+        torch.save(self.dqn.state_dict(), filename)
+
+    def load(self, filename):
+        self.dqn.load_state_dict(torch.load(filename))
+
+    def reset_dqn_target(self):
+        self.target_dqn.load_state_dict(self.dqn.state_dict())
+
 
     # def train_one_iter(self, batch_size=1, num_batches=100, planning=False):
     #     """ Train DQN with experience replay """
@@ -363,41 +399,3 @@ class AgentDQN(BasePolicyManager):
     #         print("cur bellman err %.4f, experience replay pool %s, cur bellman err for planning %.4f" % (
     #             float(self.cur_bellman_err) / (len(self.experience_replay_pool) / (float(batch_size))),
     #             len(self.experience_replay_pool), self.cur_bellman_err_planning))
-
-    ################################################################################
-    #    Debug Functions
-    ################################################################################
-    def save_experience_replay_to_file(self, path):
-        """ Save the experience replay pool to a file """
-
-        try:
-            pickle.dump(self.experience_replay_pool, open(path, "wb"))
-            print('saved model in %s' % (path,))
-        except Exception as e:
-            print('Error: Writing model fails: %s' % (path,))
-            print(e)
-
-    def load_experience_replay_from_file(self, path):
-        """ Load the experience replay pool from a file"""
-
-        self.experience_replay_pool = pickle.load(open(path, 'rb'), encoding='latin1')
-
-    def load_trained_DQN(self, path):
-        """ Load the trained DQN from a file """
-
-        trained_file = pickle.load(open(path, 'rb'), encoding='latin1')
-        model = trained_file['model']
-        print("Trained DQN Parameters:", json.dumps(trained_file['params'], indent=2))
-        return model
-
-    def set_user_planning(self, user_planning):
-        self.user_planning = user_planning
-
-    def save(self, filename):
-        torch.save(self.dqn.state_dict(), filename)
-
-    def load(self, filename):
-        self.dqn.load_state_dict(torch.load(filename))
-
-    def reset_dqn_target(self):
-        self.target_dqn.load_state_dict(self.dqn.state_dict())

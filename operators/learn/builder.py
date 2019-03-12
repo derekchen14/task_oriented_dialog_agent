@@ -146,7 +146,7 @@ class Builder(object):
         user_sim = RuleSimulator(vars(args), movie_dictionary, act_set, slot_set, goal_set)
         world_model = ModelBasedSimulator(vars(args),
               movie_dictionary, act_set, slot_set, goal_set)
-        model.set_user_planning(world_model)
+        model.user_planning = world_model
         module = DialogManager(model, user_sim, world_model,
               act_set, slot_set, movie_kb)
         # module = NeuralPolicyManager(args, model, kb, ontology)
@@ -163,12 +163,12 @@ class Builder(object):
   def create_agent(self, belief_tracker, policy_manager, text_generator):
     agent = policy_manager
 
-    agent.model.set_nlu_model(belief_tracker)
-    agent.user_sim.set_nlu_model(belief_tracker)
-    agent.world_model.set_nlu_model(belief_tracker)
+    agent.model.nlu_model = belief_tracker
+    agent.user_sim.nlu_model = belief_tracker
+    agent.world_model.nlu_model = belief_tracker
 
-    agent.model.set_nlg_model(text_generator)
-    agent.user_sim.set_nlg_model(text_generator)
-    agent.world_model.set_nlg_model(text_generator)
+    agent.model.nlg_model = text_generator
+    agent.user_sim.nlg_model = text_generator
+    agent.world_model.nlg_model = text_generator
 
     return agent

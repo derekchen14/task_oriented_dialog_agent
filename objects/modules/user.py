@@ -504,6 +504,9 @@ class RawUserSimulator:
     self.slot_err_mode = params['slot_err_mode']
     self.intent_err_probability = params['intent_err_probability']
 
+    self.nlu_model = None
+    self.nlg_model = None
+
   def initialize_episode(self):
     """ Initialize a new episode (dialog)"""
 
@@ -516,12 +519,6 @@ class RawUserSimulator:
 
   def next(self, system_action, *argv):
     pass
-
-  def set_nlg_model(self, nlg_model):
-    self.nlg_model = nlg_model
-
-  def set_nlu_model(self, nlu_model):
-    self.nlu_model = nlu_model
 
   def add_nl_to_action(self, user_action):
     """ Add NL to User Dia_Act """
