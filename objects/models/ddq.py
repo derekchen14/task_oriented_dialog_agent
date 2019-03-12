@@ -1,16 +1,47 @@
 '''
-Created on Oct 17, 2016
+Created on Oct 30, 2017, Updated Mar 11, 2019
 
---dia_act_nl_pairs.v6.json: agt and usr have their own NL.
-
-
-@author: xiul
+An DQN Agent modified for DDQ Agent
+@author: Baolin Peng, Xiujun Li, Derek Chen
 '''
-import copy
+
+import random, copy, json
+import pickle
 import numpy as np
+from collections import namedtuple
 
 from utils.external import dialog_config
+from utils.external.dqn import *
+from objects.blocks.base import BasePolicyManager
 from objects.models.external import DeepDialogDecoder, lstm, biLSTM
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+DEVICE = torch.device('cpu')
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'term'))
+
+class DQN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(DQN, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+
+        self.linear_i2h = nn.Linear(self.input_size, self.hidden_size)
+        self.linear_h2o = nn.Linear(self.hidden_size, self.output_size)
+
+    def forward(self, x):
+        x = torch.tanh(self.linear_i2h(x))
+        x = self.linear_h2o(x)
+        return x
+
+    def predict(self, x):
+        y = self.forward(x)
+        return torch.argmax(y, 1)
+
 
 class NLG(object):
     def __init__(self, loader, results_dir):
@@ -45,7 +76,7 @@ class NLG(object):
         return sentence
 
     
-    def convert_diaact_to_nl(self, dia_act, turn_msg):
+    def generate(self, dia_act, turn_msg):
         """ Convert Dia_Act into NL: Rule + Model """
         
         sentence = ""
@@ -373,3 +404,4 @@ class NLU(object):
         if penny_str[-1] == ";": penny_str = penny_str[:-1]
         penny_str += ")"
         return penny_str
+

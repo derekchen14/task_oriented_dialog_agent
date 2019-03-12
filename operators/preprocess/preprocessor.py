@@ -1,5 +1,6 @@
 from objects.components import var
 from utils.internal.initialization import pickle_io
+from utils.external.dialog_config import feasible_actions
 import os, pdb
 
 class PreProcessor(object):
@@ -9,6 +10,7 @@ class PreProcessor(object):
     self.datasets = loader.datasets
     self.vocab = loader.vocab
     self.ontology = loader.ontology
+    self.max_turn = args.max_turn
 
     if self.task in ['manage_policy', 'track_intent', 'end_to_end']:
       pass
@@ -27,14 +29,18 @@ class PreProcessor(object):
       return "self.vocab.ulary_size()", "self.vocab.label_size()"
     elif self.task == 'manage_policy':
       num_slots = len(self.ontology.slots)
-      from datasets.ddq.constants import feasible_actions
       num_actions = len(feasible_actions)
       return num_slots, num_actions
     elif self.task == 'generate_text':
       num_actions = len(self.ontology.feasible_actions)
       return num_actions, self.vocab.ulary_size()
     elif self.task == 'end_to_end':
-      return "self.vocab.ulary_size()", "self.vocab.label_size()"
+      act_cardinality = 2 * len(self.loader.act_set)
+      slot_cardinality = 7 * len(self.loader.slot_set)
+      other_count = 3 + self.max_turn + 5    # where does 5 come from?
+      num_beliefs = act_cardinality + slot_cardinality + other_count
+      num_actions = len(feasible_actions)
+      return num_beliefs, num_actions
 
   def prepare_examples(self, split, use_context):
     dataset = self.datasets[split]

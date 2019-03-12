@@ -488,7 +488,7 @@ class CommandLineUser(BaseUser):
       raise(ValueError("{} is not part of the available value set".format(value)))
 
 
-class RawUserSimulator:
+class BaseUserSimulator:
   """ Parent class for all user sims to inherit from """
 
   def __init__(self, movie_dict=None, act_set=None, slot_set=None, start_set=None, params=None):
@@ -523,7 +523,7 @@ class RawUserSimulator:
   def add_nl_to_action(self, user_action):
     """ Add NL to User Dia_Act """
 
-    user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(user_action, 'usr')
+    user_nlg_sentence = self.nlg_model.generate(user_action, 'usr')
     user_action['nl'] = user_nlg_sentence
 
     if self.simulator_act_level == 1:
@@ -533,7 +533,7 @@ class RawUserSimulator:
         user_action.update(user_nlu_res)
 
 
-class RuleSimulator(RawUserSimulator):
+class RuleSimulator(BaseUserSimulator):
   """ A rule-based user simulator for testing dialog policy """
   
   def __init__(self, params=None, movie_dict=None, act_set=None, slot_set=None, start_set=None):
@@ -549,7 +549,7 @@ class RuleSimulator(RawUserSimulator):
     self.slot_err_mode = 0
     self.intent_err_probability = 0.0
     
-    self.simulator_run_mode = 0
+    self.simulator_run_mode = dialog_config.run_mode
     self.simulator_act_level = 0
     
     self.learning_phase = 'all'  # vs. train and test
@@ -959,7 +959,7 @@ class RuleSimulator(RawUserSimulator):
 Transition = namedtuple('Transition', ('state', 'agent_action', 'next_state', 'reward', 'term', 'user_action'))
 
 
-class ModelBasedSimulator(RawUserSimulator):
+class NeuralSimulator(BaseUserSimulator):
   """ A rule-based user simulator for testing dialog policy """
 
   def __init__(self, params=None, movie_dict=None, act_set=None, slot_set=None, start_set=None):
@@ -985,7 +985,7 @@ class ModelBasedSimulator(RawUserSimulator):
     self.slot_err_mode = 0
     self.intent_err_probability = 0.0
 
-    self.simulator_run_mode = 0
+    self.simulator_run_mode = dialog_config.run_mode
     self.simulator_act_level = 0
     self.experience_replay_pool_size = params['pool_size']
 
@@ -1244,7 +1244,7 @@ class ModelBasedSimulator(RawUserSimulator):
     raise Exception("action index not found")
     return None
 
-  def register_experience_replay_tuple(self, s_t, agent_a_t, s_tplus1, reward, term, user_a_t):
+  def store_experience(self, s_t, agent_a_t, s_tplus1, reward, term, user_a_t):
     """ Register feedback from the environment, to be stored as future training data for world model"""
 
     state_t_rep = self.prepare_state_representation(s_t)

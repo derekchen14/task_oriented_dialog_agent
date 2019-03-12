@@ -2,7 +2,8 @@ import os, pdb, sys  # set_trace
 import json
 import copy
 import random
-import datasets.ddq.constants as dialog_config
+# import datasets.ddq.constants as dialog_config
+from utils.external import dialog_config
 
 class BaseAgent(object):
   """ Prototype for all agent policy models """
