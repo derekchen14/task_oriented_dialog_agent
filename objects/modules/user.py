@@ -549,7 +549,7 @@ class RuleSimulator(BaseUserSimulator):
     self.slot_err_mode = 0
     self.intent_err_probability = 0.0
     
-    self.simulator_run_mode = 0
+    self.simulator_run_mode = dialog_config.run_mode
     self.simulator_act_level = 0
     
     self.learning_phase = 'all'  # vs. train and test
@@ -985,7 +985,7 @@ class NeuralSimulator(BaseUserSimulator):
     self.slot_err_mode = 0
     self.intent_err_probability = 0.0
 
-    self.simulator_run_mode = 0
+    self.simulator_run_mode = dialog_config.run_mode
     self.simulator_act_level = 0
     self.experience_replay_pool_size = params['pool_size']
 
