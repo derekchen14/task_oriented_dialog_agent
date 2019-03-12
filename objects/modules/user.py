@@ -488,7 +488,7 @@ class CommandLineUser(BaseUser):
       raise(ValueError("{} is not part of the available value set".format(value)))
 
 
-class RawUserSimulator:
+class BaseUserSimulator:
   """ Parent class for all user sims to inherit from """
 
   def __init__(self, movie_dict=None, act_set=None, slot_set=None, start_set=None, params=None):
@@ -533,7 +533,7 @@ class RawUserSimulator:
         user_action.update(user_nlu_res)
 
 
-class RuleSimulator(RawUserSimulator):
+class RuleSimulator(BaseUserSimulator):
   """ A rule-based user simulator for testing dialog policy """
   
   def __init__(self, params=None, movie_dict=None, act_set=None, slot_set=None, start_set=None):
@@ -959,7 +959,7 @@ class RuleSimulator(RawUserSimulator):
 Transition = namedtuple('Transition', ('state', 'agent_action', 'next_state', 'reward', 'term', 'user_action'))
 
 
-class ModelBasedSimulator(RawUserSimulator):
+class NeuralSimulator(BaseUserSimulator):
   """ A rule-based user simulator for testing dialog policy """
 
   def __init__(self, params=None, movie_dict=None, act_set=None, slot_set=None, start_set=None):

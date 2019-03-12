@@ -8,112 +8,22 @@ import torch.nn as nn
 from torch import optim
 from collections import defaultdict
 
-class BaseBeliefTracker(nn.Module):
-  def __init__(self, args):
-    super().__init__()
+class BaseModule(object):
+  def __init__(self, args, model):
     self.args = args
-    self.opt = args.optimizer
-    self.lr = args.learning_rate
-    self.reg = args.weight_decay
-    self.batch_size = args.batch_size
+    self.model = model
 
-    self.dhid = args.hidden_dim
-    self.demb = args.embedding_size
-    self.n_layers = args.num_layers
+  def init_optimizer(self, parameters=None):
+    model_params = self.parameters() if parameters is None else parameters
 
-  def init_optimizer(self):
     if self.opt == 'sgd':
-      self.optimizer = optim.SGD(self.parameters(), self.lr, self.reg)
+      self.optimizer = optim.SGD(model_params, self.lr, self.reg)
     elif self.opt == 'adam':
       # warmup = step_num * math.pow(4000, -1.5)   -- or -- lr = 0.0158
       # self.lr = (1 / math.sqrt(d)) * min(math.pow(step_num, -0.5), warmup)
-      self.optimizer = optim.Adam(self.parameters(), self.lr)
+      self.optimizer = optim.Adam(model_params, self.lr)
     elif self.opt == 'rmsprop':
-      self.optimizer = optim.RMSprop(self.parameters(), self.lr, self.reg)
-
-  def learn(self, args, datasets):
-    train_data, dev_data = datasets['train'], datasets['val']
-    track = defaultdict(list)
-    iteration = 0
-    best = {}
-    logger = self.get_train_logger()
-    self.init_optimizer()
-
-    for epoch in range(args.epochs):
-      logger.info('starting epoch {}'.format(epoch))
-
-      # train and update parameters
-      self.train()
-      for batch in train_data.batch(batch_size=args.batch_size, shuffle=True):
-        iteration += 1
-        self.zero_grad()
-        loss, scores = self.forward(batch)
-        loss.backward()
-        self.optimizer.step()
-        track['loss'].append(loss.item())
-
-      # evalute on train and dev
-      summary = {'iteration': iteration, 'epoch': epoch}
-      for k, v in track.items():
-        summary[k] = sum(v) / len(v)
-      summary.update({'eval_train_{}'.format(k): v for k, v in self.quant_report(train_data).items()})
-      summary.update({'eval_dev_{}'.format(k): v for k, v in self.quant_report(dev_data).items()})
-
-      # do early stopping saves
-      stop_key = 'eval_dev_{}'.format(args.stop_early)
-      train_key = 'eval_train_{}'.format(args.stop_early)
-      if best.get(stop_key, 0) <= summary[stop_key]:
-        best_dev = '{:f}'.format(summary[stop_key])
-        best_train = '{:f}'.format(summary[train_key])
-        best.update(summary)
-        self.save(best,
-          identifier='epoch={epoch},iter={iteration},train_{key}={train},dev_{key}={dev}'.format(
-            epoch=epoch, iteration=iteration, train=best_train, dev=best_dev, key=args.stop_early,
-          )
-        )
-        self.prune_saves()
-        dev_data.record_preds(
-          preds=self.run_glad_inference(dev_data),
-          to_file=os.path.join(self.save_dir, 'dev.pred.json'),
-        )
-      summary.update({'best_{}'.format(k): v for k, v in best.items()})
-      logger.info(pformat(summary))
-      track.clear()
-
-
-  def extract_predictions(self, scores, threshold=0.5):
-    batch_size = len(list(scores.values())[0])
-    predictions = [set() for i in range(batch_size)]
-    for s in self.ontology.slots:
-      for i, p in enumerate(scores[s]):
-        triggered = [(s, v, p_v) for v, p_v in zip(self.ontology.values[s], p) if p_v > threshold]
-        if s == 'request':
-          # we can have multiple requests predictions
-          predictions[i] |= set([(s, v) for s, v, p_v in triggered])
-        elif triggered:
-          # only extract the top inform prediction
-          sort = sorted(triggered, key=lambda tup: tup[-1], reverse=True)
-          predictions[i].add((sort[0][0], sort[0][1]))
-    return predictions
-
-  def run_glad_inference(self, data):
-    self.eval()
-    predictions = []
-    for batch in data.batch(self.batch_size):
-      loss, scores = self.forward(batch)
-      predictions += self.extract_predictions(scores)
-    return predictions
-
-  def quant_report(self, data):
-    predictions = self.run_glad_inference(data)
-    return data.evaluate_preds(predictions)
-
-  def qual_report(self, data):
-    self.eval()
-    one_batch = next(dev_data.batch(self.batch_size, shuffle=True))
-    loss, scores = self.forward(one_batch)
-    predictions = self.extract_predictions(scores)
-    return data.run_report(one_batch, predictions, scores)
+      self.optimizer = optim.RMSprop(model_params, self.lr, self.reg)
 
   def save_config(self, args, save_directory):
     fname = '{}/config.json'.format(save_directory)
@@ -135,7 +45,7 @@ class BaseBeliefTracker(nn.Module):
     print('saving model to {}.pt'.format(identifier))
     state = {
       'args': vars(self.args),
-      'model': self.state_dict(),
+      'model': self.model.state_dict(),
       'summary': summary,
       'optimizer': self.optimizer.state_dict(),
     }
@@ -144,7 +54,7 @@ class BaseBeliefTracker(nn.Module):
   def load(self, fname):
     print('loading model from {}'.format(fname))
     state = torch.load(fname)
-    self.load_state_dict(state['model'])
+    self.model.load_state_dict(state['model'])
     self.init_optimizer()
     self.optimizer.load_state_dict(state['optimizer'])
 
@@ -178,26 +88,26 @@ class BaseBeliefTracker(nn.Module):
       self.load(fname)
 
 
-class BasePolicyManager:
+class BaseBeliefTracker(BaseModule):
+  def __init__(self, args, model):
+    super().__init__(args, model)
+
+  def quant_report(self, data):
+    predictions = self.run_glad_inference(data)
+    return data.evaluate_preds(predictions)
+
+  def qual_report(self, data):
+    self.eval()
+    one_batch = next(dev_data.batch(self.batch_size, shuffle=True))
+    loss, scores = self.forward(one_batch)
+    predictions = self.extract_predictions(scores)
+    return data.run_report(one_batch, predictions, scores)
+
+
+class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """
-
-  def __init__(self, movie_dict=None, act_set=None, slot_set=None, params=None):
-    """ Constructor for the Agent class
-
-    Arguments:
-    movie_dict      --  This is here now but doesn't belong - the agent doesn't know about movies
-    act_set         --  The set of acts. #### Shouldn't this be more abstract? Don't we want our agent to be more broadly usable?
-    slot_set        --  The set of available slots
-    """
-    self.movie_dict = movie_dict
-    self.act_set = act_set
-    self.slot_set = slot_set
-    self.act_cardinality = len(act_set.keys())
-    self.slot_cardinality = len(slot_set.keys())
-
-    self.epsilon = params['epsilon']
-    self.agent_run_mode = params['agent_run_mode']
-    self.agent_act_level = params['agent_act_level']
+  def __init__(self, args, model):
+    super().__init__(args, model)
 
     self.nlg_model = None
     self.nlu_model = None
@@ -257,3 +167,9 @@ class BasePolicyManager:
       agent_action['slot_value_action']['nl'] = ""
       user_nlg_sentence = self.nlg_model.convert_diaact_to_nl(agent_action['slot_value_action'], 'agt') #self.nlg_model.translate_diaact(agent_action['act_slot_value_response']) # NLG
       agent_action['slot_action']['nl'] = user_nlg_sentence
+
+
+class BaseTextGenerator(BaseModule):
+  def __init__(self, args, model):
+    super().__init__(args, model)
+

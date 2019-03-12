@@ -114,13 +114,9 @@ class Builder(object):
       model = NLU(self.loader, results_dir)
       model.load_nlu_model('nlu_1468447442')
       model.module_type = model_type
+      return model  # hack since this one is not a Pytorch Model
     elif model_type == 'policy_manager':
-      movie_kb = self.loader.json_data('movie_kb.1k')
-      act_set = self.loader.text_data('dia_acts')
-      slot_set = self.loader.text_data('slot_set')
-      goal_set = self.loader.json_data('goal_set')
-      self.ontology_sets = (act_set, slot_set, goal_set, movie_kb)
-      model = AgentDQN(vars(self.args), movie_kb, act_set, slot_set)
+      model = DQN(input_size, self.dhid, output_size)
       model.module_type = model_type
     elif model_type == 'text_generator':
       results_dir = os.path.join("results", self.args.task, self.args.dataset)
@@ -129,8 +125,9 @@ class Builder(object):
       nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
       model.load_predefine_act_nl_pairs(nl_pairs)
       model.module_type = model_type
+      return model  # hack since this one is not a Pytorch Model
 
-    return model
+    return model.to(device)
 
   def configure_module(self, args, model):
     if model.module_type == 'policy_manager':
@@ -138,24 +135,29 @@ class Builder(object):
       if args.model == 'rulebased':
         module = RulebasedPolicyManager(args, model, kb, ontology)
         results_dir = os.path.join('results', args.dataset, 'models')
-        module.user.text_generator = TextGenerator.from_pretrained(args)
+        module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
         movie_dictionary = self.loader.json_data('dicts.v3')
-        act_set, slot_set, goal_set, movie_kb = self.ontology_sets
-        user_sim = RuleSimulator(vars(args), movie_dictionary, act_set, slot_set, goal_set)
-        world_model = ModelBasedSimulator(vars(args),
+        movie_kb = self.loader.json_data('movie_kb.1k')
+        goal_set = self.loader.json_data('goal_set')
+        act_set, slot_set = self.loader.act_set, self.loader.slot_set
+
+        user_sim = RuleSimulator(vars(args),
               movie_dictionary, act_set, slot_set, goal_set)
-        model.user_planning = world_model
-        module = DialogManager(model, user_sim, world_model,
+        world_sim = NeuralSimulator(vars(args),
+              movie_dictionary, act_set, slot_set, goal_set)
+        sub_module = NeuralPolicyManager(args, model,
+              device, world_sim, movie_kb, act_set, slot_set)
+        module = DialogManager(sub_module, user_sim, world_sim,
               act_set, slot_set, movie_kb)
-        # module = NeuralPolicyManager(args, model, kb, ontology)
     elif model.module_type == 'belief_tracker':
       module = model
     elif model.module_type  == 'text_generator':
       module = model
     else:
-      module = model.to(device)
+      print("this is the GLAD path")
+      module = NeuralBeliefTracker(args, model)
 
     module.dir = self.dir
     return module

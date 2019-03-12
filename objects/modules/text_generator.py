@@ -7,8 +7,9 @@ import pickle as pkl
 from torch import nn
 from objects.models.external import DeepDialogDecoder
 from datasets.ddq import constants as dialog_config
+from objects.blocks.base import BaseTextGenerator
 
-class TextGenerator(object):
+class RuleTextGenerator(BaseTextGenerator):
 
   def __init__(self, model, dictionaries, acts, slots, parameters):
     self.model = model
@@ -226,12 +227,12 @@ class TextGenerator(object):
     pass
 
 
-class NeuralTextGenerator(nn.Module):
+class NeuralTextGenerator(BaseTextGenerator):
   def __init__(self, *args):
     super().__init__(args)
 
   def learn(self):
-    print("rule-based belief tracker has no training")
+    print("neural-based belief tracker is not configured")
 
   def predict(self, examples, batch_size=1):
     if batch_size > 1:  # then examples is a list

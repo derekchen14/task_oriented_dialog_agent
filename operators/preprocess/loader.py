@@ -30,6 +30,8 @@ class DataLoader(object):
       self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
       self.ontology = Ontology.from_path(self.data_dir)
       self.vocab = Vocabulary(args, self.data_dir)
+      self.act_set = self.text_data('dia_acts')
+      self.slot_set = self.text_data('slot_set')
 
     self.load_datasets()
 
