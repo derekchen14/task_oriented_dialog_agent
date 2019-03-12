@@ -105,7 +105,6 @@ class BaseBeliefTracker(BaseModule):
     predictions = self.extract_predictions(scores)
     return data.run_report(one_batch, predictions, scores)
 
-
 class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """
   def __init__(self, args, model):
@@ -188,4 +187,6 @@ class BasePolicyManager(BaseModule):
 class BaseTextGenerator(BaseModule):
   def __init__(self, args, model):
     super().__init__(args, model)
+
+
 

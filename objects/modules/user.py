@@ -1166,7 +1166,7 @@ class NeuralSimulator(BaseUserSimulator):
     print("Total cost for last batch on user modeling: %.4f, training replay pool %s" % (
       float(self.total_loss), len(self.training_examples)))
 
-  def next(self, s, a):
+  def next(self, dialogue_state, model_action):
     """
     Provide
     :param s: state representation from tracker
@@ -1187,10 +1187,14 @@ class NeuralSimulator(BaseUserSimulator):
       response_action['turn_count'] = self.state['turn_count']
       return response_action, term, reward
 
-    s = self.prepare_state_representation(s)
-    g = self.prepare_user_goal_representation(self.sample_goal)
-    s = np.hstack([s, g])
-    reward, term, action = self.predict(torch.FloatTensor(s), torch.LongTensor(np.asarray(a)[:, None]))
+    dialogue_state = self.prepare_state_representation(dialogue_state)
+    goal_state = self.prepare_user_goal_representation(self.sample_goal)
+    stacked_state = np.hstack([dialogue_state, goal_state])
+
+    state_tensor = torch.FloatTensor(stacked_state)
+    action_tensor = torch.LongTensor(model_action['action_id']).view(-1,1)
+
+    reward, term, action = self.predict(state_tensor, action_tensor)
     action = action.item()
     reward = reward.item()
     term = term.item()
@@ -1236,7 +1240,7 @@ class NeuralSimulator(BaseUserSimulator):
     if act_slot_response['diaact'] in ['thanks', 'deny', 'closing']:
       act_slot_response['inform_slots'] = {}
       act_slot_response['request_slots'] = {}
-      
+
     for (i, action) in enumerate(self.feasible_actions_users):
       if act_slot_response == action:
         return i

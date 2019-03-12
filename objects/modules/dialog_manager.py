@@ -7,7 +7,7 @@ Created on May 17, 2016
 import json
 import copy
 import torch
-import os
+import os, pdb, sys
 import numpy as np
 from objects.modules.dialogue_state import DialogueState
 from utils.external import dialog_config
@@ -66,17 +66,17 @@ class DialogManager:
         #   CALL AGENT TO TAKE HER TURN
         ########################################################################
         self.state = self.state_tracker.get_state_for_agent()
-        self.model_action = self.model.state_to_action(self.state)
+        model_action = self.model.state_to_action(self.state)
 
         ########################################################################
         #   Register AGENT action with the state_tracker
         ########################################################################
-        self.state_tracker.update(agent_action=self.model_action)
+        self.state_tracker.update(agent_action=model_action)
 
         self.state_user = self.state_tracker.get_state_for_user()
 
-        self.model.action_to_nl(self.model_action)  # add NL to Agent Dia_Act
-        self.print_function(agent_action=self.model_action['slot_action'])
+        self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
+        self.print_function(agent_action=model_action['slot_action'])
 
         ########################################################################
         #   CALL USER TO TAKE HER TURN
@@ -84,7 +84,7 @@ class DialogManager:
         self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
         if self.use_world_model:
             self.user_action, self.episode_over, self.reward = self.running_user.next(self.state_user,
-                                                                                      self.model.action)
+                                                                                      model_action)
         else:
             self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
             self.reward = self.model.reward_function(dialog_status)
@@ -96,15 +96,15 @@ class DialogManager:
             self.state_tracker.update(user_action=self.user_action)
             self.print_function(user_action=self.user_action)
 
-        self.state_user_next = self.state_tracker.get_state_for_agent()
+        next_agent_state = self.state_tracker.get_state_for_agent()
 
         ########################################################################
         #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
         ########################################################################
         if record_agent_data:
-            self.model.store_experience(self.state, self.model_action, self.reward,
-                                                        self.state_tracker.get_state_for_agent(), self.episode_over,
-                                                        self.state_user, self.use_world_model)
+            self.model.use_world_model = self.use_world_model
+            self.model.store_experience(self.state, model_action['action_id'],
+                self.reward, next_agent_state, self.episode_over)
 
         ########################################################################
         #  Inform world model of the outcome for this timestep
@@ -112,9 +112,9 @@ class DialogManager:
         ########################################################################
 
         if record_user_data and not self.use_world_model:
-            self.world_model.store_experience(self.state_user, self.model.action,
-                                                              self.state_user_next, self.reward, self.episode_over,
-                                                              self.user_action)
+            self.world_model.store_experience(self.state_user,
+                model_action['action_id'], next_agent_state, self.reward,
+                self.episode_over, self.user_action)
 
         return (self.episode_over, self.reward)
 

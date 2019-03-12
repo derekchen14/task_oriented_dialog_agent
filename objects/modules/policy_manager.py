@@ -82,13 +82,13 @@ class NeuralPolicyManager(BasePolicyManager):
     """ DQN: Input state, output action """
     # self.state['turn_count'] += 2
     self.representation = self.prepare_state_representation(state)
-    self.action = self.run_policy(self.representation)
+    action_id = self.run_policy(self.representation)
     if self.warm_start == 1:
-      act_slot_response = copy.deepcopy(self.feasible_actions[self.action])
+      act_slot_response = copy.deepcopy(self.feasible_actions[action_id])
     else:
-      act_slot_response = copy.deepcopy(self.feasible_actions[self.action[0]])
+      act_slot_response = copy.deepcopy(self.feasible_actions[action_id[0]])
 
-    return {'slot_action': act_slot_response, 'slot_value_action': None}
+    return {'slot_action': act_slot_response, 'action_id': action_id}
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
@@ -220,24 +220,19 @@ class NeuralPolicyManager(BasePolicyManager):
     raise(Exception("action index not found"))
     return None
 
-  def store_experience(self, s_t, a_t, reward, s_tplus1, episode_over, st_user, from_model=False):
-    """ Register feedback from either environment or world model, to be stored as future training data """
-
-    state_t_rep = self.prepare_state_representation(s_t)
-    action_t = self.action
-    reward_t = reward
-    state_tplus1_rep = self.prepare_state_representation(s_tplus1)
-    st_user = self.prepare_state_representation(s_tplus1)
-    training_example = (state_t_rep, action_t, reward_t, state_tplus1_rep, episode_over, st_user)
+  def store_experience(self, current_state, action, reward, next_state, episode_over):
+    current_rep = self.prepare_state_representation(current_state)
+    next_rep = self.prepare_state_representation(next_state)
+    training_example = (current_rep, action, reward, next_rep, episode_over)
 
     if self.predict_mode == False:  # Training Mode
       if self.warm_start == 1:
         self.experience_replay_pool.append(training_example)
     else:  # Prediction Mode
-      if not from_model:
-        self.experience_replay_pool.append(training_example)
-      else:
+      if self.use_world_model:
         self.experience_replay_pool_from_model.append(training_example)
+      else:  # we directly append since replay pool is now a deque
+        self.experience_replay_pool.append(training_example)
 
   def sample_from_buffer(self, batch_size):
     """Sample batch size examples from experience buffer and convert it to torch readable format"""
@@ -327,41 +322,8 @@ class NeuralPolicyManager(BasePolicyManager):
   def reset_dqn_target(self):
     self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-
-'''
-class NeuralPolicyManager(BasePolicyManager):
-  def __init__(self, args, model, ontology):
-    super().__init__(args, model, ontology)
-    self.hidden_dim = args.hidden_dim
-    self.gamma = args.discount_rate
-    self.warm_start = args.warm_start
-    self.max_pool_size = args.pool_size
-    self.epsilon = args.epsilon
-
-  def save_checkpoint(self, monitor, episode):
-    filename = '{}/{}.pt'.format(self.save_dir, identifier)
-    print('saving model to {}.pt'.format(identifier))
-    state = {
-      'args': vars(self.args),
-      'model': self.state_dict(),
-      'summary': summary,
-      'optimizer': self.optimizer.state_dict(),
-    }
-    torch.save(state, filename)
-
-  def store_experience(self, current_state, action, reward, next_state, episode_over):
-    current_rep = self.prepare_state_representation(current_state)
-    next_rep = self.prepare_state_representation(next_state)
-    training_example = (current_rep, action, reward, next_rep, episode_over)
-
-    if (len(self.experience_replay_pool) == self.max_pool_size):
-      chosen_idx = random.randint(0,self.max_pool_size)
-      self.experience_replay_pool[chosen_idx] = training_example
-    else:
-      self.experience_replay_pool.append(training_example)
-'''
-
-class BasePolicyManagerLater(object):
+"""
+  # TODO: merge from DialogManager Later
   def __init__(self, args, model, kb, ontology):
     self.state = DialogueState(kb, ontology)
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
@@ -374,41 +336,4 @@ class BasePolicyManagerLater(object):
       print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
     if dialog_config.auto_suggest == 1:
       print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
-
-  def next(self, collect_data):
-    """ Initiates exchange between agent and user (agent first)
-    a POMDP takes in the dialogue state with latent intent
-      input - dialogue state consisting of:
-        1) current user intent --> act(slot-relation-value) + confidence score
-        2) previous agent action
-        3) knowledge base query results
-        4) turn count
-        5) complete semantic frame
-      output - next agent action
-    """
-    #   CALL AGENT TO TAKE HER TURN
-    self.agent_state = self.state.get_state_for_agent()
-    self.agent_action = self.model.state_to_action(self.agent_state)
-    #   Register AGENT action within the state
-    self.state.update(agent_action=self.agent_action)
-    self.action_to_nl(self.agent_action) # add NL to BasePolicy Dia_Act
-    self.print_function(self.agent_action['slot_action'], "agent")
-
-    #   CALL USER TO TAKE HER TURN
-    self.agent_action = self.state.dialog_history_dictionaries()[-1]
-    self.user_action, self.episode_over, dialog_status = self.user.next(self.agent_action)
-    self.reward = self.reward_function(dialog_status)
-    #   Update state tracker with latest user action
-    if self.episode_over != True:
-      self.state.update(user_action=self.user_action)
-      if self.user.do_print:
-        # print(self.user.state)
-        # print("above is user state >>>>>>>>>>>>>>. below is user action")
-        self.print_function(self.user_action, "user")
-
-    #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
-    if collect_data:
-      self.store_experience(self.agent_state, self.agent_action, self.reward,
-              self.state.get_state_for_agent(), self.episode_over)
-
-    return (self.episode_over, self.reward)
+"""
