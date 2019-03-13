@@ -177,8 +177,7 @@ class LossMonitor(MonitorBase):
     for metric, metric_value in self.summary.items():
       self.logger.info("{}: {:.4f}".format(metric, metric_value))
 
-    self.unique_id = unique_identifier(self.summary, self.epoch, self.iteration,
-                                                      self.early_stop_metric)
+    self.unique_id = unique_identifier(self.summary, self.epoch, self.early_stop_metric)
 
 class RewardMonitor(MonitorBase):
   """ Tracks global learning status across episodes. """
@@ -221,7 +220,7 @@ class RewardMonitor(MonitorBase):
             "episode": self.num_episodes, "best_success_rate": self.success_rate,
             "train_success_rate": self.simulation_successes[-1]}
       self.unique_id = unique_identifier(self.summary, epoch=self.num_episodes,
-                              iteration=1, early_stop_metric=self.metrics[0])
+                                    early_stop_metric=self.metrics[0])
 
   def best_so_far(self, simulator_success_rate):
     if simulator_success_rate >= self.best_success_rate:
