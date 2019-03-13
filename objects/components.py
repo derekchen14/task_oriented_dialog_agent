@@ -8,11 +8,13 @@ from utils.external.bleu import BLEU
 
 import torch
 import numpy as np
-import pdb, sys
+import os, pdb, sys
+import re
 from tqdm import tqdm as progress_bar
 
 use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
+# device = torch.device("cuda" if use_cuda else "cpu")
+device = torch.device("cpu")
 
 def var(data, dtype="float"):
   if dtype == "float":
@@ -30,6 +32,20 @@ def clip_gradient(model, clip):
     clip_grad_norm_(model.decoder.parameters(), clip)
   except(AttributeError):
     pass
+
+def get_saves(director, early_stop):
+  files = [f for f in os.listdir(directory) if f.endswith('.pt')]
+  scores = []
+  for fname in files:
+    re_str = r'dev_{}=([0-9\.]+)'.format(early_stop)
+    dev_acc = re.findall(re_str, fname)
+    if dev_acc:
+      score = float(dev_acc[0].strip('.'))
+      scores.append((score, os.path.join(directory, fname)))
+  if not scores:
+    raise Exception('No files found!')
+  scores.sort(key=lambda tup: tup[0], reverse=True)
+  return scores
 
 def run_inference(model, batch):
   if model.model_type in ["basic", "dual", "multi"]:

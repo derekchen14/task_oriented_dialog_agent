@@ -1,5 +1,4 @@
 import os, pdb, sys
-import re
 import math
 import json
 
@@ -7,8 +6,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 from collections import defaultdict
-
-
+from objects.components import get_saves
 
 class BaseModule(object):
   def __init__(self, args, model):
@@ -67,21 +65,6 @@ class BaseModule(object):
     if len(scores_and_files) > n_keep:
       for score, fname in scores_and_files[n_keep:]:
         os.remove(fname)
-
-  @staticmethod
-  def get_saves(director, early_stop):
-    files = [f for f in os.listdir(directory) if f.endswith('.pt')]
-    scores = []
-    for fname in files:
-      re_str = r'dev_{}=([0-9\.]+)'.format(early_stop)
-      dev_acc = re.findall(re_str, fname)
-      if dev_acc:
-        score = float(dev_acc[0].strip('.'))
-        scores.append((score, os.path.join(directory, fname)))
-    if not scores:
-      raise Exception('No files found!')
-    scores.sort(key=lambda tup: tup[0], reverse=True)
-    return scores
 
 class BaseBeliefTracker(BaseModule):
   def __init__(self, args, model):
