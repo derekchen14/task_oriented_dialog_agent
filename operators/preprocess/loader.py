@@ -1,6 +1,7 @@
 import os, pdb, sys
 import json
 import pickle as pkl
+import torch
 
 from vocab import Vocab
 from utils.internal.vocabulary import Vocabulary
@@ -65,6 +66,11 @@ class DataLoader(object):
           continue
         vec = tensor(entity_words[word]).to(device)
         self.key_init.weight.data[i] = vec
+
+  def restore_checkpoint(self, filepath):
+    model_checkpoint = torch.load(filepath)
+    print('Loaded model from {}'.format(filepath))
+    return model_checkpoint
 
   def json_data(self, filename):
     file_path = self.path(filename + '.json', 'r')

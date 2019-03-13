@@ -52,13 +52,13 @@ class Learner(object):
           train_results = self.validate(model, train_data, self.verbose)
           self.monitor.update_val(val_results, train_results)
           if self.monitor.best_so_far():
-            summary, unique_id = self.monitor.summarize_results(self.verbose)
-            model.save(summary, unique_id)
+            self.monitor.summarize_results(self.verbose)
+            model.save_checkpoint(self.monitor)
             model.prune_saves()
             val_data.record_preds(preds=model.run_glad_inference(val_data),
                 to_file=os.path.join(model.save_dir, 'dev.pred.json'))
           else:
-            summary, _ = self.monitor.summarize_results(False)
+            self.monitor.summarize_results(False)
           if self.monitor.should_early_stop():
             break
       self.monitor.end_epoch()
@@ -130,9 +130,13 @@ class Learner(object):
     monitor.end_episode()
 
   def run_episodes(self, num_episodes, planning_steps=5):
-    self.monitor.simulation_successes = []
-
-    for episode in range(num_episodes):  #progress_bar(
+    """ Run loop for training the RL agent
+      1) run exactly one episode of training real agent
+      2) gather data with with rule user_sim and neural user_sim (ie. world)
+      3) Update weights and train the two user simulators
+      4) Occasionally summarize results and save checkpoints
+    """
+    for episode in range(num_episodes):
       self.module.model.predict_mode = False
       self.run_one_episode(self.monitor, 'rule')
 
@@ -145,27 +149,28 @@ class Learner(object):
       self.gather_data_for_agent(50, episode)
 
       simulation_success_rate = self.monitor.simulation_successes[-1]
+      if simulation_success_rate > self.monitor.best_success_rate:
+        self.monitor.summarize_results()
+        self.module.model.save_checkpoint(self.monitor)
+        self.module.save_performance_records(self.monitor, episode)
+
       if self.monitor.best_so_far(simulation_success_rate):
         self.module.model.predict_mode = True
         self.module.world_model.predict_mode = True
         self.gather_data_for_user(planning_steps, episode)
 
-      if simulation_success_rate > self.monitor.best_success_rate:
-        self.module.save_checkpoint(self.monitor, episode)
-        self.module.save_performance_records(self.monitor, episode)
-
       self.module.model.train(self.batch_size, 1, self.verbose)
       self.module.model.reset_dqn_target()
-      # should probably be moved up?
+
       self.module.world_model.train(self.batch_size, 1)
       self.monitor.summarize_results(episode % 14 == 0)
 
     self.monitor.summarize_results()
+    self.module.model.save_checkpoint(self.monitor)
     self.module.save_performance_records(self.monitor, num_episodes)
 
   # Use neural-based environment to gather data for training the user simulator
   def gather_data_for_user(self, num_episodes, global_episode):
-    # print("Collect data from neural-based world model")
     user_monitor = RewardMonitor(['success_rate'])
     for episode in range(num_episodes):
       planning_steps = 5
@@ -180,7 +185,6 @@ class Learner(object):
   def gather_data_for_agent(self, num_episodes, global_episode):
     # if self.monitor.success_rate > 0.7:
     #   self.module.run_mode = 0
-    # print("Collect data from rule-based user simulation")
     agent_monitor = RewardMonitor(['success_rate'])
     for episode in range(num_episodes):
       self.run_one_episode(agent_monitor, 'rule')

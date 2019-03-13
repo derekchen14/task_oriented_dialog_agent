@@ -29,12 +29,10 @@ class Builder(object):
 
     if self.test_mode:
       monitor.logger.info("Loading model at {} for testing".format(self.dir))
-      # if self.model_type == "glad":
-      #   model.load_best_save(directory=self.dir)
-      model = self.load_model(self.dir, model)
+      model = self.load_best_model(self.dir, model)
     elif self.use_existing:
       monitor.logger.info("Resuming model at {} for training".format(self.dir))
-      model = self.load_model(self.dir, model)
+      model = self.load_best_model(self.dir, model)
     else:
       monitor.logger.info("Building model at {}".format(self.dir))
       model.save_dir = self.dir
@@ -54,15 +52,27 @@ class Builder(object):
     self.dir = os.path.join("results", self.args.task, self.args.dataset, model_path)
     if not os.path.exists(self.dir):
       os.makedirs(self.dir)
+      print("Created directory at {}".format(self.dir))
 
-  def load_model(self, directory, model):
-    filename = "epoch=12_success=25.4042_recall@two=41.3395"
-    state = torch.load("{0}/{1}.pt".format(directory, filename))
-    model.load_state_dict(state['model'])
-    model.eval()
+  def load_best_model(self, directory, model):
+    scores_and_files = BaseModule.get_saves(directory, self.args.early_stop)
+    if scores_and_files:
+      assert scores_and_files, 'no saves exist at {}'.format(directory)
+      score, filepath = scores_and_files[0]
+    else:
+      filename = "epoch=12_success=25.4042_recall@two=41.3395"
+      filepath = os.path.join(self.save_dir, filename)
+
+    checkpoint = self.loader.restore_state(filepath)
+    model.load_state_dict(checkpoint['model'])
+
     if self.use_existing:
+      model.train()
       model.init_optimizer()
-      model.optimizer.load_state_dict(state['optimizer'])
+      model.optimizer.load_state_dict(checkpoint['optimizer'])
+    else:
+      model.eval()
+
     return model
 
   def create_model(self, processor, model_type):

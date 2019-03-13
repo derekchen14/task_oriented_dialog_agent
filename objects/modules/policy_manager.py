@@ -288,37 +288,6 @@ class NeuralPolicyManager(BasePolicyManager):
       reward = -1                                 # -20 over time
     return reward
 
-  ################################################################################
-  #    Debug Functions
-  ################################################################################
-  def save_experience_replay_to_file(self, path):
-    """ Save the experience replay pool to a file """
-
-    try:
-      pickle.dump(self.experience_replay_pool, open(path, "wb"))
-      print('saved model in %s' % (path,))
-    except Exception as e:
-      print('Error: Writing model fails: %s' % (path,))
-      print(e)
-
-  def load_experience_replay_from_file(self, path):
-    """ Load the experience replay pool from a file"""
-
-    self.experience_replay_pool = pickle.load(open(path, 'rb'), encoding='latin1')
-
-  def load_trained_DQN(self, path):
-    """ Load the trained DQN from a file """
-    trained_file = pickle.load(open(path, 'rb'), encoding='latin1')
-    model = trained_file['model']
-    print("Trained DQN Parameters:", json.dumps(trained_file['params'], indent=2))
-    return model
-
-  def save(self, filename):
-    torch.save(self.dqn.state_dict(), filename)
-
-  def load(self, filename):
-    self.dqn.load_state_dict(torch.load(filename))
-
   def reset_dqn_target(self):
     self.target_dqn.load_state_dict(self.dqn.state_dict())
 

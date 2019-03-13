@@ -110,15 +110,6 @@ class DialogManager:
 
     return (self.episode_over, self.reward)
 
-  def save_checkpoint(self, monitor, episode):
-    monitor.summarize_results()
-    if not os.path.exists(self.save_dir):
-      os.makedirs(self.save_dir)
-      print("Created directory at {}".format(self.save_dir))
-    filepath = os.path.join(self.save_dir, monitor.unique_id)
-    torch.save(self.model.dqn.state_dict(), filepath)
-    print("Saved model at {}".format(filepath))
-
   def save_performance_records(self, monitor, episode):
     filepath = os.path.join(self.save_dir, f'results_{episode}.json')
     records = {'turns': monitor.turns, 'avg_turn': monitor.avg_turn,

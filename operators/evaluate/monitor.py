@@ -171,19 +171,14 @@ class LossMonitor(MonitorBase):
 
   def summarize_results(self, verbose=False):
     self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
-    summary = self.status.copy()
+    self.summary = self.status.copy()
     for metric, metric_value in self.best.items():
-      summary["best_{}".format(metric)] = metric_value
-    for metric, metric_value in summary.items():
+      self.summary["best_{}".format(metric)] = metric_value
+    for metric, metric_value in self.summary.items():
       self.logger.info("{}: {:.4f}".format(metric, metric_value))
 
-    unique_id = unique_identifier(summary, self.epoch, self.iteration, self.early_stop_metric)
-    return summary, unique_id
-    # for metric in self.metrics:
-    #   if metric == "val_loss":
-    #     metric_value = np.average(self.status[metric])
-    #   else:
-    #     metric_value = self.status[metric][-1]
+    self.unique_id = unique_identifier(self.summary, self.epoch, self.iteration,
+                                                      self.early_stop_metric)
 
 class RewardMonitor(MonitorBase):
   """ Tracks global learning status across episodes. """
@@ -197,6 +192,7 @@ class RewardMonitor(MonitorBase):
     self.metrics = metrics
     self.success_threshold = threshold  # 0.3
     self.best_success_rate = -1.0
+    self.simulation_successes = []
     # self.warm_start_epochs = 100
     # self.save_check_point = 5   # save the last X checkpoints
   def start_episode(self):
@@ -213,8 +209,6 @@ class RewardMonitor(MonitorBase):
     self.success_rate = self.num_successes / float(self.num_episodes)
     self.avg_reward = np.average(self.rewards)
     self.avg_turn = np.average(self.turns)
-    self.unique_id =  "episode_{}_best_success_{:.4f}_current_{:.4f}".format(
-                  self.num_episodes, self.best_success_rate, self.success_rate)
     if verbose:
       result_str = "Success Rate: {:.4f}, Average Reward: {:.4f}, Average Turns: {:.4f}".format(
         self.success_rate, self.avg_reward, self.avg_turn)
@@ -222,6 +216,12 @@ class RewardMonitor(MonitorBase):
         print(prefix + result_str)
       else:
         print("Epoch: {}, ".format(self.num_episodes) + result_str)
+    if prefix is None:
+      self.summary = {"avg_reward": self.avg_reward, "avg_turn": self.avg_turn,
+            "episode": self.num_episodes, "best_success_rate": self.success_rate,
+            "train_success_rate": self.simulation_successes[-1]}
+      self.unique_id = unique_identifier(self.summary, epoch=self.num_episodes,
+                              iteration=1, early_stop_metric=self.metrics[0])
 
   def best_so_far(self, simulator_success_rate):
     if simulator_success_rate >= self.best_success_rate:

@@ -33,6 +33,12 @@ class BaseModule(object):
       print('Saving config to {}'.format(fname))
       json.dump(vars(args), save_file, indent=2)
 
+
+  def save_experience_replay_to_file(self, path):
+    pickle.dump(self.experience_replay_pool, open(path, "wb"))
+    print('saved model in %s' % (path,))
+
+  # Move into LOADER
   @classmethod
   def load_config(cls, fname, ontology, **kwargs):
     with open(fname) as f:
@@ -42,31 +48,32 @@ class BaseModule(object):
         setattr(args, k, kwargs.get(k, v))
     return cls(args, ontology)
 
-  def save(self, summary, identifier):
-    fname = '{}/{}.pt'.format(self.save_dir, identifier)
-    print('saving model to {}.pt'.format(identifier))
+  def load_experience_replay_from_file(self, path):
+    self.experience_replay_pool = pickle.load(open(path, 'rb'), encoding='latin1')
+
+  def save_checkpoint(self, monitor):
+    filepath = os.path.join(self.model.save_dir, monitor.unique_id)
     state = {
       'args': vars(self.args),
       'model': self.model.state_dict(),
-      'summary': summary,
+      'summary': monitor.summary,
       'optimizer': self.optimizer.state_dict(),
     }
-    torch.save(state, fname)
+    torch.save(state, filepath)
+    print("Saved model at {}".format(filepath + '.pt'))
 
-  def load(self, fname):
-    print('loading model from {}'.format(fname))
-    state = torch.load(fname)
-    self.model.load_state_dict(state['model'])
-    self.init_optimizer()
-    self.optimizer.load_state_dict(state['optimizer'])
+  def prune_saves(self, n_keep=5):
+    scores_and_files = BaseModule.get_saves(self.save_dir, self.args.early_stop)
+    if len(scores_and_files) > n_keep:
+      for score, fname in scores_and_files[n_keep:]:
+        os.remove(fname)
 
-  def get_saves(self, directory=None):
-    if directory is None:
-      directory = self.save_dir
+  @staticmethod
+  def get_saves(director, early_stop):
     files = [f for f in os.listdir(directory) if f.endswith('.pt')]
     scores = []
     for fname in files:
-      re_str = r'dev_{}=([0-9\.]+)'.format(self.args.early_stop)
+      re_str = r'dev_{}=([0-9\.]+)'.format(early_stop)
       dev_acc = re.findall(re_str, fname)
       if dev_acc:
         score = float(dev_acc[0].strip('.'))
@@ -75,20 +82,6 @@ class BaseModule(object):
       raise Exception('No files found!')
     scores.sort(key=lambda tup: tup[0], reverse=True)
     return scores
-
-  def prune_saves(self, n_keep=5):
-    scores_and_files = self.get_saves()
-    if len(scores_and_files) > n_keep:
-      for score, fname in scores_and_files[n_keep:]:
-        os.remove(fname)
-
-  def load_best_save(self, directory):
-    scores_and_files = self.get_saves(directory=directory)
-    if scores_and_files:
-      assert scores_and_files, 'no saves exist at {}'.format(directory)
-      score, fname = scores_and_files[0]
-      self.load(fname)
-
 
 class BaseBeliefTracker(BaseModule):
   def __init__(self, args, model):
