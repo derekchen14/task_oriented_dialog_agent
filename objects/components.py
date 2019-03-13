@@ -33,7 +33,7 @@ def clip_gradient(model, clip):
   except(AttributeError):
     pass
 
-def get_saves(director, early_stop):
+def get_saves(directory, early_stop):
   files = [f for f in os.listdir(directory) if f.endswith('.pt')]
   scores = []
   for fname in files:

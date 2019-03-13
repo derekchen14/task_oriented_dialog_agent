@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 
-from objects.components import device
+from objects.components import device, get_saves
 from objects.models import encoders as enc
 from objects.models import decoders as dec
 from objects.models import *
@@ -56,7 +56,7 @@ class Builder(object):
       print("Created directory at {}".format(self.dir))
 
   def load_best_model(self, directory, model, model_type):
-    scores_and_files = BaseModule.get_saves(directory, self.args.early_stop)
+    scores_and_files = get_saves(directory, self.args.early_stop)
     if model.module_type == 'belief_tracker':
       model.load_nlu_model('nlu_1468447442')
       return model
@@ -70,7 +70,7 @@ class Builder(object):
       filename = "epoch=12_success=25.4042_recall@two=41.3395"
       filepath = os.path.join(self.save_dir, filename)
 
-    checkpoint = self.loader.restore_state(filepath)
+    checkpoint = self.loader.restore_checkpoint(filepath)
     model.load_state_dict(checkpoint['model'])
 
     if self.use_existing:
