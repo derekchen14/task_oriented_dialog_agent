@@ -222,6 +222,18 @@ class RewardMonitor(MonitorBase):
       self.unique_id = unique_identifier(self.summary, epoch=self.num_episodes,
                                     early_stop_metric=self.metrics[0])
 
+  def restore_from_checkpoint(self, modules):
+    # for module in modules:
+    #   if module.contains_checkpoint:
+    try:
+      past = modules[1].model.model.existing_checkpoint['summary']
+    except:
+      pdb.set_trace()
+    self.num_episodes += past['episode']
+    self.rewards = [past['avg_reward'] for _ in range(past['episode'])]
+    self.turns = [past['avg_turn'] for _ in range(past['episode'])]
+    self.num_successes = past['best_success_rate'] * past['episode']
+
   def best_so_far(self, simulator_success_rate):
     if simulator_success_rate >= self.best_success_rate:
       self.best_success_rate = simulator_success_rate

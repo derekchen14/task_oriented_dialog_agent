@@ -32,7 +32,7 @@ class Builder(object):
       model = self.load_best_model(self.dir, model, model_type)
     elif self.use_existing:
       monitor.logger.info("Resuming model at {} for training".format(self.dir))
-      model = self.load_best_model(self.dir, model)
+      model = self.load_best_model(self.dir, model, model_type)
     else:
       monitor.logger.info("Building model at {}".format(self.dir))
 
@@ -72,7 +72,7 @@ class Builder(object):
 
     checkpoint = self.loader.restore_checkpoint(filepath)
     model.load_state_dict(checkpoint['model'])
-    model.optimizer_checkpoint = checkpoint['optimizer']
+    model.existing_checkpoint = checkpoint
     model.train() if self.use_existing else model.eval()
 
     return model
@@ -168,9 +168,6 @@ class Builder(object):
     else:
       print("this is the GLAD path")
       module = NeuralBeliefTracker(args, model)
-
-    if self.use_existing:
-      module.init_optimizer
 
     module.dir = self.dir
     return module

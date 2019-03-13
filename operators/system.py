@@ -42,6 +42,8 @@ class EndToEndSystem(object):
     modules = [belief_tracker, policy_manager, text_generator]
     self.dialogue_agent = builder.create_agent(*modules)
 
+    if args.use_existing:
+      self.monitor.restore_from_checkpoint(modules)
     if not args.test_mode:
       self.learner = Learner(args, self.dialogue_agent, processor, self.monitor)
 

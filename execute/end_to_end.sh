@@ -3,7 +3,7 @@ python run.py --task end_to_end --model ddq --max-turn 40 -e 32 \
     --user simulate --metrics success_rate avg_reward --dataset ddq/movies \
     --learning-rate 1e-3 --optimizer rmsprop --weight-decay 0.0 \
     --pool-size 5000 --prefix saver_ --suffix _14 --report-qual --verbose
-    --early-stop success_rate --test-mode --use-existing
+    --early-stop success_rate --use-existing
 
 # python run.py --task end_to_end --model ddq --max-turn 40 -e 500 \
 #     --epsilon 0.0 --hidden-dim 80 --batch-size 16 --seed 14 --warm-start \

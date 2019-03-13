@@ -18,6 +18,8 @@ def solicit_args():
               help='whether or not to have verbose prints')
   parser.add_argument('--test-mode', default=False, action='store_true',
               help='if true, then we are in test phase instead of train/val')
+  parser.add_argument('--use-existing', default=False, action='store_true',
+              help='continue training a model rather than creating a new one')
   parser.add_argument('--gpu', type=int, help='which GPU to use')
 
   # --------- TUNING OPTIONS -------------
@@ -78,8 +80,6 @@ def solicit_args():
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',
               help='when true, save model weights in a checkpoint')
-  parser.add_argument('--use-existing', default=False, action='store_true',
-              help='when true, use an existing model rather than training a new one')
   parser.add_argument('--pretrained', default=False, action='store_true',
               help='when true, use pretrained word embeddings from data directory')
   parser.add_argument('--prefix', default='', type=str,

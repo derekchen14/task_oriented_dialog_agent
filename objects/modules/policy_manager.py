@@ -67,7 +67,7 @@ class NeuralPolicyManager(BasePolicyManager):
     self.reg = args.weight_decay
     self.init_optimizer(self.dqn.parameters())
     if args.use_existing:
-      self.optimizer.load_state_dict(model.optimizer_checkpoint)
+      self.optimizer.load_state_dict(model.existing_checkpoint['optimizer'])
 
     # Prediction Mode: load trained DQN model
     # if params['trained_model_path'] != None:
