@@ -29,7 +29,7 @@ class Builder(object):
 
     if self.test_mode:
       monitor.logger.info("Loading model at {} for testing".format(self.dir))
-      model = self.load_best_model(self.dir, model)
+      model = self.load_best_model(self.dir, model, model_type)
     elif self.use_existing:
       monitor.logger.info("Resuming model at {} for training".format(self.dir))
       model = self.load_best_model(self.dir, model)
@@ -55,9 +55,15 @@ class Builder(object):
       os.makedirs(self.dir)
       print("Created directory at {}".format(self.dir))
 
-  def load_best_model(self, directory, model):
+  def load_best_model(self, directory, model, model_type):
     scores_and_files = BaseModule.get_saves(directory, self.args.early_stop)
-    if scores_and_files:
+    if model.module_type == 'belief_tracker':
+      model.load_nlu_model('nlu_1468447442')
+      return model
+    elif model.module_type == 'text_generator':
+      model.load_nlg_model('nlg_1468202263')
+      return model
+    elif scores_and_files:
       assert scores_and_files, 'no saves exist at {}'.format(directory)
       score, filepath = scores_and_files[0]
     else:
@@ -123,7 +129,6 @@ class Builder(object):
     elif model_type == 'belief_tracker':
       results_dir = os.path.join("results", self.args.task, self.args.dataset)
       model = NLU(self.loader, results_dir)
-      model.load_nlu_model('nlu_1468447442')
       model.module_type = model_type
       return model  # hack since this one is not a Pytorch Model
     elif model_type == 'policy_manager':
@@ -132,7 +137,6 @@ class Builder(object):
     elif model_type == 'text_generator':
       results_dir = os.path.join("results", self.args.task, self.args.dataset)
       model = NLG(self.loader, results_dir)
-      model.load_nlg_model('nlg_1468202263')
       nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
       model.load_predefine_act_nl_pairs(nl_pairs)
       model.module_type = model_type
