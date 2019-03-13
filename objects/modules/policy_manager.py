@@ -61,10 +61,13 @@ class NeuralPolicyManager(BasePolicyManager):
     self.target_dqn.load_state_dict(self.dqn.state_dict())
     self.target_dqn.eval()
 
+    # this should be move into Learner, but not yet because NLU and NLG are messy
     self.opt = args.optimizer
     self.lr = args.learning_rate
     self.reg = args.weight_decay
     self.init_optimizer(self.dqn.parameters())
+    if args.use_existing:
+      self.optimizer.load_state_dict(model.optimizer_checkpoint)
 
     # Prediction Mode: load trained DQN model
     # if params['trained_model_path'] != None:

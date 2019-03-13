@@ -72,15 +72,10 @@ class Builder(object):
 
     checkpoint = self.loader.restore_checkpoint(filepath)
     model.load_state_dict(checkpoint['model'])
+    model.optimizer_checkpoint = checkpoint['optimizer']
+    model.train() if self.use_existing else model.eval()
 
-    if self.use_existing:
-      model.train()
-      model.init_optimizer()
-      model.optimizer.load_state_dict(checkpoint['optimizer'])
-    else:
-      model.eval()
-
-    return model.to(device)
+    return model
 
   def create_model(self, processor, model_type):
     input_size, output_size = processor.input_output_cardinality()
@@ -173,6 +168,9 @@ class Builder(object):
     else:
       print("this is the GLAD path")
       module = NeuralBeliefTracker(args, model)
+
+    if self.use_existing:
+      module.init_optimizer
 
     module.dir = self.dir
     return module
