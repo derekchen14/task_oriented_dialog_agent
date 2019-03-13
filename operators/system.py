@@ -48,7 +48,7 @@ class EndToEndSystem(object):
   def run_main(self):
     self.learner.reinforce(self.args)
 
-  def evaluate(self):
+  def evaluate(self, test_mode):
     self.evaluator.agent = self.dialogue_agent
     self.evaluator.monitor = self.monitor
     self.evaluator.generate_report()

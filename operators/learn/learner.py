@@ -152,7 +152,7 @@ class Learner(object):
       if simulation_success_rate > self.monitor.best_success_rate:
         self.monitor.summarize_results()
         self.module.model.save_checkpoint(self.monitor)
-        self.module.save_performance_records(self.monitor, episode)
+        self.module.save_performance_records(self.monitor)
 
       if self.monitor.best_so_far(simulation_success_rate):
         self.module.model.predict_mode = True
@@ -163,11 +163,11 @@ class Learner(object):
       self.module.model.reset_dqn_target()
 
       self.module.world_model.train(self.batch_size, 1)
-      self.monitor.summarize_results(episode % 14 == 0)
+      self.monitor.summarize_results(episode % 2 == 0)
 
     self.monitor.summarize_results()
     self.module.model.save_checkpoint(self.monitor)
-    self.module.save_performance_records(self.monitor, num_episodes)
+    self.module.save_performance_records(self.monitor)
 
   # Use neural-based environment to gather data for training the user simulator
   def gather_data_for_user(self, num_episodes, global_episode):

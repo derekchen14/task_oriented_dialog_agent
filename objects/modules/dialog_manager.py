@@ -110,7 +110,8 @@ class DialogManager:
 
     return (self.episode_over, self.reward)
 
-  def save_performance_records(self, monitor, episode):
+  def save_performance_records(self, monitor):
+    episode = monitor.num_episodes
     filepath = os.path.join(self.save_dir, f'results_{episode}.json')
     records = {'turns': monitor.turns, 'avg_turn': monitor.avg_turn,
       'rewards': monitor.rewards, 'avg_reward': monitor.avg_reward,

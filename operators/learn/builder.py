@@ -35,7 +35,8 @@ class Builder(object):
       model = self.load_best_model(self.dir, model)
     else:
       monitor.logger.info("Building model at {}".format(self.dir))
-      model.save_dir = self.dir
+
+    model.save_dir = self.dir
     return model
 
   def add_loss_function(self, model, function_type):
@@ -73,7 +74,7 @@ class Builder(object):
     else:
       model.eval()
 
-    return model
+    return model.to(device)
 
   def create_model(self, processor, model_type):
     input_size, output_size = processor.input_output_cardinality()
