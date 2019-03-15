@@ -15,10 +15,13 @@ from utils.external import dialog_config
 class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
-  def __init__(self, sub_module, user_sim, world_model, act_set, slot_set, movie_dictionary):
+  def __init__(self, sub_module, user_sim, world_model, real_user,
+          act_set, slot_set, movie_dictionary):
     self.model = sub_module
     self.user_sim = user_sim
     self.world_model = world_model
+    self.real_user = real_user
+
     self.act_set = act_set
     self.slot_set = slot_set
     self.state_tracker = DialogueState(act_set, slot_set, movie_dictionary)
@@ -37,7 +40,7 @@ class DialogManager:
     self.episode_over = False
 
     self.state_tracker.initialize_episode()
-    self.running_user = self.user_sim
+    # self.running_user = self.user_sim
     self.use_world_model = False
 
     if simulator_type == 'rule':
@@ -46,15 +49,19 @@ class DialogManager:
     elif simulator_type == 'neural':
       self.running_user = self.world_model
       self.use_world_model = True
+    elif simulator_type == 'command':
+      self.running_user = self.real_user
+      self.use_world_model = False
+      self.run_mode = 0
 
     self.user_action = self.running_user.initialize_episode()
     if simulator_type == 'rule':
       self.world_model.sample_goal = self.user_sim.sample_goal
     self.state_tracker.update(user_action=self.user_action)
 
-    if self.run_mode < 3:
-      print("New episode, user goal:")
-      print(json.dumps(self.user_sim.goal, indent=2))
+    # if self.run_mode < 3:
+    #   print("New episode, user goal:")
+    #   print(json.dumps(self.running_user.goal, indent=2))
     self.print_function(user_action=self.user_action)
 
     self.model.initialize_episode()
@@ -129,11 +136,11 @@ class DialogManager:
       elif self.run_mode == 1:
         if self.model.__class__.__name__ != 'AgentCmd':
           print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-            agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'],
+            agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
             agent_action['request_slots']))
       elif self.run_mode == 2:  # debug mode
         print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-          agent_action['turn_count'], agent_action['diaact'], agent_action['inform_slots'],
+          agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
           agent_action['request_slots']))
         print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
 
@@ -146,11 +153,11 @@ class DialogManager:
         print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
       elif self.run_mode == 1:
         print("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (
-          user_action['turn_count'], user_action['diaact'], user_action['inform_slots'],
+          user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
           user_action['request_slots']))
       elif self.run_mode == 2:  # debug mode, show both
         print("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (
-          user_action['turn_count'], user_action['diaact'], user_action['inform_slots'],
+          user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
           user_action['request_slots']))
         print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
 

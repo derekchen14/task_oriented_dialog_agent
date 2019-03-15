@@ -29,10 +29,15 @@ class DataLoader(object):
       self.vocab = Vocabulary(args, self.data_dir)
     elif self.task == 'end_to_end':
       self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
-      self.ontology = Ontology.from_path(self.data_dir)
+      # self.ontology = Ontology.from_path(self.data_dir)
+      self.ontology = {
+        "acts": self.text_data('dia_acts'),
+        "slots": self.text_data('slot_set'),
+        "relations": [],
+        "values": self.json_data('dicts.v3')
+      }
+      Ontology.from_path(self.data_dir)
       self.vocab = Vocabulary(args, self.data_dir)
-      self.act_set = self.text_data('dia_acts')
-      self.slot_set = self.text_data('slot_set')
 
     self.load_datasets()
 

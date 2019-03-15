@@ -15,7 +15,10 @@ class SingleSystem(object):
       self.learner = Learner(args, self.module, processor, self.monitor)
 
   def run_main(self):
-    self.learner.supervise(self.args)
+    if self.args.task == 'track_intent':
+      self.learner.supervise(self.args)
+    elif self.args.task == 'manage_policy':
+      self.learner.reinforce(self.args)
 
   def evaluate(self, test_mode):
     self.evaluator.module = self.module
@@ -48,9 +51,15 @@ class EndToEndSystem(object):
       self.learner = Learner(args, self.dialogue_agent, processor, self.monitor)
 
   def run_main(self):
-    self.learner.reinforce(self.args)
+    self.learner.end_to_end(self.args)
 
   def evaluate(self, test_mode):
     self.evaluator.agent = self.dialogue_agent
     self.evaluator.monitor = self.monitor
-    self.evaluator.generate_report()
+    if test_mode:
+      if self.args.user == 'command':
+        self.evaluator.start_conversation()
+      elif self.args.user == 'turk':
+        self.evaluator.start_server()
+    else:
+      self.evaluator.generate_report()

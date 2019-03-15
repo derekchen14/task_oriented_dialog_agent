@@ -75,7 +75,7 @@ def solicit_args():
   parser.add_argument('--warm-start', default=False, action='store_true',
               help='when true, agent has warm start phase for training')
   parser.add_argument('--user', default='simulate', type=str,
-              help='type of user to talk to', choices=['simulate', 'command'])
+              help='type of user to talk to', choices=['simulate', 'command', 'turk'])
 
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',

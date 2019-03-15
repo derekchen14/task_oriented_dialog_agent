@@ -98,6 +98,10 @@ class Learner(object):
   exact_success = (predictions[0].item() == targets[0])
   rank_success = targets[0] in predictions '''
 
+  def end_to_end(self, params):
+    # just a naive wrapper since end to end learning is reinforcement learning
+    self.reinforce(params)
+
   def reinforce(self, params):
     """ main methods are run_episodes, store_experience, and next """
     reinforce_start_time = tm.time()

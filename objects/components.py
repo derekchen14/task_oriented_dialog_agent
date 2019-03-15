@@ -43,7 +43,7 @@ def get_saves(directory, early_stop):
       score = float(dev_acc[0].strip('.'))
       scores.append((score, os.path.join(directory, fname)))
   if not scores:
-    raise Exception('No files found!')
+    raise Exception('No files found in {}!'.format(directory))
   scores.sort(key=lambda tup: tup[0], reverse=True)
   return scores
 

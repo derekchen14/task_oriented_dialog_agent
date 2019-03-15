@@ -140,7 +140,44 @@ class Evaluator(object):
         plt.show()
       plt.close()
 
+  def start_conversation(self):
+    self.just_started = True
+    while not self.done_talking():
+      turn_count = 0
+      self.agent.initialize_episode("command")
 
+      episode_over = False
+      while not episode_over:
+        episode_over, reward = self.agent.next(record_user_data=False)
+        turn_count += 1
+
+        if episode_over:
+          final_reward = reward - turn_count # lose reward for every turn taken
+          result = "succeeded  :)" if final_reward > 0 else "failed  :("
+          print(f"this dialogue {result}")
+
+  def done_talking(self):
+    if self.just_started:
+      self.just_started = False
+      return False
+
+    done = input("Are you done talking? ")
+    if done in ["yes", "Yes", "y"]:
+      print("It was good talking to you, have a nice day!")
+      return True
+    elif done in ["no", "No", "n"]:
+      return False
+
+  def start_server(self):
+    pass
+    # // initialize command line user
+    # // create database  <OR>  create pandas dataframe
+    # // start server
+    #    while not done_talking(state):
+    #     goal = select_goal()
+    #     run_conversation(goal)
+
+    # // show survey
 
 """
   def dual_report(self, slot_learner, value_learner):
