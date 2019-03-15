@@ -27,14 +27,21 @@ class Builder(object):
     model = self.create_model(processor, model_type)
     monitor.build_logger(self.dir)
 
+    model_str = "model" if model_type is None else model_type
     if self.test_mode:
-      monitor.logger.info("Loading model at {} for testing".format(self.dir))
+      print("Loading {} at {} for testing".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     elif self.use_existing:
-      monitor.logger.info("Resuming model at {} for training".format(self.dir))
+      print("Resuming {} at {} for training".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     else:
-      monitor.logger.info("Building model at {}".format(self.dir))
+      # small hack since NLU and NLG models are not defined yet
+      if model_type == "belief_tracker":
+        model.load_nlu_model('nlu_1468447442')
+      if model_type ==  "text_generator":
+        model.load_nlg_model('nlg_1468202263')
+      print("Building {} at {}".format(model_str, self.dir))
+      # monitor.logger.info("Building model at {}".format(self.dir))
 
     model.save_dir = self.dir
     return model

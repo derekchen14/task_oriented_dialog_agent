@@ -167,7 +167,7 @@ class Learner(object):
       self.module.model.reset_dqn_target()
 
       self.module.world_model.train(self.batch_size, 1)
-      self.monitor.summarize_results(episode % 2 == 0)
+      self.monitor.summarize_results(episode % 14 == 0)
 
     self.monitor.summarize_results()
     self.module.model.save_checkpoint(self.monitor)

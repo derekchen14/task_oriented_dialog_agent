@@ -809,7 +809,7 @@ class DeepDialogDecoder(Decoder):
         predict_mode = kwargs.get('predict_mode', False)
         feed_recurrence = params.get('feed_recurrence', 0)
         
-        Ds = Xs['diaact']
+        Ds = Xs['dialogue_act']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -883,7 +883,7 @@ class DeepDialogDecoder(Decoder):
         feed_recurrence = params.get('feed_recurrence', 0)
         decoder_sampling = params.get('decoder_sampling', 0)
         
-        Ds = Xs['diaact']
+        Ds = Xs['dialogue_act']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -978,7 +978,7 @@ class DeepDialogDecoder(Decoder):
         beam_size = params.get('beam_size', 10)
         decoder_sampling = params.get('decoder_sampling', 0)
         
-        Ds = Xs['diaact']
+        Ds = Xs['dialogue_act']
         Ws = Xs['words']
         
         # diaact input layer to hidden layer
@@ -1177,7 +1177,7 @@ class DeepDialogDecoder(Decoder):
                 if word_arr[w_index+1] in ds.data['word_dict'].keys():
                     labels[w_index] = ds.data['word_dict'][word_arr[w_index+1]] 
             
-            batch_rep['diaact'] = vec
+            batch_rep['dialogue_act'] = vec
             batch_rep['words'] = word_vecs
             batch_rep['labels'] = labels
             batch_reps.append(batch_rep)
