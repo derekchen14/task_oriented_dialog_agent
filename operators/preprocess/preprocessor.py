@@ -35,8 +35,8 @@ class PreProcessor(object):
       num_actions = len(self.ontology.feasible_actions)
       return num_actions, self.vocab.ulary_size()
     elif self.task == 'end_to_end':
-      act_cardinality = 2 * len(self.loader.act_set)
-      slot_cardinality = 7 * len(self.loader.slot_set)
+      act_cardinality = 2 * len(self.loader.ontology["acts"])
+      slot_cardinality = 7 * len(self.loader.ontology["slots"])
       other_count = 3 + self.max_turn + 5    # where does 5 come from?
       num_beliefs = act_cardinality + slot_cardinality + other_count
       num_actions = len(feasible_actions)
