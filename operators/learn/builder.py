@@ -165,7 +165,7 @@ class Builder(object):
 
         sub_module = NeuralPolicyManager(args, model, device,
               world_sim, movie_kb, ontology["acts"], ontology["slots"])
-        module = DialogManager(sub_module, user_sim, world_sim, real_user,
+        module = DialogManager(args, sub_module, user_sim, world_sim, real_user,
               ontology["acts"], ontology["slots"], movie_kb)
     elif model.module_type == 'belief_tracker':
       module = model

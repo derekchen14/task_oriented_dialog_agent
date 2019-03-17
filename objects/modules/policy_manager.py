@@ -6,7 +6,6 @@ import json
 import numpy as np
 from collections import deque
 
-from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
 from objects.blocks.base import BasePolicyManager
 from objects.models.ddq import DQN, Transition
@@ -302,12 +301,4 @@ class NeuralPolicyManager(BasePolicyManager):
     self.state = DialogueState(kb, ontology)
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
 
-  def print_function(self, action_dict, kind):
-    if not self.verbose: return
-    if self.debug:
-      for k, v in action_dict.items(): print(kind, k, v)
-    else:
-      print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
-    if dialog_config.auto_suggest == 1:
-      print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
 """

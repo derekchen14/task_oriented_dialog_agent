@@ -11,7 +11,7 @@ import numpy as np
 import copy
 
 
-class DialogueState:
+class DialogState:
   """ Tracks local dialogue state across turns.  (see also: RewardMonitor)
     Main responsibility is to maintain a record six (6) items:
       1a) user intent - a one-hot vector with size equal to number of
@@ -119,7 +119,7 @@ class DialogueState:
              'agent_action': self.history_dictionaries[-1] if len(self.history_dictionaries) > 1 else None}
     return copy.deepcopy(state)
 
-  def get_suggest_slots_values(self, request_slots):
+  def make_suggestion(self, request_slots):
     """ Get the suggested values for request slots """
 
     suggest_slot_vals = {}
