@@ -1,6 +1,7 @@
 import pdb, sys
 import random, copy
 import numpy as np
+import re
 # from datasets.ddq import constants as dialog_config
 from utils.external import dialog_config
 from collections import namedtuple, deque
@@ -13,25 +14,80 @@ import torch.optim as optim
 Transition = namedtuple('Transition', ('state', 'agent_action', 'next_state', 'reward', 'term', 'user_action'))
 
 class BaseUser(object):
-  def __init__(self, args, ontology, kind="movie"):
+  def __init__(self, args, ontology, goal_set=None):
     self.max_turn = args.max_turn
     self.num_episodes = args.epochs
     self.debug = args.debug
-    self.kind = kind
-    self.do_print= True
+    self.verbose = args.verbose
 
     self.act_set = ontology['acts']
     self.slot_set = ontology['slots']
     self.relation_set = ontology['relations']
     self.value_set = ontology['values']
+    self.goal_set = goal_set
+
+    self.nlu_model = None
+    self.nlg_model = None
 
   def _sample_goal(self):
     return random.choice(self.goal_set[self.learning_phase])
 
   def initialize_episode(self):
-    raise(NotImplementedError, "User episode is not initialized")
+    print("initialize episode called, generating goal")
+    self.goal = random.choice(self.goal_set)
+    self.goal['request_slots']['ticket'] = 'UNK'
+    episode_over, user_action = self._sample_action()
+    assert (episode_over != 1), ' but we just started'
+    return user_action
+
   def next(self, agent_action):
     raise(NotImplementedError, "User cannot take next step")
+
+  def determine_success(self, agent_action):
+    request_slot_set = list(self.state['request_slots'].keys()).copy()
+    if 'ticket' in request_slot_set:
+      request_slot_set.remove('ticket')
+
+    rest_slot_set = self.state['rest_slots'].copy()
+    if 'ticket' in rest_slot_set:
+      rest_slot_set.remove('ticket')
+
+    # there are still remaining user questions to answer
+    if len(request_slot_set) > 0 or len(rest_slot_set) > 0:
+      return dialog_config.FAILED_DIALOG
+
+    # for any given requirement in the goal
+    for info_slot in self.state['history_slots'].keys():
+      # one of the constraints was not discussed
+      if self.state['history_slots'][info_slot] == dialog_config.NO_VALUE_MATCH:
+        return dialog_config.FAILED_DIALOG
+      # frame predicted the wrong value for some constraint
+      if info_slot in self.goal['inform_slots'].keys():
+        if self.state['history_slots'][info_slot] != self.goal['inform_slots'][info_slot]:
+          return dialog_config.FAILED_DIALOG
+
+    # the final ticket was not offered to the user
+    if 'ticket' in agent_action['inform_slots'].keys():
+      if agent_action['inform_slots']['ticket'] == dialog_config.NO_VALUE_MATCH:
+        return dialog_config.FAILED_DIALOG
+    # there was some prior constraint check that failed
+    if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
+      return dialog_config.FAILED_DIALOG
+
+    # if we made it through the landmine field, then we are successful!
+    return dialog_config.SUCCESS_DIALOG
+
+  def add_nl_to_action(self, user_action):
+    """ Add NL to User Dia_Act """
+
+    user_nlg_sentence = self.nlg_model.generate(user_action, 'usr')
+    user_action['nl'] = user_nlg_sentence
+
+    if self.simulator_act_level == 1:
+      user_nlu_res = self.nlu_model.generate_dia_act(user_action['nl'])  # NLU
+      if user_nlu_res != None:
+        # user_nlu_res['dialogue_act'] = user_action['dialogue_act'] # or not?
+        user_action.update(user_nlu_res)
 
 # Used for simulating the user portion of a cycle, mostly template retrieval
 class UserSimulator(BaseUser):
@@ -41,7 +97,7 @@ class UserSimulator(BaseUser):
     self.intent_error_prob = 0.0
     self.text_generator = None
     self.learning_phase = None
-    self.goal_sets = None
+    self.goal_set = None
 
   def initialize_episode(self):
     self.state = {
@@ -424,18 +480,17 @@ class UserSimulator(BaseUser):
       # self.goal['request_slots']['city'] = 'UNK'
       # self.goal['request_slots']['theater'] = 'UNK'
 
-
 class CommandLineUser(BaseUser):
   def __init__(self, args, ontology, goal_set):
     super().__init__(args, ontology)
     self.learning_phase = "train"
     self.agent_input_mode =  "dialogue_act" # "raw_text"
-    self.do_print = False
     self.goal_set = goal_set
 
   def initialize_episode(self):
     self.goal = self._sample_goal()
     self.turn_count = 0
+    self.finish_episode = False
     self.user_action = {'dialogue_act':'UNK', 'inform_slots':{}, 'request_slots':{}}
 
     if self.agent_input_mode == "raw_text":
@@ -464,14 +519,16 @@ class CommandLineUser(BaseUser):
     """ a command line user cannot end the dialogue.  thus, they cannot
     decide that the episode is over and the dialogue status is always 0.
     (meaning No Outcome Yet, as opposed to -1 of Fail and 1 of Success)"""
-    episode_over = (self.max_turn < self.turn_count)
-    dialog_status = 0
 
     if self.agent_input_mode == "raw_text":
       self.user_action['nl'] = command_line_input
     elif self.agent_input_mode == "dialogue_act":
       self.parse_intent(command_line_input)
     self.user_action['turn_count'] = self.turn_count
+
+    if self.turn_count > self.max_turn or self.finish_episode:
+      episode_over = True
+      dialog_status = self.determine_success(agent_action)
 
     return self.user_action, episode_over, dialog_status
 
@@ -482,12 +539,16 @@ class CommandLineUser(BaseUser):
     for intent in intents:
       idx = intent.find('(')
       act = intent[0:idx]
-      slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
+      if re.search(r'thanks?', act):
+        self.finish_episode = True
+      else:
+        slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
+        value = dialog_config.I_DO_NOT_CARE if value == 'any' else value
+        self.user_action["{}_slots".format(act)][slot] = value
 
       self.error_checking(idx, act, slot, value)
       self.user_action["dialogue_act"] = act
       self.user_action["nl"] = command_line_input
-      self.user_action["{}_slots".format(act)][slot] = value
 
   def error_checking(self, idx, act, slot, value):
     if idx < 0:
@@ -499,53 +560,7 @@ class CommandLineUser(BaseUser):
     if value not in self.value_set[slot]:
       raise(ValueError("{} is not part of the available value set".format(value)))
 
-
-class BaseUserSimulator:
-  """ Parent class for all user sims to inherit from """
-
-  def __init__(self, ontology, goal_set=None, params=None):
-    """ Constructor shared by all user simulators """
-
-    self.movie_dict = ontology['values']
-    self.act_set = ontology['acts']
-    self.slot_set = ontology['slots']
-    self.goal_set = goal_set
-
-    self.max_turn = params['max_turn']
-    self.slot_err_probability = params['slot_err_probability']
-    self.slot_err_mode = params['slot_err_mode']
-    self.intent_err_probability = params['intent_err_probability']
-
-    self.nlu_model = None
-    self.nlg_model = None
-
-  def initialize_episode(self):
-    """ Initialize a new episode (dialog)"""
-
-    print("initialize episode called, generating goal")
-    self.goal = random.choice(self.goal_set)
-    self.goal['request_slots']['ticket'] = 'UNK'
-    episode_over, user_action = self._sample_action()
-    assert (episode_over != 1), ' but we just started'
-    return user_action
-
-  def next(self, system_action, *argv):
-    pass
-
-  def add_nl_to_action(self, user_action):
-    """ Add NL to User Dia_Act """
-
-    user_nlg_sentence = self.nlg_model.generate(user_action, 'usr')
-    user_action['nl'] = user_nlg_sentence
-
-    if self.simulator_act_level == 1:
-      user_nlu_res = self.nlu_model.generate_dia_act(user_action['nl'])  # NLU
-      if user_nlu_res != None:
-        # user_nlu_res['dialogue_act'] = user_action['dialogue_act'] # or not?
-        user_action.update(user_nlu_res)
-
-
-class RuleSimulator(BaseUserSimulator):
+class RuleSimulator(BaseUser):
   """ A rule-based user simulator for testing dialog policy """
 
   def __init__(self, params, ontology, goal_set=None):
@@ -583,12 +598,12 @@ class RuleSimulator(BaseUserSimulator):
     self.dialog_status = dialog_config.NO_OUTCOME_YET
 
     #self.goal =  random.choice(self.goal_set)
-    self.goal = self._sample_goal(self.goal_set)
+    self.goal = self._sample_goal()
     self.goal['request_slots']['ticket'] = 'UNK'
     self.constraint_check = dialog_config.CONSTRAINT_CHECK_FAILURE
 
     """ Debug: build a fake goal mannually """
-    #self.debug_falk_goal()
+    #self.debug_fake_goal()
 
     # sample first action
     user_action = self._sample_action()
@@ -638,16 +653,6 @@ class RuleSimulator(BaseUserSimulator):
     self.add_nl_to_action(sample_action)
     return sample_action
 
-  def _sample_goal(self, goal_set):
-    """ sample a user goal  """
-
-    self.sample_goal = random.choice(self.goal_set[self.learning_phase])
-    return self.sample_goal
-
-  def get_goal(self):
-    '''return currently registered user goal'''
-    return self.sample_goal
-
   def corrupt(self, user_action):
     """ Randomly corrupt an action with error probs (slot_err_probability and slot_err_mode) on Slot and Intent (intent_err_probability). """
 
@@ -677,7 +682,7 @@ class RuleSimulator(BaseUserSimulator):
     if intent_err_sample < self.intent_err_probability: # add noise for intent level
       user_action['dialogue_act'] = random.choice(list(self.act_set.keys()))
 
-  def debug_falk_goal(self):
+  def debug_fake_goal(self):
     """ Debug function: build a fake goal mannually (Can be moved in future) """
 
     self.goal['inform_slots'].clear()
@@ -694,14 +699,14 @@ class RuleSimulator(BaseUserSimulator):
     self.goal['request_slots']['starttime'] = 'UNK'
     self.goal['request_slots']['date'] = 'UNK'
 
-  def next(self, system_action):
+  def next(self, agent_action):
     """ Generate next User Action based on last System Action """
 
     self.state['turn_count'] += 2
     self.episode_over = False
     self.dialog_status = dialog_config.NO_OUTCOME_YET
 
-    sys_act = system_action['dialogue_act']
+    sys_act = agent_action['dialogue_act']
 
 
     if (self.max_turn > 0 and self.state['turn_count'] > self.max_turn):
@@ -715,15 +720,15 @@ class RuleSimulator(BaseUserSimulator):
       self.state['inform_slots'].clear()
 
       if sys_act == "inform":
-        self.response_inform(system_action)
+        self.response_inform(agent_action)
       elif sys_act == "multiple_choice":
-        self.response_multiple_choice(system_action)
+        self.response_multiple_choice(agent_action)
       elif sys_act == "request":
-        self.response_request(system_action)
+        self.response_request(agent_action)
       elif sys_act == "thanks":
-        self.response_thanks(system_action)
+        self.response_thanks(agent_action)
       elif sys_act == "confirm_answer":
-        self.response_confirm_answer(system_action)
+        self.response_confirm_answer(agent_action)
       elif sys_act == "closing":
         self.episode_over = True
         self.state['dialogue_act'] = "thanks"
@@ -745,8 +750,7 @@ class RuleSimulator(BaseUserSimulator):
     self.add_nl_to_action(response_action)
     return response_action, self.episode_over, self.dialog_status
 
-
-  def response_confirm_answer(self, system_action):
+  def response_confirm_answer(self, agent_action):
     """ Response for Confirm_Answer (System Action) """
 
     if len(self.state['rest_slots']) > 0:
@@ -766,42 +770,16 @@ class RuleSimulator(BaseUserSimulator):
       self.state['dialogue_act'] = "thanks"
       self.state['request_slots'].clear()
 
-
-  def response_thanks(self, system_action):
+  def response_thanks(self, agent_action):
     """ Response for Thanks (System Action) """
-
     self.episode_over = True
-    self.dialog_status = dialog_config.SUCCESS_DIALOG
+    self.dialog_status = self.determine_success(agent_action)
 
-    request_slot_set = list(self.state['request_slots'].keys()).copy()
-    if 'ticket' in request_slot_set:
-      request_slot_set.remove('ticket')
-    rest_slot_set = self.state['rest_slots'].copy()
-    if 'ticket' in rest_slot_set:
-      rest_slot_set.remove('ticket')
-
-    if len(request_slot_set) > 0 or len(rest_slot_set) > 0:
-      self.dialog_status = dialog_config.FAILED_DIALOG
-
-    for info_slot in self.state['history_slots'].keys():
-      if self.state['history_slots'][info_slot] == dialog_config.NO_VALUE_MATCH:
-        self.dialog_status = dialog_config.FAILED_DIALOG
-      if info_slot in self.goal['inform_slots'].keys():
-        if self.state['history_slots'][info_slot] != self.goal['inform_slots'][info_slot]:
-          self.dialog_status = dialog_config.FAILED_DIALOG
-
-    if 'ticket' in system_action['inform_slots'].keys():
-      if system_action['inform_slots']['ticket'] == dialog_config.NO_VALUE_MATCH:
-        self.dialog_status = dialog_config.FAILED_DIALOG
-
-    if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
-      self.dialog_status = dialog_config.FAILED_DIALOG
-
-  def response_request(self, system_action):
+  def response_request(self, agent_action):
     """ Response for Request (System Action) """
 
-    if len(system_action['request_slots'].keys()) > 0:
-      slot = list(system_action['request_slots'].keys())[0] # only one slot
+    if len(agent_action['request_slots'].keys()) > 0:
+      slot = list(agent_action['request_slots'].keys())[0] # only one slot
       if slot in self.goal['inform_slots'].keys(): # request slot in user's constraints  #and slot not in self.state['request_slots'].keys():
         self.state['inform_slots'][slot] = self.goal['inform_slots'][slot]
         self.state['dialogue_act'] = "inform"
@@ -848,28 +826,28 @@ class RuleSimulator(BaseUserSimulator):
           self.state['request_slots'][random_slot] = self.goal['request_slots'][random_slot]
           self.state['dialogue_act'] = "request"
 
-  def response_multiple_choice(self, system_action):
+  def response_multiple_choice(self, agent_action):
     """ Response for Multiple_Choice (System Action) """
 
-    slot = list(system_action['inform_slots'].keys())[0]
+    slot = list(agent_action['inform_slots'].keys())[0]
     if slot in self.goal['inform_slots'].keys():
       self.state['inform_slots'][slot] = self.goal['inform_slots'][slot]
     elif slot in self.goal['request_slots'].keys():
-      self.state['inform_slots'][slot] = random.choice(system_action['inform_slots'][slot])
+      self.state['inform_slots'][slot] = random.choice(agent_action['inform_slots'][slot])
 
     self.state['dialogue_act'] = "inform"
     if slot in self.state['rest_slots']: self.state['rest_slots'].remove(slot)
     if slot in self.state['request_slots'].keys(): del self.state['request_slots'][slot]
 
-  def response_inform(self, system_action):
+  def response_inform(self, agent_action):
     """ Response for Inform (System Action) """
 
-    if 'taskcomplete' in system_action['inform_slots'].keys(): # check all the constraints from agents with user goal
+    if 'taskcomplete' in agent_action['inform_slots'].keys(): # check all the constraints from agents with user goal
       self.state['dialogue_act'] = "thanks"
       #if 'ticket' in self.state['rest_slots']: self.state['request_slots']['ticket'] = 'UNK'
       self.constraint_check = dialog_config.CONSTRAINT_CHECK_SUCCESS
 
-      if system_action['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
+      if agent_action['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
         self.state['history_slots']['ticket'] = dialog_config.NO_VALUE_MATCH
         if 'ticket' in self.state['rest_slots']: self.state['rest_slots'].remove('ticket')
         if 'ticket' in self.state['request_slots'].keys(): del self.state['request_slots']['ticket']
@@ -878,7 +856,7 @@ class RuleSimulator(BaseUserSimulator):
 
       for slot in self.goal['inform_slots'].keys():
         #  Deny, if the answers from agent can not meet the constraints of user
-        if slot not in system_action['inform_slots'].keys() or (self.goal['inform_slots'][slot].lower() != system_action['inform_slots'][slot].lower()):
+        if slot not in agent_action['inform_slots'].keys() or (self.goal['inform_slots'][slot].lower() != agent_action['inform_slots'][slot].lower()):
           self.state['dialogue_act'] = "deny"
           self.state['request_slots'].clear()
           self.state['inform_slots'].clear()
@@ -887,11 +865,11 @@ class RuleSimulator(BaseUserSimulator):
 
       self.state['request_slots'].clear()
     else:
-      for slot in system_action['inform_slots'].keys():
-        self.state['history_slots'][slot] = system_action['inform_slots'][slot]
+      for slot in agent_action['inform_slots'].keys():
+        self.state['history_slots'][slot] = agent_action['inform_slots'][slot]
 
         if slot in self.goal['inform_slots'].keys():
-          if system_action['inform_slots'][slot] == self.goal['inform_slots'][slot]:
+          if agent_action['inform_slots'][slot] == self.goal['inform_slots'][slot]:
             if slot in self.state['rest_slots']: self.state['rest_slots'].remove(slot)
 
             if len(self.state['request_slots']) > 0:
@@ -967,8 +945,7 @@ class RuleSimulator(BaseUserSimulator):
             self.state['dialogue_act'] = "thanks" # or replies "confirm_answer"
             self.state['request_slots'].clear() # changed on Dec08
 
-
-class NeuralSimulator(BaseUserSimulator):
+class NeuralSimulator(BaseUser):
   """ A rule-based user simulator for testing dialog policy """
 
   def __init__(self, params, ontology, goal_set=None):
@@ -1020,7 +997,7 @@ class NeuralSimulator(BaseUserSimulator):
     self.episode_over = False
     self.dialog_status = dialog_config.NO_OUTCOME_YET
 
-    self.goal = self._sample_goal(self.goal_set)
+    self.goal = self._sample_goal()
     self.goal['request_slots']['ticket'] = 'UNK'
     self.constraint_check = dialog_config.CONSTRAINT_CHECK_FAILURE
 
@@ -1073,12 +1050,6 @@ class NeuralSimulator(BaseUserSimulator):
 
     self.add_nl_to_action(sample_action)
     return sample_action
-
-  def _sample_goal(self, goal_set):
-    """ sample a user goal  """
-
-    self.sample_goal = random.choice(self.goal_set[self.learning_phase])
-    return self.sample_goal
 
   def prepare_user_goal_representation(self, user_goal):
     """"""
@@ -1195,13 +1166,13 @@ class NeuralSimulator(BaseUserSimulator):
       return response_action, term, reward
 
     dialogue_state = self.prepare_state_representation(dialogue_state)
-    goal_state = self.prepare_user_goal_representation(self.sample_goal)
+    goal_state = self.prepare_user_goal_representation(self.goal)
     stacked_state = np.hstack([dialogue_state, goal_state])
 
     state_tensor = torch.FloatTensor(stacked_state)
     action_tensor = torch.LongTensor(model_action['action_id']).view(-1,1)
 
-    reward, term, action = self.predict(state_tensor, action_tensor)
+    reward, term, action = self.model.predict(state_tensor, action_tensor)
     action = action.item()
     reward = reward.item()
     term = term.item()
@@ -1210,8 +1181,8 @@ class NeuralSimulator(BaseUserSimulator):
     if action['dialogue_act'] == 'inform':
       if len(action['inform_slots'].keys()) > 0:
         slots = list(action['inform_slots'].keys())[0]
-        if slots in self.sample_goal['inform_slots'].keys():
-          action['inform_slots'][slots] = self.sample_goal['inform_slots'][slots]
+        if slots in self.goal['inform_slots'].keys():
+          action['inform_slots'][slots] = self.goal['inform_slots'][slots]
         else:
           action['inform_slots'][slots] = dialog_config.I_DO_NOT_CARE
 
@@ -1227,12 +1198,6 @@ class NeuralSimulator(BaseUserSimulator):
       reward = -1
 
     return response_action, term, reward
-
-  def predict(self, s, a):
-    return self.model.predict(s, a)
-
-  def register_user_goal(self, goal):
-    self.user_goal = goal
 
   def action_index(self, act_slot_response):
     """ Return the index of action """
@@ -1259,7 +1224,7 @@ class NeuralSimulator(BaseUserSimulator):
     """ Register feedback from the environment, to be stored as future training data for world model"""
 
     state_t_rep = self.prepare_state_representation(s_t)
-    goal_rep = self.prepare_user_goal_representation(self.sample_goal)
+    goal_rep = self.prepare_user_goal_representation(self.goal)
     state_t_rep = np.hstack([state_t_rep, goal_rep])
     agent_action_t = agent_a_t
     user_action_t = user_a_t
@@ -1279,7 +1244,6 @@ class NeuralSimulator(BaseUserSimulator):
 
     if self.predict_model:
       self.training_examples.append(training_example_for_user)
-
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """

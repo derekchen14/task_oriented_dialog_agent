@@ -277,10 +277,9 @@ class NeuralPolicyManager(BasePolicyManager):
         self.cur_bellman_err += loss.item()
 
     if verbose and len(self.experience_replay_pool) != 0:
-      print("cur bellman error %.2f, experience replay pool %s, model replay pool %s, error for planning %.2f" % (
+      print("cur bellman error %.2f, experience replay pool %s, model replay pool %s" % (
           float(self.cur_bellman_err) / (len(self.experience_replay_pool) / (float(batch_size))),
-          len(self.experience_replay_pool), len(self.experience_replay_pool_from_model),
-          self.cur_bellman_err_planning))
+          len(self.experience_replay_pool), len(self.experience_replay_pool_from_model)))
 
   def reward_function(self, dialog_status):
     # Reward Function 1: a reward function based on the dialog_status

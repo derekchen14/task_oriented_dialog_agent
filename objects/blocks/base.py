@@ -58,7 +58,7 @@ class BaseModule(object):
       'optimizer': self.optimizer.state_dict(),
     }
     torch.save(state, filepath)
-    print("Saved model at {}".format(filepath + '.pt'))
+    print("Saved model at {}".format(filepath))
 
   def prune_saves(self, n_keep=5):
     scores_and_files = BaseModule.get_saves(self.save_dir, self.args.early_stop)

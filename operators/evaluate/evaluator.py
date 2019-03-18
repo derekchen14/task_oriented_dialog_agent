@@ -140,11 +140,13 @@ class Evaluator(object):
         plt.show()
       plt.close()
 
-  def start_conversation(self):
-    self.just_started = True
-    while not self.done_talking():
+  def start_conversation(self, user_type, num_epochs):
+    self.episode_counter = 0
+    self.max_episodes = num_epochs
+
+    while not self.done_talking(user_type):
       turn_count = 0
-      self.agent.initialize_episode("command")
+      self.agent.initialize_episode(user_type)
 
       episode_over = False
       while not episode_over:
@@ -153,13 +155,28 @@ class Evaluator(object):
 
         if episode_over:
           final_reward = reward - turn_count # lose reward for every turn taken
-          result = "succeeded  :)" if final_reward > 0 else "failed  :("
-          print(f"this dialogue {result}")
+          self.end_conversation(final_reward)
 
-  def done_talking(self):
-    if self.just_started:
-      self.just_started = False
+  def end_conversation(self, final_reward):
+    if self.verbose:
+      print("Target goal:")
+      print(self.agent.running_user.goal)
+      print("Predicted frame:")
+      print(self.agent.model.frame)
+    result = "succeeded  :)" if final_reward > 0 else "failed  :("
+    print(f"this dialogue {result}")
+    print("---" * 16)
+
+  def done_talking(self, user_type):
+    if self.episode_counter == 0:
+      self.episode_counter += 1
       return False
+    if user_type == 'simulate':
+      if self.episode_counter > self.max_episodes:
+        return True
+      else:
+        self.episode_counter += 1
+        return False
 
     done = input("Are you done talking? ")
     if done in ["yes", "Yes", "y"]:

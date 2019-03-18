@@ -57,8 +57,8 @@ class EndToEndSystem(object):
     self.evaluator.agent = self.dialogue_agent
     self.evaluator.monitor = self.monitor
     if test_mode:
-      if self.args.user == 'command':
-        self.evaluator.start_conversation()
+      if self.args.user in ['command', 'simulate']:
+        self.evaluator.start_conversation(self.args.user, self.args.epochs)
       elif self.args.user == 'turk':
         self.evaluator.start_server()
     else:

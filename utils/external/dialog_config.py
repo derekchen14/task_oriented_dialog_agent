@@ -67,7 +67,7 @@ nlg_beam_size = 10
 #  run_mode: 0 for dia-act; 1 for NL; 2 for no output; 3 for skip everything
 ################################################################################
 run_mode = 3
-auto_suggest = True # (or False)
+auto_suggest = False # (or True)
 
 ################################################################################
 #   A Basic Set of Feasible actions to be Consdered By an RL agent

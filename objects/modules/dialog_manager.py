@@ -37,29 +37,30 @@ class DialogManager:
     self.running_user = self.user_sim
     # self.run_mode = dialog_config.run_mode
 
-  def initialize_episode(self, simulator_type):
+  def initialize_episode(self, user_type):
     """ Refresh state for new dialog """
     self.reward = 0
     self.episode_over = False
 
     self.state_tracker.initialize_episode()
     self.use_world_model = False
-    self.run_mode = simulator_type
+    self.run_mode = user_type
 
-    if simulator_type == 'rule':
+    if user_type == 'rule':
       self.running_user = self.user_sim
       self.use_world_model = False
-    elif simulator_type == 'neural':
+    elif user_type == 'neural':
       self.running_user = self.world_model
       self.use_world_model = True
-    elif simulator_type == 'command':
+    elif user_type == 'command':
       self.running_user = self.real_user
       self.use_world_model = False
-
+    elif user_type == 'turk':
+      raise NotImplementedError
 
     self.user_action = self.running_user.initialize_episode()
-    if simulator_type == 'rule':
-      self.world_model.sample_goal = self.user_sim.sample_goal
+    if user_type == 'rule':
+      self.world_model.goal = self.user_sim.goal
     self.state_tracker.update(user_action=self.user_action)
 
     # if self.run_mode < 3:
@@ -133,8 +134,8 @@ class DialogManager:
 
   def print_function(self, action_dict, kind):
     # kind should be "agent" or "user"
-    if not self.verbose: return
-    if self.debug:
+    if not self.debug: return
+    if self.verbose:
       for k, v in action_dict.items(): print(kind, k, v)
     elif kind == "user" and self.run_mode == "command":
       return
