@@ -155,17 +155,9 @@ class Evaluator(object):
 
         if episode_over:
           final_reward = reward - turn_count # lose reward for every turn taken
-          self.end_conversation(final_reward)
-
-  def end_conversation(self, final_reward):
-    if self.verbose:
-      print("Target goal:")
-      print(self.agent.running_user.goal)
-      print("Predicted frame:")
-      print(self.agent.model.frame)
-    result = "succeeded  :)" if final_reward > 0 else "failed  :("
-    print(f"this dialogue {result}")
-    print("---" * 16)
+          result = "succeeded  :)" if final_reward > 0 else "failed  :("
+          print(f"this dialogue {result}")
+          print("---" * 16)
 
   def done_talking(self, user_type):
     if self.episode_counter == 0:

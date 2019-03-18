@@ -133,12 +133,12 @@ class DialogManager:
     print('Saved performance records at {}'.format(filepath))
 
   def print_function(self, action_dict, kind):
+    if self.run_mode == "command" and kind == "agent":
+      print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
     # kind should be "agent" or "user"
     if not self.debug: return
     if self.verbose:
       for k, v in action_dict.items(): print(kind, k, v)
-    elif kind == "user" and self.run_mode == "command":
-      return
     else:
       print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
     if dialog_config.auto_suggest and kind == "agent":

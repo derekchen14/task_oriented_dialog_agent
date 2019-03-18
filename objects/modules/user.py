@@ -43,40 +43,6 @@ class BaseUser(object):
   def next(self, agent_action):
     raise(NotImplementedError, "User cannot take next step")
 
-  def determine_success(self, agent_action):
-    request_slot_set = list(self.state['request_slots'].keys()).copy()
-    if 'ticket' in request_slot_set:
-      request_slot_set.remove('ticket')
-
-    rest_slot_set = self.state['rest_slots'].copy()
-    if 'ticket' in rest_slot_set:
-      rest_slot_set.remove('ticket')
-
-    # there are still remaining user questions to answer
-    if len(request_slot_set) > 0 or len(rest_slot_set) > 0:
-      return dialog_config.FAILED_DIALOG
-
-    # for any given requirement in the goal
-    for info_slot in self.state['history_slots'].keys():
-      # one of the constraints was not discussed
-      if self.state['history_slots'][info_slot] == dialog_config.NO_VALUE_MATCH:
-        return dialog_config.FAILED_DIALOG
-      # frame predicted the wrong value for some constraint
-      if info_slot in self.goal['inform_slots'].keys():
-        if self.state['history_slots'][info_slot] != self.goal['inform_slots'][info_slot]:
-          return dialog_config.FAILED_DIALOG
-
-    # the final ticket was not offered to the user
-    if 'ticket' in agent_action['inform_slots'].keys():
-      if agent_action['inform_slots']['ticket'] == dialog_config.NO_VALUE_MATCH:
-        return dialog_config.FAILED_DIALOG
-    # there was some prior constraint check that failed
-    if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
-      return dialog_config.FAILED_DIALOG
-
-    # if we made it through the landmine field, then we are successful!
-    return dialog_config.SUCCESS_DIALOG
-
   def add_nl_to_action(self, user_action):
     """ Add NL to User Dia_Act """
 
@@ -482,12 +448,19 @@ class UserSimulator(BaseUser):
 
 class CommandLineUser(BaseUser):
   def __init__(self, args, ontology, goal_set):
-    super().__init__(args, ontology)
+    super().__init__(args, ontology, goal_set)
     self.learning_phase = "train"
     self.agent_input_mode =  "dialogue_act" # "raw_text"
-    self.goal_set = goal_set
 
   def initialize_episode(self):
+    self.state = {
+      'history_slots': {},  # slots that have already been processed (post)
+      'inform_slots': {},
+      'request_slots': {},
+      'remaining_slots': [],   # slots that have yet to be processed (pre)
+      'turn_count': 0
+    }
+
     self.goal = self._sample_goal()
     self.turn_count = 0
     self.finish_episode = False
@@ -515,22 +488,38 @@ class CommandLineUser(BaseUser):
   def next(self, agent_action):
     # Generate an action by getting input interactively from the command line
     self.turn_count += 2
-    command_line_input = input("{}) user: ".format(self.turn_count))
-    """ a command line user cannot end the dialogue.  thus, they cannot
-    decide that the episode is over and the dialogue status is always 0.
-    (meaning No Outcome Yet, as opposed to -1 of Fail and 1 of Success)"""
+    if 'taskcomplete' in agent_action['inform_slots'].keys():
+      self.finish_episode = True
 
+    if self.turn_count > self.max_turn or self.finish_episode:
+      episode_over = True
+      dialog_status = self.determine_success(agent_action)
+    else:
+      episode_over = False
+      dialog_status = dialog_config.NO_OUTCOME_YET
+
+    command_line_input = input("{}) user: ".format(self.turn_count))
     if self.agent_input_mode == "raw_text":
       self.user_action['nl'] = command_line_input
     elif self.agent_input_mode == "dialogue_act":
       self.parse_intent(command_line_input)
     self.user_action['turn_count'] = self.turn_count
 
-    if self.turn_count > self.max_turn or self.finish_episode:
-      episode_over = True
-      dialog_status = self.determine_success(agent_action)
-
     return self.user_action, episode_over, dialog_status
+
+  def determine_success(self, agent_action):
+    if self.verbose:
+      print(agent_action)
+
+    for slot in self.goal['inform_slots'].keys():
+      missing_constraint = slot not in agent_action['inform_slots'].keys()
+      incorrect_value = self.goal['inform_slots'][slot].lower() != agent_action['inform_slots'][slot].lower()
+      if missing_constraint or incorrect_value:
+        print(f"Agent had an error with {slot}!")
+        return dialog_config.FAILED_DIALOG
+    # reaching the end means none of the slots had any errors !
+    print("The agent was successful in matching all slots!")
+    return dialog_config.SUCCESS_DIALOG
 
   def parse_intent(self, command_line_input):
     """ Parse input from command line into dialogue act form """
@@ -543,10 +532,9 @@ class CommandLineUser(BaseUser):
         self.finish_episode = True
       else:
         slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
-        value = dialog_config.I_DO_NOT_CARE if value == 'any' else value
         self.user_action["{}_slots".format(act)][slot] = value
+        self.error_checking(idx, act, slot, value)
 
-      self.error_checking(idx, act, slot, value)
       self.user_action["dialogue_act"] = act
       self.user_action["nl"] = command_line_input
 
@@ -559,6 +547,12 @@ class CommandLineUser(BaseUser):
       raise(ValueError("{} is not part of allowable slot set".format(slot)))
     if value not in self.value_set[slot]:
       raise(ValueError("{} is not part of the available value set".format(value)))
+
+  def display_outcome(self):
+    print("Your goal:")
+    print(self.goal)
+    print("Predicted frame:")
+    print(self.state['history_slots'])
 
 class RuleSimulator(BaseUser):
   """ A rule-based user simulator for testing dialog policy """
@@ -773,7 +767,37 @@ class RuleSimulator(BaseUser):
   def response_thanks(self, agent_action):
     """ Response for Thanks (System Action) """
     self.episode_over = True
-    self.dialog_status = self.determine_success(agent_action)
+    request_slot_set = list(self.state['request_slots'].keys()).copy()
+    rest_slot_set = self.state['rest_slots'].copy()
+
+    if 'ticket' in request_slot_set:
+      request_slot_set.remove('ticket')
+    if 'ticket' in rest_slot_set:
+      rest_slot_set.remove('ticket')
+
+    # by default we are successful
+    self.dialog_status = dialog_config.SUCCESS_DIALOG
+    # there are still remaining user questions to answer
+    if len(request_slot_set) > 0 or len(rest_slot_set) > 0:
+      self.dialog_status = dialog_config.FAILED_DIALOG
+
+    # for any given requirement in the goal
+    for info_slot in self.state['history_slots'].keys():
+      # one of the constraints was not discussed
+      if self.state['history_slots'][info_slot] == dialog_config.NO_VALUE_MATCH:
+        self.dialog_status = dialog_config.FAILED_DIALOG
+      # frame predicted the wrong value for some constraint
+      if info_slot in self.goal['inform_slots'].keys():
+        if self.state['history_slots'][info_slot] != self.goal['inform_slots'][info_slot]:
+          self.dialog_status = dialog_config.FAILED_DIALOG
+
+    # the final ticket was not offered to the user
+    if 'ticket' in agent_action['inform_slots'].keys():
+      if agent_action['inform_slots']['ticket'] == dialog_config.NO_VALUE_MATCH:
+        self.dialog_status = dialog_config.FAILED_DIALOG
+    # there was some prior constraint check that failed
+    if self.constraint_check == dialog_config.CONSTRAINT_CHECK_FAILURE:
+      self.dialog_status = dialog_config.FAILED_DIALOG
 
   def response_request(self, agent_action):
     """ Response for Request (System Action) """
