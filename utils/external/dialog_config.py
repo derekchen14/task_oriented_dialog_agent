@@ -67,7 +67,7 @@ nlg_beam_size = 10
 #  run_mode: 0 for dia-act; 1 for NL; 2 for no output; 3 for skip everything
 ################################################################################
 run_mode = 3
-auto_suggest = 0
+auto_suggest = False # (or True)
 
 ################################################################################
 #   A Basic Set of Feasible actions to be Consdered By an RL agent
@@ -76,23 +76,23 @@ feasible_actions = [
     ############################################################################
     #   greeting actions
     ############################################################################
-    # {'diaact':"greeting", 'inform_slots':{}, 'request_slots':{}},
+    # {'dialogue_act':"greeting", 'inform_slots':{}, 'request_slots':{}},
     ############################################################################
     #   confirm_question actions
     ############################################################################
-    {'diaact': "confirm_question", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "confirm_question", 'inform_slots': {}, 'request_slots': {}},
     ############################################################################
     #   confirm_answer actions
     ############################################################################
-    {'diaact': "confirm_answer", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "confirm_answer", 'inform_slots': {}, 'request_slots': {}},
     ############################################################################
     #   thanks actions
     ############################################################################
-    {'diaact': "thanks", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "thanks", 'inform_slots': {}, 'request_slots': {}},
     ############################################################################
     #   deny actions
     ############################################################################
-    {'diaact': "deny", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "deny", 'inform_slots': {}, 'request_slots': {}},
 ]
 
 ############################################################################
@@ -108,32 +108,32 @@ sys_request_slots_for_user = ['city', 'date', 'moviename', 'numberofpeople', 'st
                               'theater_chain', 'video_format', 'zip', 'ticket']
 
 for slot in sys_inform_slots:
-    feasible_actions.append({'diaact': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}})
+    feasible_actions.append({'dialogue_act': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}})
 
 ############################################################################
 #   Adding the request actions
 ############################################################################
 for slot in sys_request_slots:
-    feasible_actions.append({'diaact': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
+    feasible_actions.append({'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
 
 feasible_actions_users = [
-    {'diaact': "thanks", 'inform_slots': {}, 'request_slots': {}},
-    {'diaact': "deny", 'inform_slots': {}, 'request_slots': {}},
-    {'diaact': "closing", 'inform_slots': {}, 'request_slots': {}},
-    {'diaact': "confirm_answer", 'inform_slots': {}, 'request_slots': {}}
+    {'dialogue_act': "thanks", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "deny", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "closing", 'inform_slots': {}, 'request_slots': {}},
+    {'dialogue_act': "confirm_answer", 'inform_slots': {}, 'request_slots': {}}
 ]
 
 # for slot in sys_inform_slots_for_user:
 for slot in sys_inform_slots_for_user:
-    feasible_actions_users.append({'diaact': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}})
+    feasible_actions_users.append({'dialogue_act': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}})
 
 feasible_actions_users.append(
-    {'diaact': 'inform', 'inform_slots': {'numberofpeople': "PLACEHOLDER"}, 'request_slots': {}})
+    {'dialogue_act': 'inform', 'inform_slots': {'numberofpeople': "PLACEHOLDER"}, 'request_slots': {}})
 
 ############################################################################
 #   Adding the request actions
 ############################################################################
 for slot in sys_request_slots_for_user:
-    feasible_actions_users.append({'diaact': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
+    feasible_actions_users.append({'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
 
-feasible_actions_users.append({'diaact': 'inform', 'inform_slots': {}, 'request_slots': {}})
+feasible_actions_users.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})

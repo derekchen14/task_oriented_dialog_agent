@@ -3,5 +3,5 @@ from objects.modules.policy_manager import RulePolicyManager, NeuralPolicyManage
 from objects.modules.text_generator import RuleTextGenerator, NeuralTextGenerator
 from objects.modules.kb_operator import KBHelper
 from objects.modules.dialog_manager import DialogManager
-from objects.modules.user import RuleSimulator, NeuralSimulator
+from objects.modules.user import RuleSimulator, NeuralSimulator, CommandLineUser
 

@@ -6,7 +6,6 @@ import json
 import numpy as np
 from collections import deque
 
-from objects.modules.dialogue_state import DialogueState
 from objects.modules.user import UserSimulator, CommandLineUser
 from objects.blocks.base import BasePolicyManager
 from objects.models.ddq import DQN, Transition
@@ -86,10 +85,12 @@ class NeuralPolicyManager(BasePolicyManager):
     # self.state['turn_count'] += 2
     self.representation = self.prepare_state_representation(state)
     action_id = self.run_policy(self.representation)
-    if self.warm_start == 1:
-      act_slot_response = copy.deepcopy(self.feasible_actions[action_id])
-    else:
-      act_slot_response = copy.deepcopy(self.feasible_actions[action_id[0]])
+
+    # CHECK BELOW, maybe the fix is action_id[0]
+    act_slot_response = copy.deepcopy(self.feasible_actions[action_id])
+    # if self.warm_start == 1:
+    # else:
+    #   act_slot_response = copy.deepcopy(self.feasible_actions[action_id[0]])
 
     return {'slot_action': act_slot_response, 'action_id': action_id}
 
@@ -105,7 +106,7 @@ class NeuralPolicyManager(BasePolicyManager):
     #   Create one-hot of acts to represent the current user action
     ########################################################################
     user_act_rep = np.zeros((1, self.act_cardinality))
-    user_act_rep[0, self.act_set[user_action['diaact']]] = 1.0
+    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
 
     ########################################################################
     #     Create bag of inform slots representation to represent the current user action
@@ -133,7 +134,7 @@ class NeuralPolicyManager(BasePolicyManager):
     ########################################################################
     agent_act_rep = np.zeros((1, self.act_cardinality))
     if agent_last:
-      agent_act_rep[0, self.act_set[agent_last['diaact']]] = 1.0
+      agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
 
     ########################################################################
     #   Encode last agent inform slots
@@ -194,15 +195,15 @@ class NeuralPolicyManager(BasePolicyManager):
       self.current_slot_id += 1
 
       act_slot_response = {}
-      act_slot_response['diaact'] = "request"
+      act_slot_response['dialogue_act'] = "request"
       act_slot_response['inform_slots'] = {}
       act_slot_response['request_slots'] = {slot: "UNK"}
     elif self.phase == 0:
-      act_slot_response = {'diaact': "inform", 'inform_slots': {'taskcomplete': "PLACEHOLDER"},
+      act_slot_response = {'dialogue_act': "inform", 'inform_slots': {'taskcomplete': "PLACEHOLDER"},
                  'request_slots': {}}
       self.phase += 1
     elif self.phase == 1:
-      act_slot_response = {'diaact': "thanks", 'inform_slots': {}, 'request_slots': {}}
+      act_slot_response = {'dialogue_act': "thanks", 'inform_slots': {}, 'request_slots': {}}
 
     return self.action_index(act_slot_response)
 
@@ -276,10 +277,9 @@ class NeuralPolicyManager(BasePolicyManager):
         self.cur_bellman_err += loss.item()
 
     if verbose and len(self.experience_replay_pool) != 0:
-      print("cur bellman error %.2f, experience replay pool %s, model replay pool %s, error for planning %.2f" % (
+      print("cur bellman error %.2f, experience replay pool %s, model replay pool %s" % (
           float(self.cur_bellman_err) / (len(self.experience_replay_pool) / (float(batch_size))),
-          len(self.experience_replay_pool), len(self.experience_replay_pool_from_model),
-          self.cur_bellman_err_planning))
+          len(self.experience_replay_pool), len(self.experience_replay_pool_from_model)))
 
   def reward_function(self, dialog_status):
     # Reward Function 1: a reward function based on the dialog_status
@@ -300,12 +300,4 @@ class NeuralPolicyManager(BasePolicyManager):
     self.state = DialogueState(kb, ontology)
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
 
-  def print_function(self, action_dict, kind):
-    if not self.verbose: return
-    if self.debug:
-      for k, v in action_dict.items(): print(kind, k, v)
-    else:
-      print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
-    if dialog_config.auto_suggest == 1:
-      print('(Suggested Values: %s)' % (self.agent_state.get_suggest_slots_values(agent_action['request_slots'])))
 """

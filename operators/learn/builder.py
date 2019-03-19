@@ -27,14 +27,21 @@ class Builder(object):
     model = self.create_model(processor, model_type)
     monitor.build_logger(self.dir)
 
+    model_str = "model" if model_type is None else model_type
     if self.test_mode:
-      monitor.logger.info("Loading model at {} for testing".format(self.dir))
+      print("Loading {} at {} for testing".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     elif self.use_existing:
-      monitor.logger.info("Resuming model at {} for training".format(self.dir))
+      print("Resuming {} at {} for training".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     else:
-      monitor.logger.info("Building model at {}".format(self.dir))
+      # small hack since NLU and NLG models are not defined yet
+      if model_type == "belief_tracker":
+        model.load_nlu_model('nlu_1468447442')
+      if model_type ==  "text_generator":
+        model.load_nlg_model('nlg_1468202263')
+      print("Building {} at {}".format(model_str, self.dir))
+      # monitor.logger.info("Building model at {}".format(self.dir))
 
     model.save_dir = self.dir
     return model
@@ -148,19 +155,18 @@ class Builder(object):
         module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
-        movie_dictionary = self.loader.json_data('dicts.v3')
         movie_kb = self.loader.json_data('movie_kb.1k')
-        goal_set = self.loader.json_data('goal_set')
-        act_set, slot_set = self.loader.act_set, self.loader.slot_set
+        goal_set = self.loader.json_data('goal_set_v2')
+        ontology = self.loader.ontology
 
-        user_sim = RuleSimulator(vars(args),
-              movie_dictionary, act_set, slot_set, goal_set)
-        world_sim = NeuralSimulator(vars(args),
-              movie_dictionary, act_set, slot_set, goal_set)
-        sub_module = NeuralPolicyManager(args, model,
-              device, world_sim, movie_kb, act_set, slot_set)
-        module = DialogManager(sub_module, user_sim, world_sim,
-              act_set, slot_set, movie_kb)
+        user_sim = RuleSimulator(args, ontology, goal_set)
+        world_sim = NeuralSimulator(args, ontology, goal_set)
+        real_user = CommandLineUser(args, ontology, goal_set)
+
+        sub_module = NeuralPolicyManager(args, model, device,
+              world_sim, movie_kb, ontology["acts"], ontology["slots"])
+        module = DialogManager(args, sub_module, user_sim, world_sim, real_user,
+              ontology["acts"], ontology["slots"], movie_kb)
     elif model.module_type == 'belief_tracker':
       module = model
     elif model.module_type  == 'text_generator':

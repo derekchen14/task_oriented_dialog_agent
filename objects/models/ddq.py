@@ -83,20 +83,20 @@ class NLG(object):
         boolean_in = False
         
         # remove I do not care slot in task(complete)
-        if dia_act['diaact'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] != dialog_config.NO_VALUE_MATCH:
+        if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] != dialog_config.NO_VALUE_MATCH:
             inform_slot_set = list(dia_act['inform_slots'].keys()).copy()
             for slot in inform_slot_set:
                 if dia_act['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE:
                     del dia_act['inform_slots'][slot]
         
-        if dia_act['diaact'] in self.diaact_nl_pairs['dia_acts'].keys():
-            for ele in self.diaact_nl_pairs['dia_acts'][dia_act['diaact']]:
+        if dia_act['dialogue_act'] in self.diaact_nl_pairs['dia_acts'].keys():
+            for ele in self.diaact_nl_pairs['dia_acts'][dia_act['dialogue_act']]:
                 if set(ele['inform_slots']) == set(dia_act['inform_slots'].keys()) and set(ele['request_slots']) == set(dia_act['request_slots'].keys()):
                     sentence = self.diaact_to_nl_slot_filling(dia_act, ele['nl'][turn_msg])
                     boolean_in = True
                     break
         
-        if dia_act['diaact'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
+        if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
             sentence = "Oh sorry, there is no ticket available."
         
         if boolean_in == False: sentence = self.translate_diaact(dia_act)
@@ -113,7 +113,7 @@ class NLG(object):
         inverse_word_dict = self.inverse_word_dict
     
         act_rep = np.zeros((1, len(act_dict)))
-        act_rep[0, act_dict[dia_act['diaact']]] = 1.0
+        act_rep[0, act_dict[dia_act['dialogue_act']]] = 1.0
     
         slot_rep_bit = 2
         slot_rep = np.zeros((1, len(slot_dict)*slot_rep_bit)) 
@@ -151,7 +151,7 @@ class NLG(object):
             final_representation = np.hstack([act_rep, slot_rep, word_rep])
     
         dia_act_rep = {}
-        dia_act_rep['diaact'] = final_representation
+        dia_act_rep['dialogue_act'] = final_representation
         dia_act_rep['words'] = words
     
         #pred_ys, pred_words = nlg_model['model'].forward(inverse_word_dict, dia_act_rep, nlg_model['params'], predict_model=True)
@@ -303,7 +303,7 @@ class NLU(object):
         words = tmp.lower().split(' ')
     
         diaact = {}
-        diaact['diaact'] = "inform"
+        diaact['dialogue_act'] = "inform"
         diaact['request_slots'] = {}
         diaact['inform_slots'] = {}
         
@@ -346,7 +346,7 @@ class NLU(object):
     
         if intent != 'null':
             arr = intent.split('+')
-            diaact['diaact'] = arr[0]
+            diaact['dialogue_act'] = arr[0]
             diaact['request_slots'] = {}
             for ele in arr[1:]: 
                 #request_slots.append(ele)
@@ -374,9 +374,9 @@ class NLU(object):
                 diaact['inform_slots']['taskcomplete'] = 'PLACEHOLDER'
         
             # rule for request
-            if len(diaact['request_slots'])>0: diaact['diaact'] = 'request'
+            if len(diaact['request_slots'])>0: diaact['dialogue_act'] = 'request'
             
-            if len(diaact['request_slots'])==0 and diaact['diaact'] == 'request': diaact['diaact'] = 'inform'
+            if len(diaact['request_slots'])==0 and diaact['dialogue_act'] == 'request': diaact['dialogue_act'] = 'inform'
     
     
     
@@ -385,7 +385,7 @@ class NLU(object):
         """ Convert the Dia-Act into penny string """
         
         penny_str = ""
-        penny_str = dia_act['diaact'] + "("
+        penny_str = dia_act['dialogue_act'] + "("
         for slot in dia_act['request_slots'].keys():
             penny_str += slot + ";"
     

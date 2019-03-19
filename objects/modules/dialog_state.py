@@ -11,7 +11,7 @@ import numpy as np
 import copy
 
 
-class DialogueState:
+class DialogState:
   """ Tracks local dialogue state across turns.  (see also: RewardMonitor)
     Main responsibility is to maintain a record six (6) items:
       1a) user intent - a one-hot vector with size equal to number of
@@ -32,8 +32,8 @@ class DialogueState:
   """
 
   # def __init__(self, knowledge_base, ontology):
-  def __init__(self, act_set, slot_set, movie_dictionary):
-    self.movie_dictionary = movie_dictionary
+  def __init__(self, act_set, slot_set, movie_kb):
+    self.movie_kb = movie_kb
     self.initialize_episode()
     self.history_vectors = None
     self.history_dictionaries = None
@@ -41,7 +41,7 @@ class DialogueState:
     self.action_dimension = 10      # TODO REPLACE WITH REAL VALUE
     self.kb_result_dimension = 10   # TODO  REPLACE WITH REAL VALUE
     self.turn_count = 0
-    self.kb_helper = KBHelper(movie_dictionary)
+    self.kb_helper = KBHelper(movie_kb)
 
     """ constructor for statetracker takes movie knowledge base and initializes a new episode
 
@@ -119,7 +119,7 @@ class DialogueState:
              'agent_action': self.history_dictionaries[-1] if len(self.history_dictionaries) > 1 else None}
     return copy.deepcopy(state)
 
-  def get_suggest_slots_values(self, request_slots):
+  def make_suggestion(self, request_slots):
     """ Get the suggested values for request slots """
 
     suggest_slot_vals = {}
@@ -150,13 +150,13 @@ class DialogueState:
         inform_slots = self.kb_helper.fill_inform_slots(
                                 response['inform_slots'], self.current_slots)
         agent_action_values = {'speaker': "agent",
-                                'diaact': response['diaact'],
+                                'dialogue_act': response['dialogue_act'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count': self.turn_count }
 
         agent_action['slot_action'].update({
-                                'diaact': response['diaact'],
+                                'dialogue_act': response['dialogue_act'],
                                 'inform_slots': inform_slots,
                                 'request_slots':response['request_slots'],
                                 'turn_count':self.turn_count })
@@ -199,7 +199,7 @@ class DialogueState:
       new_move = {'turn_count': self.turn_count, 'speaker': "user", 
                 'request_slots': user_action['request_slots'], 
                 'inform_slots': user_action['inform_slots'], 
-                'diaact': user_action['diaact']}
+                'dialogue_act': user_action['dialogue_act']}
       self.history_dictionaries.append(copy.deepcopy(new_move))
 
     ########################################################################
