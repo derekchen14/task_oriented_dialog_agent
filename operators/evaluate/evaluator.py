@@ -9,6 +9,7 @@ import os, pdb, sys
 from utils.external.bleu import BLEU
 import utils.internal.initialization as data_io
 from objects.components import var, run_inference
+from operators.evaluate.server import HTTPServer, Handler, ToyModel
 
 class Evaluator(object):
   def __init__(self, args, processor):
@@ -177,9 +178,17 @@ class Evaluator(object):
     elif done in ["no", "No", "n"]:
       return False
 
-  def start_server(self):
-    pass
-    # // initialize command line user
+  def start_server(self, root_dir):
+    ip_address = ('0.0.0.0', 8000)
+    httpd = HTTPServer(ip_address, Handler)
+    httpd.agent = self.agent
+    httpd.wd = os.path.relpath(os.path.join(root_dir, 'utils'))
+
+    print("Listening at", ip_address)
+    httpd.serve_forever()
+
+    # initialize turk user
+    # initialize agent
     # // create database  <OR>  create pandas dataframe
     # // start server
     #    while not done_talking(state):
@@ -187,125 +196,3 @@ class Evaluator(object):
     #     run_conversation(goal)
 
     # // show survey
-
-"""
-  def dual_report(self, slot_learner, value_learner):
-    datapoint_count = len(slot_learner.processor.val_data)
-    slot_model = slot_learner.model
-    value_model = value_learner.model
-
-    success, rank_success =  0, 0
-    display = []
-    for idx in range(datapoint_count):
-      utterance = slot_learner.processor.val_data[idx][0]
-      slot_target = slot_learner.processor.val_data[idx][1]
-      value_target = value_learner.processor.val_data[idx][1]
-
-      intent_hidden = slot_model.encoder.initHidden()
-      intent_output = slot_model(utterance, intent_hidden)
-      _, i_top = intent_output.data.topk(1)
-      i_pred = i_top[0][0]
-      _, i_rank = intent_output.data.topk(2)
-      i_preds = i_rank[0]
-
-      slot_value_hidden = value_model.encoder.initHidden()
-      slot_value_output = value_model(utterance, slot_value_hidden)
-      _, slot_value_top = slot_value_output.data.topk(1)
-      sv_pred = slot_value_top[0][0]
-      _, sv_rank = slot_value_output.data.topk(2)
-      sv_preds = sv_rank[0]
-
-      if (i_pred == slot_target) and (sv_pred == value_target):
-        success += 1
-      if (slot_target in i_preds) and (value_target in sv_preds):
-        rank_success += 1
-      if random.random() < 0.01:
-        input_text = " ".join([vocab.index_to_word(token, self.task) for token in utterance])
-        post_slot_target = vocab.index_to_word(slot_target, "slot")
-        post_value_target = vocab.index_to_word(value_target, "value")
-        post_slot_pred = vocab.index_to_word(i_pred, "slot")
-        post_value_pred = vocab.index_to_word(sv_pred, "value")
-
-        display.append(input_text)
-        display.append("Target: {0}({1})".format(post_slot_target, post_value_target))
-        display.append("Predicted: {0}({1})".format(post_slot_pred, post_value_pred))
-        display.append(" ----- ")
-
-    rank_accuracy = rank_success / float(datapoint_count)
-    print("Exact accuracy: {:.4f}, rank accuracy {:.4f}".format(
-      success / float(datapoint_count), rank_accuracy) )
-    for line in display:
-      print(line)
-
-    scores = {"inform": 0, "request": 0, "exact": 0, "rank": 0}
-    display = []
-    use_display = False
-    for example in self.data:
-      utterance, target = example
-
-      if random.random() < -1:
-        display.append(" ----- ")
-        input_text = " ".join([self.vocab.index_to_word(token) for token in utterance])
-        display.append(input_text)
-        use_display = True
-        target_words = ["Target: "]
-        pred_words = ["Prediction: "]
-
-      corrects = {"inform": True, "request": True, "exact": True, "rank": True}
-      for idx, task in enumerate(self.tasks):
-        model = self.models[task] if self.multitask else self.model
-        hidden_state = model.encoder.initHidden()
-
-        output = model(utterance, hidden_state)
-        _, top1 = output.data.topk(1)
-        exact_pred = top1[0][0]
-        _, top2 = output.data.topk(2)
-        rank_preds = top2[0]
-
-        target_word = self.vocab.index_to_label(target)
-        if exact_pred != target:
-          corrects["exact"] = False
-
-        if target not in rank_preds:
-          corrects["rank"] = False
-          if task in ["area", "food", "price"]:
-            corrects["inform"] = False
-          elif task == "request":
-            corrects["request"] = False
-          elif task == "slot" and idx < 3:  # indexes 0, 1, 2 refer to area, food, price
-            corrects["inform"] = False
-          elif task == "slot" and idx == 3:  # index 3 refers to question
-            corrects["request"] = False
-          elif task == "value" and target < 87:  # indexes 1 to 86 refer values of area, food, price
-            corrects["inform"] = False
-          elif task == "value" and target >= 87:  # index 3 refers to values of request
-            corrects["request"] = False
-          elif task in ["full_enumeration", "possible_only", "ordered_values"]:
-            slot_type = target_word.split("=")
-            if slot_type[0] in ["area", "food", "price"]:
-              corrects["inform"] = False
-            else:
-              corrects["request"] = False
-
-        if use_display and target != 0:
-          target_words.append(target_word)
-        if use_display and exact_pred != 0:
-          pred_words.append(self.vocab.index_to_word(exact_pred))
-
-      for success, status in corrects.items():
-        if status:
-          scores[success] += 1
-      if use_display:
-        display.append(" ".join(target_words))
-        display.append(" ".join(pred_words))
-        use_display = False
-
-    for success, score in scores.items():
-      accuracy = float(score) / len(self.data)
-      print("{} accuracy: {:.4f}".format(success, accuracy))
-    for line in display:
-      print(line)
-
-
-
-"""

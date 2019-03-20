@@ -512,10 +512,13 @@ class CommandLineUser(BaseUser):
       print(agent_action)
 
     for slot in self.goal['inform_slots'].keys():
-      missing_constraint = slot not in agent_action['inform_slots'].keys()
-      incorrect_value = self.goal['inform_slots'][slot].lower() != agent_action['inform_slots'][slot].lower()
-      if missing_constraint or incorrect_value:
-        print(f"Agent had an error with {slot}!")
+      # missing_constraint
+      if slot not in agent_action['inform_slots'].keys():
+        print(f"Agent was missing the {slot} constraint!")
+        return dialog_config.FAILED_DIALOG
+      # incorrect_value
+      if self.goal['inform_slots'][slot].lower() != agent_action['inform_slots'][slot].lower():
+        print(f"Agent had the wrong value for {slot}!")
         return dialog_config.FAILED_DIALOG
     # reaching the end means none of the slots had any errors !
     print("The agent was successful in matching all slots!")
@@ -545,7 +548,7 @@ class CommandLineUser(BaseUser):
       raise(ValueError("{} is not part of allowable dialogue act set".format(act)))
     if slot not in self.slot_set:
       raise(ValueError("{} is not part of allowable slot set".format(slot)))
-    if value not in self.value_set[slot]:
+    if slot != 'ticket' and value not in self.value_set[slot]:
       raise(ValueError("{} is not part of the available value set".format(value)))
 
   def display_outcome(self):

@@ -1,0 +1,17 @@
+.textblurb {
+
+}
+.user {
+	color:blue;
+}
+.agent {
+	color:black;
+}
+.agent.dialogue {
+	text-align: right;
+  padding-right: 2em;
+}
+
+.removable {
+	display: none;
+}

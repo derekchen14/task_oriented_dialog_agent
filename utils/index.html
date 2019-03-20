@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<head>
+  <title>NLG Demo</title>
+  <script src="webtools/jquery-3.1.1.min.js"></script>
+  <script src="webtools/bootstrap.min.js"></script>
+  <script src="webtools/nlgWebsite.js"></script>
+  <link rel="stylesheet" href="webtools/bootstrap.min.css">
+  <link rel="stylesheet" href="webtools/style.css">
+  <link rel="shortcut icon" href="webtools/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="webtools/favicon.ico" type="image/x-icon">
+</head>
+
+<body>
+  <div class="container">
+    <div class="page-header">
+      <h1>Clarification Dialogue Agent</h1>
+      <h2><small>Find a movie ticket based on the criteria:</small></h2>
+    </div>
+<!--     <div class="row">
+      <div class="col-sm-12">
+        <form>
+          <input id="enableDialogue" type="checkbox" onchange="checkboxes(this)">&nbsp;This is a dialogue
+          <br>
+          <input id="separateTalkTurns" type="checkbox" onchange="checkboxes(this)">&nbsp;These are disconnected tries
+        </form>
+      </div>
+    </div>
+    <hr> -->
+    <div class="row">
+      <div class="col-sm-6">
+        <div id="history"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <textarea id="inputfield" rows="2" cols="80" style="color: grey;font-style: italic;">Enter your text here.</textarea>
+        <br>
+        <button class="btn btn-primary" onclick="getResponse()">Submit</button>
+      </div>
+    </div>
+  </div>
+</bod>

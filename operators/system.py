@@ -60,6 +60,8 @@ class EndToEndSystem(object):
       if self.args.user in ['command', 'simulate']:
         self.evaluator.start_conversation(self.args.user, self.args.epochs)
       elif self.args.user == 'turk':
-        self.evaluator.start_server()
+        import os
+        root_dir = os.path.join(os.path.dirname(__file__), os.pardir)
+        self.evaluator.start_server(root_dir)
     else:
       self.evaluator.generate_report()

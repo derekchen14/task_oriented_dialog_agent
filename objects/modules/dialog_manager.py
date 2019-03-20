@@ -121,6 +121,9 @@ class DialogManager:
 
     return (self.episode_over, self.reward)
 
+  def respond(self, user_input):
+    return "this is the agent output"
+
   def save_performance_records(self, monitor):
     episode = monitor.num_episodes
     filepath = os.path.join(self.save_dir, f'results_{episode}.json')
