@@ -3,8 +3,6 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import parse_qs, parse_qsl, urlparse
 import os
-from IPython import embed
-#import SocketServer
 
 class ToyModel(object):
   def __init__(self):
