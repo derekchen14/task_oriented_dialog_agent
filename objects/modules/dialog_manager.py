@@ -121,8 +121,23 @@ class DialogManager:
 
     return (self.episode_over, self.reward)
 
-  def respond(self, user_input):
-    return "this is the agent output"
+  def get_goal(self):
+    full_goal = self.running_user._sample_goal()
+    return full_goal['inform_slots']
+
+  def respond_to_turker(self, user_input, input_type='act'):
+    # intent classification
+    if input_type == 'nl':
+      user_action = self.model.belief_tracker(user_input)
+    self.state_tracker.update(user_action=user_input)
+    # policy management
+    self.agent_state = self.state_tracker.get_state_for_agent()
+    model_action = self.model.state_to_action(self.agent_state)
+    self.state_tracker.update(agent_action=model_action)
+    # text generation
+    self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
+    agent_response = model_action['slot_action']['nl']
+    return agent_response
 
   def save_performance_records(self, monitor):
     episode = monitor.num_episodes

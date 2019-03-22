@@ -1,5 +1,10 @@
-.textblurb {
+body {
+  background-color: lightblue;
+}
 
+.chat {
+  padding: 0.5em;
+  font-family: Tahoma, Geneva, sans-serif;
 }
 .user {
 	color:blue;
@@ -14,4 +19,8 @@
 
 .removable {
 	display: none;
+}
+
+.conversation {
+  margin: 4em 0em;
 }

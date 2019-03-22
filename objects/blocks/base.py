@@ -110,26 +110,6 @@ class BasePolicyManager(BaseModule):
       self.print_function(self.user_action, "user")
 
 
-  def state_to_action(self, state, available_actions):
-    """ Take the current state and return an action according to the current exploration/exploitation policy
-
-    We define the agents flexibly so that they can either operate on act_slot representations or act_slot_value representations.
-    We also define the responses flexibly, returning a dictionary with keys [act_slot_response, act_slot_value_response]. This way the command-line agent can continue to operate with values
-
-    Arguments:
-    state      --   A tuple of (history, kb_results) where history is a sequence of previous actions and kb_results contains information on the number of results matching the current constraints.
-    user_action         --   A legacy representation used to run the command line agent. We should remove this ASAP but not just yet
-    available_actions   --   A list of the allowable actions in the current state
-
-    Returns:
-    act_slot_action         --   An action consisting of one act and >= 0 slots as well as which slots are informed vs requested.
-    act_slot_value_action   --   An action consisting of acts slots and values in the legacy format. This can be used in the future for training agents that take value into account and interact directly with the database
-    """
-    act_slot_response = None
-    act_slot_value_response = None
-    return {"slot_action": act_slot_response, "slot_value_action": act_slot_value_response}
-
-
   def store_experience(self, current_state, action, reward, next_state, episode_over):
     """  Register feedback (s,a,r,s') from the environment,
     to be stored in experience replay buffer as future training data
@@ -148,17 +128,42 @@ class BasePolicyManager(BaseModule):
     """
     pass
 
+  def utterance_to_intent(self, agent_utterance):
+    """ Returns the predicted intent state given the raw utterance """
+    chosen_action = agent_action['slot_action']
+    agent_response = self.text_generator.generate(chosen_action, 'agt')
+    agent_action['slot_action']['nl'] = agent_response
+
+  def state_to_action(self, state, available_actions):
+    """ Take the current intent state and return an action according to policy
+
+    We define the agents flexibly so that they can either operate on act_slot representations or act_slot_value representations.
+    We also define the responses flexibly, returning a dictionary with keys [act_slot_response, act_slot_value_response]. This way the command-line agent can continue to operate with values
+
+    Arguments:
+    state      --   A tuple of (history, kb_results) where history is a sequence of previous actions and kb_results contains information on the number of results matching the current constraints.
+    user_action         --   A legacy representation used to run the command line agent. We should remove this ASAP but not just yet
+    available_actions   --   A list of the allowable actions in the current state
+
+    Returns:
+    act_slot_action         --   An action consisting of one act and >= 0 slots as well as which slots are informed vs requested.
+    act_slot_value_action   --   An action consisting of acts slots and values in the legacy format. This can be used in the future for training agents that take value into account and interact directly with the database
+    """
+    act_slot_response = None
+    act_slot_value_response = None
+    return {"slot_action": act_slot_response, "slot_value_action": act_slot_value_response}
+
   def action_to_nl(self, agent_action):
     """ Add natural language capabilities (NL) to Agent Dialogue Act """
     if agent_action['slot_action']:
       chosen_action = agent_action['slot_action']
-      user_response = self.text_generator.generate(chosen_action, 'agt')
-      agent_action['slot_action']['nl'] = user_response
+      agent_response = self.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = agent_response
     elif agent_action['slot_value_action']:
       agent_action['slot_value_action']['nl'] = ""
       chosen_action = agent_action['slot_value_action']
-      user_response = self.text_generator.generate(chosen_action, 'agt')
-      agent_action['slot_action']['nl'] = user_response
+      agent_response = self.text_generator.generate(chosen_action, 'agt')
+      agent_action['slot_action']['nl'] = agent_response
 
 class BaseTextGenerator(BaseModule):
   def __init__(self, args, model):

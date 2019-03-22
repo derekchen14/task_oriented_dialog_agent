@@ -539,7 +539,7 @@ class CommandLineUser(BaseUser):
         self.error_checking(idx, act, slot, value)
 
       self.user_action["dialogue_act"] = act
-      self.user_action["nl"] = command_line_input
+      self.user_action["nl"] = cleaned
 
   def error_checking(self, idx, act, slot, value):
     if idx < 0:
