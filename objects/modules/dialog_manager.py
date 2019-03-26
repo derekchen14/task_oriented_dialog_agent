@@ -16,7 +16,7 @@ class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
   def __init__(self, args, sub_module, user_sim, world_model, real_user,
-          act_set, slot_set, movie_dictionary):
+          turk_user, act_set, slot_set, movie_dictionary):
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
@@ -24,6 +24,7 @@ class DialogManager:
     self.user_sim = user_sim
     self.world_model = world_model
     self.real_user = real_user
+    self.turk_user = turk_user
 
     self.act_set = act_set
     self.slot_set = slot_set
@@ -41,34 +42,30 @@ class DialogManager:
     """ Refresh state for new dialog """
     self.reward = 0
     self.episode_over = False
-
     self.state_tracker.initialize_episode()
-    self.use_world_model = False
     self.run_mode = user_type
+    self.use_world_model = False
 
     if user_type == 'rule':
       self.running_user = self.user_sim
-      self.use_world_model = False
     elif user_type == 'neural':
       self.running_user = self.world_model
       self.use_world_model = True
     elif user_type == 'command':
       self.running_user = self.real_user
-      self.use_world_model = False
     elif user_type == 'turk':
-      raise NotImplementedError
+      self.running_user = self.turk_user
 
-    self.user_action = self.running_user.initialize_episode()
+    self.running_user.initialize_episode()
+    self.model.initialize_episode()
+
+  def start_conversation(self, user_type):
+    """ User takes the first turn and updates the dialog state """
+    user_action = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
-    self.state_tracker.update(user_action=self.user_action)
-
-    # if self.run_mode < 3:
-    #   print("New episode, user goal:")
-    #   print(json.dumps(self.running_user.goal, indent=2))
-    self.print_function(self.user_action, 'user')
-
-    self.model.initialize_episode()
+    self.state_tracker.update(user_action=user_action)
+    self.print_function(user_action, 'user')
 
   def next(self, record_agent_data=True, record_user_data=True):
     """ Initiates exchange between agent and user (agent first)
@@ -120,10 +117,6 @@ class DialogManager:
         self.episode_over, self.user_action)
 
     return (self.episode_over, self.reward)
-
-  def get_goal(self):
-    full_goal = self.running_user._sample_goal()
-    return full_goal['inform_slots']
 
   def respond_to_turker(self, user_input, input_type='act'):
     # intent classification

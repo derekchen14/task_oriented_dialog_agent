@@ -162,11 +162,12 @@ class Builder(object):
         user_sim = RuleSimulator(args, ontology, goal_set)
         world_sim = NeuralSimulator(args, ontology, goal_set)
         real_user = CommandLineUser(args, ontology, goal_set)
+        turk_user = MechanicalTurkUser(args, ontology, goal_set)
 
         sub_module = NeuralPolicyManager(args, model, device,
               world_sim, movie_kb, ontology["acts"], ontology["slots"])
         module = DialogManager(args, sub_module, user_sim, world_sim, real_user,
-              ontology["acts"], ontology["slots"], movie_kb)
+              turk_user, ontology["acts"], ontology["slots"], movie_kb)
     elif model.module_type == 'belief_tracker':
       module = model
     elif model.module_type  == 'text_generator':

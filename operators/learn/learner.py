@@ -121,6 +121,7 @@ class Learner(object):
   def run_one_episode(self, monitor, simulator_type, collect_data=False):
     monitor.start_episode()
     self.module.initialize_episode(simulator_type)   # module is policy_manager
+    self.module.start_conversation(simulator_type)
 
     episode_over = False
     while not episode_over:

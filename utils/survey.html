@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<head>
+  <title>NLG Demo</title>
+  <script src="webtools/jquery-3.1.1.min.js"></script>
+  <script src="webtools/bootstrap.min.js"></script>
+  <script src="webtools/nlgWebsite.js"></script>
+  <link rel="stylesheet" href="webtools/bootstrap.min.css">
+  <link rel="stylesheet" href="webtools/style.css">
+  <link rel="shortcut icon" href="webtools/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="webtools/favicon.ico" type="image/x-icon">
+</head>
+
+<body>
+  <div class="container">
+    <div class="page-header">
+      <h2>Final Reflection</h2>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <p>As a last step, please complete this short three question survey describing your interacting with the agent.</p>
+      </div>
+    </div>
+    <div class="row questions">
+      <div class="col-sm-6">
+        <ul>
+          <!-- Coherency -->
+          <li><p>Do you think your partner demonstrated reasonable humanlike behavior? Were they <i>coherent</i> in what they are saying and did they understood what you said?</p></li>
+          <form id="q1">
+              <p style="float:left;">Not at all</p>
+              <input type="range" id="coherency" min="1" max="5">
+              <p style="float:right;">Definitely</p>
+          </form>
+
+          <!-- Comprehension -->
+          <li><p>How well was your partner able to understand you?  Was it able to comprehend what you said?</p></li>
+          <form id="q2">
+              <p style="float:left;">Not at all</p>
+              <input type="range" id="comprehension" min="1" max="5">
+              <p style="float:right;">Asked the right questions</p>
+<!--               Asked irrelevant questions
+              Asked questions that were already answered
+              Didn't ask enough questions
+              Asked the right amount of questions
+ -->          </form>
+
+          <!-- Conciseness -->
+          <li><p>Was your partner <i>concise</i>?  Did your partner talk too much or repeat itself?</p></li>
+        </ul>
+        <form id="q3">
+            <p style="float:left;">Not at all</p>
+            <input type="range" id="conciseness" min="1" max="5">
+            <p style="float:right;">Talked too much</p>
+        </form>
+
+        <div class="q_4">
+          <p style="text-align:center;">(optional) Please add any comments/feedback related to the dialogue below. (for e.g., comments on how we can improve this platform, why you made the above ratings, etc.)</p>
+          <form id="freeform">
+          <textarea id="comments" cols="100" rows="5"></textarea>
+          </form>
+        </div>
+
+
+
+      </div>
+    </div>
+  </div>
+</bod>

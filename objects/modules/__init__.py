@@ -4,4 +4,5 @@ from objects.modules.text_generator import RuleTextGenerator, NeuralTextGenerato
 from objects.modules.kb_operator import KBHelper
 from objects.modules.dialog_manager import DialogManager
 from objects.modules.user import RuleSimulator, NeuralSimulator, CommandLineUser
+from objects.modules.user import MechanicalTurkUser
 

@@ -3,12 +3,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import parse_qs, parse_qsl, urlparse
 import os, re
-
-routes = {
-  "/" : "hiya World",
-  "/goodbye" : "Wrap it up!",
-  "/favicon.ico": "some other thing"
-}
+import json
 
 class ToyModel(object):
   def __init__(self):
@@ -29,9 +24,10 @@ class Handler(SimpleHTTPRequestHandler):
     print("path: ", self.path)
     if self.path == "/goal":
       self._set_headers()
-      new_goal = self.server.agent.get_goal()
+      self.server.agent.initialize_episode(user_type='turk')
+      new_goal = self.clean_raw_goal()
       self.wfile.write(bytes(new_goal, "UTF-8"))
-    else:
+    else:  # includes index.html and survey.html
       self.path = self.server.wd+self.path
       super().do_GET()
 
@@ -68,3 +64,19 @@ class Handler(SimpleHTTPRequestHandler):
 
     parsed['turn_count'] = 2
     return parsed
+
+  def clean_raw_goal(self):
+    to_readable = {
+      "starttime" : "Start time",
+      "numberofpeople": "Number of people",
+      "moviename": "Movie name" }
+
+    raw_goal = self.server.agent.running_user.goal
+    cleaned = ""
+    for want, value in raw_goal['inform_slots'].items():
+      readable = to_readable[want] if want in to_readable.keys() else want.title()
+      cleaned += readable + " is "
+      cleaned += str(value).title() + ", "
+
+    print(cleaned[:-2])
+    return cleaned[:-2]
