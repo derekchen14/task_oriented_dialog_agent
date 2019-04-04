@@ -33,7 +33,7 @@ class Learner(object):
 
     train_data = self.processor.datasets['train']
     val_data = self.processor.datasets['val']
-    self.run_epochs(self.module, train_data, val_data)
+    self.run_epochs(self.module.model, train_data, val_data)
 
     self.logger.info("Done training {}".format(params.task))
     time_past(supervise_start_time)
@@ -70,7 +70,7 @@ class Learner(object):
 
     loss.backward()
     clip_gradient(model, clip=10)
-    model.optimizer.step()
+    self.module.optimizer.step()
     return loss.item()
 
   def validate(self, model, val_data, this_time=True):
@@ -145,14 +145,17 @@ class Learner(object):
       self.module.model.predict_mode = False
       self.run_one_episode(self.monitor, 'rule')
 
+      # Gather examples for world and planning together
       self.module.model.predict_mode = True
       self.module.world_model.predict_mode = True
       self.gather_data_for_user(planning_steps, episode)
 
+      # For gathering validation examples
       self.module.model.predict_mode = False
       self.module.world_model.predict_mode = False
       self.gather_data_for_agent(50, episode)
 
+      # extra boost for improving performance by filling buffer
       simulation_success_rate = self.monitor.simulation_successes[-1]
       if simulation_success_rate > self.monitor.best_success_rate:
         self.monitor.summarize_results()

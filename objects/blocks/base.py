@@ -13,8 +13,12 @@ class BaseModule(object):
     self.args = args
     self.model = model
 
+    self.opt = args.optimizer
+    self.lr = args.learning_rate
+    self.reg = args.weight_decay
+
   def init_optimizer(self, parameters=None):
-    model_params = self.parameters() if parameters is None else parameters
+    model_params = self.model.parameters() if parameters is None else parameters
 
     if self.opt == 'sgd':
       self.optimizer = optim.SGD(model_params, self.lr, weight_decay=self.reg)
@@ -128,10 +132,9 @@ class BasePolicyManager(BaseModule):
     """
     pass
 
-  def utterance_to_intent(self, agent_utterance):
+  def utterance_to_intent(self, user_utterance):
     """ Returns the predicted intent state given the raw utterance """
-    chosen_action = agent_action['slot_action']
-    agent_response = self.text_generator.generate(chosen_action, 'agt')
+    predicted_intent = self.belief_tracker.track(user_utterance)
     agent_action['slot_action']['nl'] = agent_response
 
   def state_to_action(self, state, available_actions):
