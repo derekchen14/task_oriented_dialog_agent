@@ -1,8 +1,8 @@
-python run.py --task end_to_end --model ddq --max-turn 40 -e 500 \
+python run.py --task end_to_end --model ddq --max-turn 40 -e 7 \
     --epsilon 0.0 --hidden-dim 80 --batch-size 16 --seed 14 --warm-start \
     --user simulate --metrics success_rate avg_reward --dataset ddq/movies \
     --learning-rate 1e-3 --optimizer rmsprop --weight-decay 0.0 \
-    --pool-size 5000 --prefix Mar_15_unittest_ --suffix _14 --verbose
+    --pool-size 5000 --prefix Mar_26_unittest_ --suffix _14 --verbose
     # --early-stop success_rate --use-existing --report-qual
 
 # python run.py --task end_to_end --model ddq --max-turn 40 -e 500 \

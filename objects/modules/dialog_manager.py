@@ -16,7 +16,7 @@ class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
   def __init__(self, args, sub_module, user_sim, world_model, real_user,
-          act_set, slot_set, movie_dictionary):
+          turk_user, act_set, slot_set, movie_dictionary):
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
@@ -24,6 +24,7 @@ class DialogManager:
     self.user_sim = user_sim
     self.world_model = world_model
     self.real_user = real_user
+    self.turk_user = turk_user
 
     self.act_set = act_set
     self.slot_set = slot_set
@@ -41,34 +42,30 @@ class DialogManager:
     """ Refresh state for new dialog """
     self.reward = 0
     self.episode_over = False
-
     self.state_tracker.initialize_episode()
-    self.use_world_model = False
     self.run_mode = user_type
+    self.use_world_model = False
 
     if user_type == 'rule':
       self.running_user = self.user_sim
-      self.use_world_model = False
     elif user_type == 'neural':
       self.running_user = self.world_model
       self.use_world_model = True
     elif user_type == 'command':
       self.running_user = self.real_user
-      self.use_world_model = False
     elif user_type == 'turk':
-      raise NotImplementedError
+      self.running_user = self.turk_user
 
-    self.user_action = self.running_user.initialize_episode()
+    self.running_user.initialize_episode()
+    self.model.initialize_episode()
+
+  def start_conversation(self, user_type):
+    """ User takes the first turn and updates the dialog state """
+    user_action = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
-    self.state_tracker.update(user_action=self.user_action)
-
-    # if self.run_mode < 3:
-    #   print("New episode, user goal:")
-    #   print(json.dumps(self.running_user.goal, indent=2))
-    self.print_function(self.user_action, 'user')
-
-    self.model.initialize_episode()
+    self.state_tracker.update(user_action=user_action)
+    self.print_function(user_action, 'user')
 
   def next(self, record_agent_data=True, record_user_data=True):
     """ Initiates exchange between agent and user (agent first)
@@ -86,7 +83,7 @@ class DialogManager:
     model_action = self.model.state_to_action(self.agent_state)
     #   Register AGENT action with the state_tracker
     self.state_tracker.update(agent_action=model_action)
-    self.state_user = self.state_tracker.get_state_for_user()
+    self.user_state = self.state_tracker.get_state_for_user()
 
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     self.print_function(model_action['slot_action'], 'agent')
@@ -95,10 +92,14 @@ class DialogManager:
     self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
     if self.use_world_model:
       self.user_action, self.episode_over, self.reward = self.running_user.next(
-              self.state_user, model_action)
+              self.user_state, model_action)
     else:
       self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
       self.reward = self.model.reward_function(dialog_status)
+    """ Uncomment to use the belief tracker
+    user_utterance = self.user_action['nl']
+    pred_action = self.model.belief_tracker.classify_intent(user_utterance)
+    self.user_action = pred_action """
 
     #   Update state tracker with latest user action
     if self.episode_over != True:
@@ -115,14 +116,47 @@ class DialogManager:
     #  Inform world model of the outcome for this timestep
     # (s_t, a_t, s_{t+1}, r, t, ua_t)
     if record_user_data and not self.use_world_model:
-      self.world_model.store_experience(self.state_user,
+      self.world_model.store_experience(self.user_state,
         model_action['action_id'], next_agent_state, self.reward,
         self.episode_over, self.user_action)
 
     return (self.episode_over, self.reward)
 
-  def respond(self, user_input):
-    return "this is the agent output"
+  def respond_to_turker(self, raw_user_input):
+    # intent classification
+    if self.running_user.agent_input_mode == 'natural_language':
+      user_input = self.model.belief_tracker.classify_intent(raw_user_input)
+    elif self.running_user.agent_input_mode == 'dialogue_act':
+      user_input = self.parse_raw_input(raw_user_input)
+    print(json.dumps(user_input, indent=2))
+    self.state_tracker.update(user_action=user_input)
+    # policy management
+    self.agent_state = self.state_tracker.get_state_for_agent()
+    model_action = self.model.state_to_action(self.agent_state)
+    self.state_tracker.update(agent_action=model_action)
+    # text generation
+    self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
+    agent_response = model_action['slot_action']['nl']
+    return agent_response
+
+  def parse_raw_input(self, raw):
+    parsed = {'inform_slots':{}, 'request_slots':{}}
+    cleaned = raw.strip(' ').strip('\n').strip('\r')
+    intents = cleaned.lower().split(',')
+    for intent in intents:
+      idx = intent.find('(')
+      act = intent[0:idx]
+      if re.search(r'thanks?', act):
+        self.finish_episode = True
+      else:
+        slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
+        parsed["{}_slots".format(act)][slot] = value
+
+      parsed["dialogue_act"] = act
+      parsed["nl"] = cleaned
+
+    parsed['turn_count'] = 2
+    return parsed
 
   def save_performance_records(self, monitor):
     episode = monitor.num_episodes

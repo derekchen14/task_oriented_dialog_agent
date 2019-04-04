@@ -14,7 +14,9 @@
   <div class="container">
     <div class="page-header">
       <h1>Clarification Dialogue Agent</h1>
-      <h2><small>Find a movie ticket based on the criteria:</small></h2>
+      <h2><small>Find a movie ticket based on the criteria:
+        <div id="goal">Number of People is four, Movie name is Deadpool</div>
+      </small></h2>
     </div>
 <!--     <div class="row">
       <div class="col-sm-12">
@@ -28,6 +30,13 @@
     <hr> -->
     <div class="row">
       <div class="col-sm-6">
+        <p>The system expects a properly written user intent of the form
+        <code>act(slot=value)</code> such as <code>inform(city=los angeles)</code>.  Multiple intents can be included by joining them with a comma. Spaces will be removed.
+        </p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
         <div id="history"></div>
       </div>
     </div>
@@ -36,6 +45,12 @@
         <textarea id="inputfield" rows="2" cols="80" style="color: grey;font-style: italic;">Enter your text here.</textarea>
         <br>
         <button class="btn btn-primary" onclick="getResponse()">Submit</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <button class="conversation btn btn-default btn-sm" onclick="newConversation()">
+            New Conversation</button>
       </div>
     </div>
   </div>

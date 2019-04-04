@@ -141,13 +141,14 @@ class Evaluator(object):
         plt.show()
       plt.close()
 
-  def start_conversation(self, user_type, num_epochs):
+  def start_talking(self, user_type, num_epochs):
     self.episode_counter = 0
     self.max_episodes = num_epochs
 
     while not self.done_talking(user_type):
       turn_count = 0
       self.agent.initialize_episode(user_type)
+      self.agent.start_conversation(user_type)
 
       episode_over = False
       while not episode_over:
@@ -179,20 +180,14 @@ class Evaluator(object):
       return False
 
   def start_server(self, root_dir):
+    """ Server will run on port 1414 from index.html
+    It will chat with the user until user decides to end.  Then the
+    user will be redirected to survey page, which stores records in CSV.
+    For more details see operators/evaluate/server.py """
     ip_address = ('0.0.0.0', 1414)
     httpd = HTTPServer(ip_address, Handler)
     httpd.agent = self.agent
     httpd.wd = os.path.relpath(os.path.join(root_dir, 'utils'))
-
     print("Listening at", ip_address)
     httpd.serve_forever()
 
-    # initialize turk user
-    # initialize agent
-    # // create database  <OR>  create pandas dataframe
-    # // start server
-    #    while not done_talking(state):
-    #     goal = select_goal()
-    #     run_conversation(goal)
-
-    # // show survey

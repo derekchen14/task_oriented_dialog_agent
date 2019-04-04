@@ -61,7 +61,7 @@ class NeuralBeliefTracker(BaseBeliefTracker):
     self.eval()
     predictions = []
     for batch in data.batch(self.batch_size):
-      loss, scores = self.forward(batch)
+      loss, scores = self.model(batch)
       predictions += self.extract_predictions(scores)
     return predictions
 

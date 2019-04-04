@@ -9,10 +9,14 @@ from objects.components import device
 # the GlobalLocalModel model described in https://arxiv.org/abs/1805.09655.
 class GLAD(nn.Module):
   def __init__(self, args, ontology, vocab, Eword, GLADEncoder):
-    super().__init__(args)
+    super().__init__()
     self.optimizer = None
     self.model_type = "glad"
     self.attend = Attention()
+
+    self.demb = args.embedding_size    # aka embedding dimension
+    self.dhid = args.hidden_dim       # aka hidden state dimension
+    dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
 
     self.vocab = vocab
     self.ontology = ontology
@@ -21,9 +25,6 @@ class GLAD(nn.Module):
     else:
       self.embedding = nn.Embedding(len(vocab), self.demb)  # (num_embeddings, embedding_dim)
 
-    self.demb = args.embedding_size    # aka embedding dimension
-    self.dhid = args.hidden_dim       # aka hidden state dimension
-    dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
 
     self.utt_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.act_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
