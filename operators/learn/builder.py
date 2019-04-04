@@ -135,7 +135,6 @@ class Builder(object):
       return model  # hack since this one is not a Pytorch Model
     elif model_type == 'policy_manager':
       model = DQN(input_size, self.dhid, output_size)
-      model.module_type = model_type
     elif model_type == 'text_generator':
       results_dir = os.path.join("results", self.args.task, self.args.dataset)
       model = NLG(self.loader, results_dir)
@@ -144,6 +143,7 @@ class Builder(object):
       model.module_type = model_type
       return model  # hack since this one is not a Pytorch Model
 
+    model.module_type = model_type
     return model.to(device)
 
   def configure_module(self, args, model):
@@ -172,8 +172,7 @@ class Builder(object):
       module = model
     elif model.module_type  == 'text_generator':
       module = model
-    else:
-      print("this is the GLAD path")
+    elif model.module_type == 'glad':
       module = NeuralBeliefTracker(args, model)
 
     module.dir = self.dir

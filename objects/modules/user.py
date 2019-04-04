@@ -32,6 +32,7 @@ class BaseUser(object):
     self.intent_err_probability = 0.0
     self.simulator_act_level = 0
     self.simulator_run_mode = dialog_config.run_mode
+    self.agent_input_mode =  "natural_language" # "dialogue_act"
 
     self.nlu_model = None
     self.nlg_model = None
@@ -89,7 +90,7 @@ class CommandLineUser(BaseUser):
   def __init__(self, args, ontology, goal_set):
     super().__init__(args, ontology, goal_set)
     self.learning_phase = "train"
-    self.agent_input_mode =  "dialogue_act" # "raw_text"
+    self.agent_input_mode =  "natural_language" # "dialogue_act"
 
   def initialize_episode(self):
     self.state = {
@@ -106,7 +107,7 @@ class CommandLineUser(BaseUser):
 
   def take_first_turn(self):
     super().take_first_turn()
-    if self.agent_input_mode == "raw_text":
+    if self.agent_input_mode == "natural_language":
       print("Your input will be raw text so the system expects the dialogue \
         model to include a NLU module for intent classification")
     elif self.agent_input_mode == "dialogue_act":
@@ -117,7 +118,7 @@ class CommandLineUser(BaseUser):
     print("Your constraints: {}".format(self.goal['inform_slots']))
 
     command_line_input = input("{}) user: ".format(self.turn_count))
-    if self.agent_input_mode == "raw_text":
+    if self.agent_input_mode == "natural_language":
       self.user_action['nl'] = command_line_input
     elif self.agent_input_mode == "dialogue_act":
       self.parse_intent(command_line_input)
@@ -139,12 +140,13 @@ class CommandLineUser(BaseUser):
       dialog_status = dialog_config.NO_OUTCOME_YET
 
     command_line_input = input("{}) user: ".format(self.turn_count))
-    if self.agent_input_mode == "raw_text":
+    if self.agent_input_mode == "natural_language":
       self.user_action['nl'] = command_line_input
     elif self.agent_input_mode == "dialogue_act":
       self.parse_intent(command_line_input)
     self.user_action['turn_count'] = self.turn_count
 
+    print("From next", self.user_action['nl'])
     return self.user_action, episode_over, dialog_status
 
   def determine_success(self, agent_action):
@@ -641,6 +643,7 @@ class NeuralSimulator(BaseUser):
     self.state_dimension = 2 * self.act_cardinality + 9 * self.slot_cardinality + 3 + self.max_turn
     self.experience_replay_pool_size = params.pool_size
 
+    self.agent_input_mode = "dialogue_act"
     self.hidden_size = params.hidden_dim
     self.training_examples = deque(maxlen=self.experience_replay_pool_size)
     self.predict_model = True

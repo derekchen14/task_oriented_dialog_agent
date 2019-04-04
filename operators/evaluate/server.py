@@ -9,7 +9,7 @@ class ToyModel(object):
   def __init__(self):
     print("this is just a stub model for testing")
 
-  def respond(self, user_input):
+  def respond_to_turker(self, user_input):
     return "This is a server output!"
 
 class Handler(SimpleHTTPRequestHandler):
@@ -37,33 +37,10 @@ class Handler(SimpleHTTPRequestHandler):
     inputText = params["inputText"][0]
     raw_user_input = inputText.replace("|||","\n").strip()
     # print('raw_user_input', raw_user_input)
-    user_input = self.parse_raw_input(raw_user_input)
-    response = self.server.agent.respond_to_turker(user_input)
+    response = self.server.agent.respond_to_turker(raw_user_input)
     # print('agent_response', response)
     self._set_headers()
     self.wfile.write(response.encode())
-
-  def parse_raw_input(self, raw):
-    parsed = {'inform_slots':{}, 'request_slots':{}}
-    cleaned = raw.strip(' ').strip('\n').strip('\r')
-    intents = cleaned.lower().split(',')
-    for intent in intents:
-      idx = intent.find('(')
-      act = intent[0:idx]
-      if re.search(r'thanks?', act):
-        self.finish_episode = True
-      else:
-        # print("---------")
-        # print(intent)
-        slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
-        parsed["{}_slots".format(act)][slot] = value
-
-
-      parsed["dialogue_act"] = act
-      parsed["nl"] = cleaned
-
-    parsed['turn_count'] = 2
-    return parsed
 
   def clean_raw_goal(self):
     to_readable = {

@@ -83,7 +83,7 @@ class DialogManager:
     model_action = self.model.state_to_action(self.agent_state)
     #   Register AGENT action with the state_tracker
     self.state_tracker.update(agent_action=model_action)
-    self.state_user = self.state_tracker.get_state_for_user()
+    self.user_state = self.state_tracker.get_state_for_user()
 
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     self.print_function(model_action['slot_action'], 'agent')
@@ -92,10 +92,14 @@ class DialogManager:
     self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
     if self.use_world_model:
       self.user_action, self.episode_over, self.reward = self.running_user.next(
-              self.state_user, model_action)
+              self.user_state, model_action)
     else:
       self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
       self.reward = self.model.reward_function(dialog_status)
+    """ Uncomment to use the belief tracker
+    user_utterance = self.user_action['nl']
+    pred_action = self.model.belief_tracker.classify_intent(user_utterance)
+    self.user_action = pred_action """
 
     #   Update state tracker with latest user action
     if self.episode_over != True:
@@ -112,16 +116,19 @@ class DialogManager:
     #  Inform world model of the outcome for this timestep
     # (s_t, a_t, s_{t+1}, r, t, ua_t)
     if record_user_data and not self.use_world_model:
-      self.world_model.store_experience(self.state_user,
+      self.world_model.store_experience(self.user_state,
         model_action['action_id'], next_agent_state, self.reward,
         self.episode_over, self.user_action)
 
     return (self.episode_over, self.reward)
 
-  def respond_to_turker(self, user_input, input_type='act'):
+  def respond_to_turker(self, raw_user_input):
     # intent classification
-    if input_type == 'nl':
-      user_action = self.model.belief_tracker(user_input)
+    if self.running_user.agent_input_mode == 'natural_language':
+      user_input = self.model.belief_tracker.classify_intent(raw_user_input)
+    elif self.running_user.agent_input_mode == 'dialogue_act':
+      user_input = self.parse_raw_input(raw_user_input)
+    print(json.dumps(user_input, indent=2))
     self.state_tracker.update(user_action=user_input)
     # policy management
     self.agent_state = self.state_tracker.get_state_for_agent()
@@ -131,6 +138,25 @@ class DialogManager:
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     agent_response = model_action['slot_action']['nl']
     return agent_response
+
+  def parse_raw_input(self, raw):
+    parsed = {'inform_slots':{}, 'request_slots':{}}
+    cleaned = raw.strip(' ').strip('\n').strip('\r')
+    intents = cleaned.lower().split(',')
+    for intent in intents:
+      idx = intent.find('(')
+      act = intent[0:idx]
+      if re.search(r'thanks?', act):
+        self.finish_episode = True
+      else:
+        slot, value = intent[idx+1:-1].split("=") # -1 is to skip the closing ')'
+        parsed["{}_slots".format(act)][slot] = value
+
+      parsed["dialogue_act"] = act
+      parsed["nl"] = cleaned
+
+    parsed['turn_count'] = 2
+    return parsed
 
   def save_performance_records(self, monitor):
     episode = monitor.num_episodes

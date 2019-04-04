@@ -96,7 +96,6 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
-
     user_action = state['user_action']
     current_slots = state['current_slots']
     kb_results_dict = state['kb_results_dict']

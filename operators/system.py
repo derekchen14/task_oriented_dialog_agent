@@ -9,8 +9,8 @@ class SingleSystem(object):
     self.monitor = LossMonitor(args.threshold, args.metrics, args.early_stop)
 
     model = builder.get_model(processor, self.monitor)
-    model.save_config(args, builder.dir)
-    self.module = builder.configure_module(args, model, loader)
+    self.module = builder.configure_module(args, model)
+    self.module.save_config(args, builder.dir)
     if not args.test_mode:
       self.learner = Learner(args, self.module, processor, self.monitor)
 
@@ -58,7 +58,7 @@ class EndToEndSystem(object):
     self.evaluator.monitor = self.monitor
     if test_mode:
       if self.args.user in ['command', 'simulate']:
-        self.evaluator.start_conversation(self.args.user, self.args.epochs)
+        self.evaluator.start_talking(self.args.user, self.args.epochs)
       elif self.args.user == 'turk':
         import os
         root_dir = os.path.join(os.path.dirname(__file__), os.pardir)
