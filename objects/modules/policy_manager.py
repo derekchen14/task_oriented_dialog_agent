@@ -23,13 +23,13 @@ class RulePolicyManager(BasePolicyManager):
           monitor.avg_reward, monitor.avg_turn))
 
 class NeuralPolicyManager(BasePolicyManager):
-  def __init__(self, args, model, device, planner, movie_dict=None, act_set=None, slot_set=None):
+  def __init__(self, args, model, device, planner, ontology, movie_dict=None):
     super().__init__(args, model)
     self.movie_dict = movie_dict
-    self.act_set = act_set
-    self.slot_set = slot_set
-    self.act_cardinality = len(act_set.keys())
-    self.slot_cardinality = len(slot_set.keys())
+    self.act_set = {act: i for i, act in enumerate(ontology.acts)}
+    self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
+    self.act_cardinality = len(self.act_set)
+    self.slot_cardinality = len(self.slot_set)
 
     self.feasible_actions = dialog_config.feasible_actions
     self.num_actions = len(self.feasible_actions)
@@ -101,51 +101,37 @@ class NeuralPolicyManager(BasePolicyManager):
     kb_results_dict = state['kb_results_dict']
     agent_last = state['agent_action']
 
-    ########################################################################
     #   Create one-hot of acts to represent the current user action
-    ########################################################################
     user_act_rep = np.zeros((1, self.act_cardinality))
     user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
 
-    ########################################################################
     #     Create bag of inform slots representation to represent the current user action
-    ########################################################################
     user_inform_slots_rep = np.zeros((1, self.slot_cardinality))
     for slot in user_action['inform_slots'].keys():
       user_inform_slots_rep[0, self.slot_set[slot]] = 1.0
 
-    ########################################################################
     #   Create bag of request slots representation to represent the current user action
-    ########################################################################
     user_request_slots_rep = np.zeros((1, self.slot_cardinality))
     for slot in user_action['request_slots'].keys():
       user_request_slots_rep[0, self.slot_set[slot]] = 1.0
 
-    ########################################################################
     #   Creat bag of filled_in slots based on the current_slots
-    ########################################################################
     current_slots_rep = np.zeros((1, self.slot_cardinality))
     for slot in current_slots['inform_slots']:
       current_slots_rep[0, self.slot_set[slot]] = 1.0
 
-    ########################################################################
     #   Encode last agent act
-    ########################################################################
     agent_act_rep = np.zeros((1, self.act_cardinality))
     if agent_last:
       agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
 
-    ########################################################################
     #   Encode last agent inform slots
-    ########################################################################
     agent_inform_slots_rep = np.zeros((1, self.slot_cardinality))
     if agent_last:
       for slot in agent_last['inform_slots'].keys():
         agent_inform_slots_rep[0, self.slot_set[slot]] = 1.0
 
-    ########################################################################
     #   Encode last agent request slots
-    ########################################################################
     agent_request_slots_rep = np.zeros((1, self.slot_cardinality))
     if agent_last:
       for slot in agent_last['request_slots'].keys():
@@ -167,8 +153,9 @@ class NeuralPolicyManager(BasePolicyManager):
     kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
 
     self.final_representation = np.hstack(
-      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, agent_act_rep, agent_inform_slots_rep,
-       agent_request_slots_rep, current_slots_rep, turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep])
+      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, agent_act_rep,
+        agent_inform_slots_rep, agent_request_slots_rep, current_slots_rep,
+        turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep])
     return self.final_representation
 
   def run_policy(self, representation):

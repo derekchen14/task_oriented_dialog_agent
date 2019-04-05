@@ -35,7 +35,7 @@ class MonitorBase(object):
     self.logger.addHandler(console_handler)
 
 class LossMonitor(MonitorBase):
-  def __init__(self, threshold, metrics, early_stop):
+  def __init__(self, metrics, threshold, early_stop):
     self.completed_training = True
     if threshold > 0.0:
       self._prepare_early_stop(threshold)

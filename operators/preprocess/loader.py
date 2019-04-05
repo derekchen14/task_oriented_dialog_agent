@@ -20,23 +20,15 @@ class DataLoader(object):
     if args.pretrained:
       self.embeddings = json.load(self.path('embeddings.json'))
 
-    if self.task == "track_intent":
+    self.ontology = Ontology.from_path(self.data_dir)
+    if self.task == 'track_intent':
       self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
-      self.ontology = Ontology.from_dict(json.load(self.path('ontology.json')))
-    elif self.task == "manage_policy":
+    elif self.task == 'manage_policy':
       self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
-      self.ontology = Ontology.from_path(self.data_dir)
       self.vocab = Vocabulary(args, self.data_dir)
+      self.ontology.slots = self.text_data('slot_set')  # force special slots
     elif self.task == 'end_to_end':
       self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
-      # self.ontology = Ontology.from_path(self.data_dir)
-      self.ontology = {
-        "acts": self.text_data('dia_acts'),
-        "slots": self.text_data('slot_set'),
-        "relations": [],
-        "values": self.json_data('dicts.v3')
-      }
-      Ontology.from_path(self.data_dir)
       self.vocab = Vocabulary(args, self.data_dir)
 
     self.load_datasets()

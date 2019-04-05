@@ -21,10 +21,10 @@ class BaseUser(object):
     self.verbose = args.verbose
     self.learning_phase = 'all'  # vs. train and test
 
-    self.act_set = ontology['acts']
-    self.slot_set = ontology['slots']
-    self.relation_set = ontology['relations']
-    self.value_set = ontology['values']
+    self.act_set = {act: i for i, act in enumerate(ontology.acts)}
+    self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
+    self.relation_set = ontology.relations
+    self.value_set = ontology.values
     self.goal_set = goal_set
 
     self.slot_err_probability = 0.0

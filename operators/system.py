@@ -6,7 +6,10 @@ class SingleSystem(object):
     self.args = args
     self.task = args.task
     self.evaluator = evaluator
-    self.monitor = LossMonitor(args.threshold, args.metrics, args.early_stop)
+    if self.args.task == 'track_intent':
+      self.monitor = LossMonitor(args.metrics, args.threshold, args.early_stop)
+    elif self.args.task == 'manage_policy':
+      self.monitor = RewardMonitor(args.metrics, args.threshold)
 
     model = builder.get_model(processor, self.monitor)
     self.module = builder.configure_module(args, model)

@@ -34,9 +34,16 @@ class Ontology:
 
   @classmethod
   def from_path(cls, path):
-    data = {
-      "acts": json.load(open(os.path.join(path, "act_set.json"), "r")),
-      "slots": json.load(open(os.path.join(path, "slot_set.json"), "r")),
-      "values": pkl.load(open(os.path.join(path, "value_set.p"), "rb"), encoding="latin1")
-    }
+    ont = json.load(open(os.path.join(path, "ontology.json"), "r"))
+
+    data = {}
+    data['acts'] = ont['dialogue_acts']
+    data['slots'] = list(ont['slot_values'].keys())
+    data['values'] = ont['slot_values']
+
+    if 'relations' in ont.keys():
+      data['relations'] = ont['relations']
+    if 'vectorized' in ont.keys():
+      data['num'] = ont['vectorized']
+
     return cls(**data)

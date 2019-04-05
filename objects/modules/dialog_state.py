@@ -32,7 +32,7 @@ class DialogState:
   """
 
   # def __init__(self, knowledge_base, ontology):
-  def __init__(self, act_set, slot_set, movie_kb):
+  def __init__(self, ontology, movie_kb):
     self.movie_kb = movie_kb
     self.initialize_episode()
     self.history_vectors = None
@@ -42,6 +42,11 @@ class DialogState:
     self.kb_result_dimension = 10   # TODO  REPLACE WITH REAL VALUE
     self.turn_count = 0
     self.kb_helper = KBHelper(movie_kb)
+
+    self.act_set = ontology.acts
+    self.slot_set = ontology.slots
+    self.relation_set = ontology.relations
+    self.value_set = ontology.values
 
     """ constructor for statetracker takes movie knowledge base and initializes a new episode
 
@@ -57,10 +62,7 @@ class DialogState:
     action_dimension        --  # TODO indicates the dimensionality of the vector representaiton of the action
     kb_result_dimension     --  A single integer denoting the dimension of the kb_results features.
     turn_count              --  A running count of which turn we are at in the present dialog
-    self.act_set = ontology.acts
-    self.slot_set = ontology.slots
-    self.relation_set = ontology.relations
-    self.value_set = ontology.values
+
 
     self.initialize_episode()
     self.history_vectors = None

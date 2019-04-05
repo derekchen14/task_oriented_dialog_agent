@@ -99,17 +99,9 @@ class Builder(object):
       ff_network = dec.FF_Network(self.dhid, output_size, model_type)
       model = BasicClassifer(encoder, ff_network, self.args)
       model = self.add_loss_function(model, "negative_log_likelihood")
-    elif model_type == "glad":
-      model = GLAD(self.args, self.loader.ontology,
-                    self.loader.vocab, self.embeddings, enc.GLAD_Encoder)
-      model = self.add_loss_function(model, "binary_cross_entropy")
     elif model_type == "rulebased":
       model = HackPolicy(processor.ontology)
       mmodel_type = model_type
-    elif model_type == "attention":
-      encoder = enc.GRU_Encoder(input_size, self.args)
-      decoder = dec.Attn_Decoder(output_size, self.args)
-      model = Seq2Seq(encoder, decoder)
     elif model_type == "copy":
       encoder = enc.Match_Encoder(input_size, self.dhid)
       decoder = dec.Copy_Without_Attn_Decoder(output_size, self.args)
@@ -128,26 +120,27 @@ class Builder(object):
       encoder = enc.Transformer_Encoder(input_size, self.args)
       decoder = dec.Transformer_Decoder(output_size, self.args)
       model = Seq2Seq(encoder, decoder)
-    elif model_type == 'belief_tracker':
-      results_dir = os.path.join("results", self.args.task, self.args.dataset)
-      model = NLU(self.loader, results_dir)
-      model.module_type = model_type
-      return model  # hack since this one is not a Pytorch Model
-    elif model_type == 'policy_manager':
+    elif model_type == "glad":
+      model = GLAD(self.args, self.loader.ontology,
+                    self.loader.vocab, self.embeddings, enc.GLAD_Encoder)
+      model = self.add_loss_function(model, "binary_cross_entropy")
+      model.module_type = 'belief_tracker'
+    elif model_type == 'ddq':
       model = DQN(input_size, self.dhid, output_size)
-    elif model_type == 'text_generator':
-      results_dir = os.path.join("results", self.args.task, self.args.dataset)
-      model = NLG(self.loader, results_dir)
-      nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
-      model.load_predefine_act_nl_pairs(nl_pairs)
-      model.module_type = model_type
-      return model  # hack since this one is not a Pytorch Model
+      model.module_type = 'policy_manager'
+    elif model_type == "attention":
+      encoder = enc.GRU_Encoder(input_size, self.args)
+      decoder = dec.Attn_Decoder(output_size, self.args)
+      model = Seq2Seq(encoder, decoder)
+      model.module_type = 'text_generator'
 
-    model.module_type = model_type
     return model.to(device)
 
   def configure_module(self, args, model):
-    if model.module_type == 'policy_manager':
+    if model.module_type == 'belief_tracker':
+      module = NeuralBeliefTracker(args, model)
+
+    elif model.module_type == 'policy_manager':
       kb, ontology = self.loader.kb, self.loader.ontology
       if args.model == 'rulebased':
         module = RulebasedPolicyManager(args, model, kb, ontology)
@@ -157,23 +150,37 @@ class Builder(object):
       elif args.model == 'ddq':
         movie_kb = self.loader.json_data('movie_kb.1k')
         goal_set = self.loader.json_data('goal_set_v2')
-        ontology = self.loader.ontology
 
         user_sim = RuleSimulator(args, ontology, goal_set)
         world_sim = NeuralSimulator(args, ontology, goal_set)
         real_user = CommandLineUser(args, ontology, goal_set)
         turk_user = MechanicalTurkUser(args, ontology, goal_set)
+        model = NeuralPolicyManager(args, model, device,
+              world_sim, ontology, movie_kb)
 
-        sub_module = NeuralPolicyManager(args, model, device,
-              world_sim, movie_kb, ontology["acts"], ontology["slots"])
-        module = DialogManager(args, sub_module, user_sim, world_sim, real_user,
-              turk_user, ontology["acts"], ontology["slots"], movie_kb)
-    elif model.module_type == 'belief_tracker':
+        results_dir = os.path.join("results", self.args.task, self.args.dataset)
+        nlu_model = NLU(self.loader, results_dir)
+        nlu_model.load_nlu_model('nlu_1468447442')
+
+        nlg_model = NLG(self.loader, results_dir)
+        nlg_model.load_nlg_model('nlg_1468202263')
+        nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
+        nlg_model.load_predefine_act_nl_pairs(nl_pairs)
+
+        model.belief_tracker = nlu_model
+        user_sim.nlu_model = nlu_model
+        world_sim.nlu_model = nlu_model
+
+        model.text_generator = nlg_model
+        user_sim.nlg_model = nlg_model
+        world_sim.nlg_model = nlg_model
+
+        module = DialogManager(args, model, user_sim, world_sim, real_user,
+              turk_user, ontology, movie_kb)
+
+
+    elif model.module_type == 'text_generator':
       module = model
-    elif model.module_type  == 'text_generator':
-      module = model
-    elif model.module_type == 'glad':
-      module = NeuralBeliefTracker(args, model)
 
     module.dir = self.dir
     return module

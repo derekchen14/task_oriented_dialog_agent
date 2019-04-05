@@ -16,7 +16,7 @@ class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
   def __init__(self, args, sub_module, user_sim, world_model, real_user,
-          turk_user, act_set, slot_set, movie_dictionary):
+          turk_user, ontology, movie_dictionary):
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
@@ -26,9 +26,9 @@ class DialogManager:
     self.real_user = real_user
     self.turk_user = turk_user
 
-    self.act_set = act_set
-    self.slot_set = slot_set
-    self.state_tracker = DialogState(act_set, slot_set, movie_dictionary)
+    self.act_set = ontology.acts
+    self.slot_set = ontology.slots
+    self.state_tracker = DialogState(ontology, movie_dictionary)
     self.user_action = None
     self.reward = 0
     self.episode_over = False
@@ -168,6 +168,10 @@ class DialogManager:
       'avg_true_success': monitor.success_rate }
     json.dump(records, open(filepath, "w"))
     print('Saved performance records at {}'.format(filepath))
+
+  def save_config(self, args, directory):
+    # just pass the data onto the policy module for the real heavy lifting
+    self.model.save_config(args, directory)
 
   def print_function(self, action_dict, kind):
     if self.run_mode == "command" and kind == "agent":
