@@ -13,6 +13,7 @@ class BaseModule(object):
     self.args = args
     self.model = model
 
+    self.batch_size = args.batch_size
     self.opt = args.optimizer
     self.lr = args.learning_rate
     self.reg = args.weight_decay
@@ -65,7 +66,7 @@ class BaseModule(object):
     print("Saved model at {}".format(filepath))
 
   def prune_saves(self, n_keep=5):
-    scores_and_files = BaseModule.get_saves(self.save_dir, self.args.early_stop)
+    scores_and_files = get_saves(self.model.save_dir, self.args.early_stop)
     if len(scores_and_files) > n_keep:
       for score, fname in scores_and_files[n_keep:]:
         os.remove(fname)

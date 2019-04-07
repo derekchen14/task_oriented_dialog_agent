@@ -45,9 +45,10 @@ class NeuralBeliefTracker(BaseBeliefTracker):
   def extract_predictions(self, scores, threshold=0.5):
     batch_size = len(list(scores.values())[0])
     predictions = [set() for i in range(batch_size)]
-    for s in self.ontology.slots:
+    ont = self.model.ontology
+    for s in ont.slots:
       for i, p in enumerate(scores[s]):
-        triggered = [(s, v, p_v) for v, p_v in zip(self.ontology.values[s], p) if p_v > threshold]
+        triggered = [(s, v, p_v) for v, p_v in zip(ont.values[s], p) if p_v > threshold]
         if s == 'request':
           # we can have multiple requests predictions
           predictions[i] |= set([(s, v) for s, v, p_v in triggered])
@@ -58,7 +59,7 @@ class NeuralBeliefTracker(BaseBeliefTracker):
     return predictions
 
   def run_glad_inference(self, data):
-    self.eval()
+    self.model.eval()
     predictions = []
     for batch in data.batch(self.batch_size):
       loss, scores = self.model(batch)
