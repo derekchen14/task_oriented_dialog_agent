@@ -6,7 +6,7 @@ def solicit_args():
   parser.add_argument('-t', '--task', default='default', type=str,
               help='overall configuration of operations and objects in system', )
   parser.add_argument('-d', '--dataset', choices=['babi', 'woz2', 'dstc2',
-              'ddq/movies', 'ddq/taxis', 'ddq/restaurants'], default='woz2',
+              'e2e/movies', 'e2e/taxis', 'e2e/restaurants'], default='woz2',
               help='Choose the data to train on, defines labels', )
   parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
               'basic', 'attention', 'transformer', 'ddq', 'bilstm', 'glad'],
@@ -63,7 +63,7 @@ def solicit_args():
               experience replay, minimum loss value we are willing to accept \
               for early stopping (with -1 to turn off), or other threshold')
   parser.add_argument('--early-stop', default='joint_goal', type=str,
-              help='slot to early stop on, used for GLAD')
+              help='slot to report metrics on, used by monitor')
 
   # --------- REINFORCEMENT LEARNING ----------
   parser.add_argument('--discount-rate', default=0.9, type=float,
