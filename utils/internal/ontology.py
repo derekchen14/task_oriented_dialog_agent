@@ -43,7 +43,7 @@ class Ontology:
 
     if 'relations' in ont.keys():
       data['relations'] = ont['relations']
-    if 'num' in ont.keys():
-      data['num'] = ont['num']
+    if 'vectorized' in ont.keys():
+      data['num'] = ont['vectorized']
 
     return cls(**data)
