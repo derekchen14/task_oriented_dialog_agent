@@ -14,6 +14,8 @@ class BaseModule(object):
     self.model = model
 
     self.batch_size = args.batch_size
+    self.save_model = args.save_model
+
     self.opt = args.optimizer
     self.lr = args.learning_rate
     self.reg = args.weight_decay
@@ -62,8 +64,9 @@ class BaseModule(object):
       'summary': monitor.summary,
       'optimizer': self.optimizer.state_dict(),
     }
-    torch.save(state, filepath)
-    print("Saved model at {}".format(filepath))
+    if self.save_model:
+      torch.save(state, filepath)
+      print("Saved model at {}".format(filepath))
 
   def prune_saves(self, n_keep=5):
     scores_and_files = get_saves(self.model.save_dir, self.args.early_stop)
