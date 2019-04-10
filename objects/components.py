@@ -13,8 +13,8 @@ import re
 from tqdm import tqdm as progress_bar
 
 use_cuda = torch.cuda.is_available()
-# device = torch.device("cuda" if use_cuda else "cpu")
-device = torch.device("cpu")
+device = torch.device("cuda" if use_cuda else "cpu")
+# device = torch.device("cpu")
 
 def var(data, dtype="float"):
   if dtype == "float":
