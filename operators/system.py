@@ -14,6 +14,9 @@ class SingleSystem(object):
     model = builder.get_model(processor, self.monitor)
     self.module = builder.configure_module(args, model)
     self.module.save_config(args, builder.dir)
+
+    if args.use_existing:
+      self.monitor.restore_from_checkpoint(model)
     if not args.test_mode:
       self.learner = Learner(args, self.module, processor, self.monitor)
 

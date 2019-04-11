@@ -169,6 +169,23 @@ class LossMonitor(MonitorBase):
         return True
     return False
 
+  def restore_from_checkpoint(self, model):
+    try:
+      past = model.existing_checkpoint['summary']
+    except:
+      print("it failed")
+      pdb.set_trace()
+
+    print("it worked")
+    pdb.set_trace()
+
+    self.epoch = past['epoch']
+    self.iteration = past['iteration']
+    # self.num_episodes += past['episode']
+    # self.rewards = [past['avg_reward'] for _ in range(past['episode'])]
+    # self.turns = [past['avg_turn'] for _ in range(past['episode'])]
+    # self.num_successes = past['best_success_rate'] * past['episode']
+
   def summarize_results(self, verbose=False):
     self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
     self.summary = self.status.copy()
@@ -223,8 +240,6 @@ class RewardMonitor(MonitorBase):
                                     early_stop_metric=self.metrics[0])
 
   def restore_from_checkpoint(self, modules):
-    # for module in modules:
-    #   if module.contains_checkpoint:
     try:
       past = modules[1].model.model.existing_checkpoint['summary']
     except:
