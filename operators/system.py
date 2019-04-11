@@ -30,7 +30,7 @@ class SingleSystem(object):
     self.evaluator.module = self.module
     self.evaluator.monitor = self.monitor
     if self.args.test_mode:
-      self.run_test()
+      pass # self.run_test()
     self.evaluator.generate_report()
 
 class EndToEndSystem(object):

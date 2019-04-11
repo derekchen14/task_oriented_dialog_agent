@@ -64,15 +64,15 @@ class Builder(object):
 
   def load_best_model(self, directory, model, model_type):
     scores_and_files = get_saves(directory, self.args.early_stop)
-    if model.module_type == 'belief_tracker':
+    if scores_and_files:
+      assert scores_and_files, 'no saves exist at {}'.format(directory)
+      score, filepath = scores_and_files[0]
+    elif model.module_type == 'belief_tracker':
       model.load_nlu_model('nlu_1468447442')
       return model
     elif model.module_type == 'text_generator':
       model.load_nlg_model('nlg_1468202263')
       return model
-    elif scores_and_files:
-      assert scores_and_files, 'no saves exist at {}'.format(directory)
-      score, filepath = scores_and_files[0]
     else:
       filename = "epoch=12_success=25.4042_recall@two=41.3395"
       filepath = os.path.join(self.save_dir, filename)

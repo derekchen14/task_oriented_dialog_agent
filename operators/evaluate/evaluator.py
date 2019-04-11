@@ -44,7 +44,7 @@ class Evaluator(object):
       self.quantitative_report()
 
   def qualitative_report(self):
-    pass
+    print("came here")
 
   # Qualitative evalution of model performance
   def qualitative_report_real(self):
