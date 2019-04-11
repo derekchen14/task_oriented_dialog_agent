@@ -43,12 +43,12 @@ class LossMonitor(MonitorBase):
     self.best = {}
     self.status = {}
 
+    self.epoch = 0
     self.metrics = metrics
     self.early_stop_metric = early_stop
 
-  def start_epoch(self, debug, epoch, logger):
+  def start_epoch(self, debug, logger):
     self.debug = debug
-    self.epoch = epoch
     self.logger = logger
     self._print_frequency(debug)
     self.epoch_start_time = tm.time()
@@ -58,7 +58,7 @@ class LossMonitor(MonitorBase):
     self.val_losses = []
 
   def end_epoch(self):
-    no_operation = 0
+    self.epoch += 1
     time_past(self.epoch_start_time)
 
   def update_train(self, loss):
@@ -170,25 +170,20 @@ class LossMonitor(MonitorBase):
     return False
 
   def restore_from_checkpoint(self, model):
-    try:
-      past = model.existing_checkpoint['summary']
-    except:
-      print("it failed")
-      pdb.set_trace()
-
-    print("it worked")
-    pdb.set_trace()
-
-    self.epoch = past['epoch']
-    self.iteration = past['iteration']
-    # self.num_episodes += past['episode']
-    # self.rewards = [past['avg_reward'] for _ in range(past['episode'])]
-    # self.turns = [past['avg_turn'] for _ in range(past['episode'])]
-    # self.num_successes = past['best_success_rate'] * past['episode']
+    past = model.existing_checkpoint['summary']
+    for key, value in past.items():
+      if key == 'epoch':
+        self.epoch += value
+      elif key.startswith('best_'):
+        self.best[key] = value
+      else:
+        self.status[key] = value
 
   def summarize_results(self, verbose=False):
     self.logger.info("Epoch {}, iteration {}:".format(self.epoch, self.iteration))
     self.summary = self.status.copy()
+    self.summary["epoch"] = self.epoch
+
     for metric, metric_value in self.best.items():
       self.summary["best_{}".format(metric)] = metric_value
     for metric, metric_value in self.summary.items():

@@ -145,42 +145,6 @@ class Dataset:
     for i in tqdm(range(0, len(turns), batch_size)):
       yield turns[i:i+batch_size]
 
-  def process_confidence(self, confidence, idx):
-    for slot in ["area", "request", "price range", "food"]:
-      conf = [round(x, 3) for x in confidence[slot][idx]]
-      print("{} confidence: {}".format(slot, conf))
-
-  def run_report(self, one_batch, preds, confidence):
-    num_samples = len(preds)
-    request = []
-    inform = []
-    joint_goal = []
-    fix = {'centre': 'center', 'areas': 'area', 'phone number': 'number'}
-    i = 0
-    pred_state = {}
-    for t in one_batch:
-      if i >= num_samples:
-        break
-      gold_request = set([(s, v) for s, v in t.user_intent if s == 'request'])
-      gold_inform = set([(s, v) for s, v in t.user_intent if s != 'request'])
-      pred_request = set([(s, v) for s, v in preds[i] if s == 'request'])
-      pred_inform = set([(s, v) for s, v in preds[i] if s != 'request'])
-      request.append(gold_request == pred_request)
-      inform.append(gold_inform == pred_inform)
-
-      double_correct = (gold_request == pred_request) and (gold_inform == pred_inform)
-      joint_goal.append(double_correct)
-
-      if not double_correct:
-        print(" ".join(t.utterance))
-        print('actual', t.user_intent)
-        print('predicted', preds[i])
-        self.process_confidence(confidence, i)
-        print('----------------')
-
-      i += 1
-    return {'turn_inform': np.mean(inform), 'turn_request': np.mean(request), 'joint_goal': np.mean(joint_goal)}
-
   def evaluate_preds(self, preds):
     request = []
     inform = []

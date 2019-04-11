@@ -82,12 +82,61 @@ class BaseBeliefTracker(BaseModule):
     predictions = self.run_glad_inference(data)
     return data.evaluate_preds(predictions)
 
-  def qual_report(self, data):
-    self.eval()
-    one_batch = next(dev_data.batch(self.batch_size, shuffle=True))
-    loss, scores = self.forward(one_batch)
-    predictions = self.extract_predictions(scores)
-    return data.run_report(one_batch, predictions, scores)
+  def qual_report(self, samples, preds, confidence):
+    num_samples = len(preds)
+    corrects = {'inform': [], 'request': [], 'act': []}
+    joint_goal = []
+    lines = []
+    # fix = {'centre': 'center', 'areas': 'area', 'phone number': 'number'}
+    idx = 0
+    pred_state = {}
+    for sample in samples:
+      if idx >= num_samples: break
+      possible = set()
+
+      gold = {'inform': set(), 'request': set(), 'act': set()}
+      for slot, values in sample.user_intent:
+        possible.add(slot)
+        if slot in ['request', 'act']:
+          gold[slot].add((slot, values))
+        else:  # dialogue_act == inform
+          gold['inform'].add((slot, values))
+
+      pred = {'inform': set(), 'request': set(), 'act': set()}
+      for slot, values in preds[idx]:
+        if slot in ['request', 'act']:
+          pred[slot].add((slot, values))
+        else:  # dialogue_act == inform
+          pred['inform'].add((slot, values))
+
+      all_correct = True
+      for category in ['inform', 'request', 'act']:
+        is_correct = gold[category] == pred[category]
+        corrects[category].append(is_correct)
+        if not is_correct:
+          all_correct = False
+      joint_goal.append(all_correct)
+
+      if not all_correct:
+        lines.append(" ".join(sample.utterance))
+        lines.append('Actual:', sample.user_intent)
+        lines.append('Predicted:', preds[idx])
+        lines = self.process_confidence(lines, list(possible), confidence, idx)
+        lines.append('----------------')
+
+      idx += 1
+
+    for category, scores in corrects.items():
+      lines.append(f'avg_{category}: {np.mean(scores)}')
+    lines.append(f'joint_goal: {np.mean(joint_goal)}')
+    return lines
+
+  def process_confidence(self, lines, possible_slots, confidence, idx):
+    for slot in possible_slots:
+      conf = [round(x, 3) for x in confidence[slot][idx]]
+      lines.append("{} confidence: {}".format(slot, conf))
+    return lines
+
 
 class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """

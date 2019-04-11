@@ -15,7 +15,7 @@ class SingleSystem(object):
     self.module = builder.configure_module(args, model)
     self.module.save_config(args, builder.dir)
 
-    if args.use_existing:
+    if args.use_existing or args.test_mode:
       self.monitor.restore_from_checkpoint(model)
     if not args.test_mode:
       self.learner = Learner(args, self.module, processor, self.monitor)
@@ -30,7 +30,7 @@ class SingleSystem(object):
     self.evaluator.module = self.module
     self.evaluator.monitor = self.monitor
     if self.args.test_mode:
-      pass # self.run_test()
+      pass # self.evaluator.run_test()
     self.evaluator.generate_report()
 
 class EndToEndSystem(object):

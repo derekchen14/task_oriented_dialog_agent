@@ -18,6 +18,7 @@ class Evaluator(object):
     self.metrics = args.metrics
     self.method = args.attn_method
     self.verbose = args.verbose
+    self.batch_size = args.batch_size
 
     self.module = None
     self.monitor = None
@@ -25,40 +26,35 @@ class Evaluator(object):
     self.save_dir = os.path.join("results", args.task, args.dataset)
     self.vocab = processor.vocab
     self.data = processor.datasets['test'] if args.test_mode else processor.datasets['val']
+    self.ontology = processor.ontology
 
   def run_test(self):
     for example in self.data:
       output = self.module.forward(example)
 
   def generate_report(self):
-    self.monitor.summarize_results(verbose=False)
     if self.config.report_visual:
       self.visual_report()
     if self.config.report_qual:
-      # if self.task == "glad":
-      #   self.model.qual_report(self.data, self.config)
       self.qualitative_report()
     if self.config.report_quant:
+      self.monitor.summarize_results(verbose=False)
       # if self.task == "glad":
       #   self.model.quant_report(self.data, self.config)
       self.quantitative_report()
 
-  def qualitative_report(self):
-    print("came here")
+  def qualitative_report(self)
+    print("starting qualitative_report")
+    self.module.model.eval()
+    samples = next(self.data.batch(self.batch_size, shuffle=True))
+    loss, scores = self.module.model.forward(samples)
+    predictions = self.module.extract_predictions(scores)
+    lines = self.module.qual_report(samples, predictions, scores)
 
-  # Qualitative evalution of model performance
-  def qualitative_report_real(self):
     qual_report_path = "{}/qual.txt".format(self.save_dir)
-    samples = [random.choice(self.data) for i in range(10)]
     with open(qual_report_path, "w") as file:
-      for sample in samples:
-        source, target = sample
-        _, pred, _ = run_inference(self.model, source, target, None, 0)
-        human_readable = self.vocab.index_to_word(pred)
-
-        input_text = " ".join([self.vocab.index_to_word(token) for token in source])
-        file.write("Input: {}\n".format(input_text))
-        file.write("Predicted: {}\n".format(human_readable))
+      for line in lines:
+        file.write(line)
     print('Qualitative examples saved to {}'.format(qual_report_path))
 
   """ Quantitative evalution of model performance, for per step loss
