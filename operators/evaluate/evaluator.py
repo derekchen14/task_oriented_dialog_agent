@@ -43,18 +43,19 @@ class Evaluator(object):
       #   self.model.quant_report(self.data, self.config)
       self.quantitative_report()
 
-  def qualitative_report(self)
+  def qualitative_report(self):
     print("starting qualitative_report")
     self.module.model.eval()
     samples = next(self.data.batch(self.batch_size, shuffle=True))
     loss, scores = self.module.model.forward(samples)
     predictions = self.module.extract_predictions(scores)
-    lines = self.module.qual_report(samples, predictions, scores)
+    vals = self.ontology.values
+    lines = self.module.qual_report(samples, predictions, scores, vals)
 
     qual_report_path = "{}/qual.txt".format(self.save_dir)
     with open(qual_report_path, "w") as file:
       for line in lines:
-        file.write(line)
+        file.write(line + '\n')
     print('Qualitative examples saved to {}'.format(qual_report_path))
 
   """ Quantitative evalution of model performance, for per step loss

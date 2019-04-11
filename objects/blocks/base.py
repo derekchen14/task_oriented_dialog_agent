@@ -1,5 +1,6 @@
 import os, pdb, sys
 import math
+import numpy as np
 import json
 
 import torch
@@ -82,12 +83,12 @@ class BaseBeliefTracker(BaseModule):
     predictions = self.run_glad_inference(data)
     return data.evaluate_preds(predictions)
 
-  def qual_report(self, samples, preds, confidence):
+  def qual_report(self, samples, preds, confidence, vals):
     num_samples = len(preds)
     corrects = {'inform': [], 'request': [], 'act': []}
     joint_goal = []
-    lines = []
-    # fix = {'centre': 'center', 'areas': 'area', 'phone number': 'number'}
+    self.lines = []
+    
     idx = 0
     pred_state = {}
     for sample in samples:
@@ -118,24 +119,28 @@ class BaseBeliefTracker(BaseModule):
       joint_goal.append(all_correct)
 
       if not all_correct:
-        lines.append(" ".join(sample.utterance))
-        lines.append('Actual:', sample.user_intent)
-        lines.append('Predicted:', preds[idx])
-        lines = self.process_confidence(lines, list(possible), confidence, idx)
-        lines.append('----------------')
+        self.lines.append(" ".join(sample.utterance))
+        self.lines.append(f'Actual: {sample.user_intent}')
+        self.lines.append(f'Predicted: {preds[idx]}')
+        self.process_confidence(list(possible), confidence, vals, idx)
+        self.lines.append('----------------')
 
       idx += 1
 
     for category, scores in corrects.items():
-      lines.append(f'avg_{category}: {np.mean(scores)}')
-    lines.append(f'joint_goal: {np.mean(joint_goal)}')
-    return lines
+      self.lines.append(f'avg_{category}: {np.mean(scores)}')
+    self.lines.append(f'joint_goal: {np.mean(joint_goal)}')
+    return self.lines
 
-  def process_confidence(self, lines, possible_slots, confidence, idx):
+  def process_confidence(self, possible_slots, confidence, vals, idx):
     for slot in possible_slots:
-      conf = [round(x, 3) for x in confidence[slot][idx]]
-      lines.append("{} confidence: {}".format(slot, conf))
-    return lines
+      conf = []
+      for jdx, score in enumerate(confidence[slot][idx]):
+        if score > 0.01:
+          conf.append(vals[slot][jdx])
+        conf.append(round(score,3))
+      
+      self.lines.append("{} confidence: {}".format(slot, conf))
 
 
 class BasePolicyManager(BaseModule):
