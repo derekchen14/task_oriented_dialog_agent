@@ -52,7 +52,8 @@ class Evaluator(object):
     vals = self.ontology.values
     lines = self.module.qual_report(samples, predictions, scores, vals)
 
-    qual_report_path = "{}/qual.txt".format(self.save_dir)
+    save_dir = self.save_dir if self.module is None else self.module.dir
+    qual_report_path = os.path.join(save_dir, "qual.txt")
     with open(qual_report_path, "w") as file:
       for line in lines:
         file.write(line + '\n')

@@ -88,7 +88,7 @@ class BaseBeliefTracker(BaseModule):
     corrects = {'inform': [], 'request': [], 'act': []}
     joint_goal = []
     self.lines = []
-    
+
     idx = 0
     pred_state = {}
     for sample in samples:
@@ -119,7 +119,8 @@ class BaseBeliefTracker(BaseModule):
       joint_goal.append(all_correct)
 
       if not all_correct:
-        self.lines.append(" ".join(sample.utterance))
+        utt = sample.utterance
+        self.lines.append(utt if isinstance(utt, str) else " ".join(utt))
         self.lines.append(f'Actual: {sample.user_intent}')
         self.lines.append(f'Predicted: {preds[idx]}')
         self.process_confidence(list(possible), confidence, vals, idx)
@@ -139,7 +140,7 @@ class BaseBeliefTracker(BaseModule):
         if score > 0.01:
           conf.append(vals[slot][jdx])
         conf.append(round(score,3))
-      
+
       self.lines.append("{} confidence: {}".format(slot, conf))
 
 

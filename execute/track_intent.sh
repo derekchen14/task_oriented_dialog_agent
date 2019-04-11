@@ -1,14 +1,20 @@
-# CUDA_VISIBLE_DEVICES=0  python run.py --gpu=0 --task track_intent  \
-#       --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
-#       --epochs 50 --threshold 0.3 --optimizer adam --dataset e2e/movies \
-#       --early-stop joint_goal  --save-model \
-#       --prefix nlu_  --suffix _apr10 --seed 14 --verbose
+CUDA_VISIBLE_DEVICES=0  python run.py --gpu=0 --task track_intent  \
+      --model glad --learning-rate 1e-4 --hidden-dim 200 --embedding-size 400 \
+      --epochs 40 --threshold 0.3 --optimizer adam --dataset e2e/movies \
+      --early-stop joint_goal  --save-model \
+      --prefix nlu_  --suffix _lr1e4 --seed 14 --verbose
 # CUDA_VISIBLE_DEVICES=1  python run.py --gpu=1 --task track_intent --dataset woz2 \
 #       --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
 #       --epochs 50 --threshold 0.3 --optimizer adam --early-stop success_rate \
 #       --prefix Apr_08_  --suffix _1 --seed 14    # --debug
+# CUDA_VISIBLE_DEVICES=0  python run.py --gpu=0 --task track_intent  \
+#       --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
+#       --epochs 1 --threshold 0.3 --optimizer adam --dataset e2e/movies \
+#       --early-stop joint_goal  --report-qual --test-mode \
+#       --prefix nlu_  --suffix _apr9 --seed 14  --verbose  # --use-existing
+
 CUDA_VISIBLE_DEVICES=0  python run.py --gpu=0 --task track_intent  \
-      --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
-      --epochs 1 --threshold 0.3 --optimizer adam --dataset e2e/movies \
-      --early-stop joint_goal  --report-qual --test-mode \
-      --prefix nlu_  --suffix _apr9 --seed 14  --verbose  # --use-existing
+      --model glad --learning-rate 3e-4 --hidden-dim 200 --embedding-size 400 \
+      --epochs 40 --threshold 0.3 --optimizer adam --dataset e2e/movies \
+      --early-stop joint_goal  --save-model \
+      --prefix nlu_  --suffix _lr3e4 --seed 14 --verbose
