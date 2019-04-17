@@ -6,7 +6,7 @@ def solicit_args():
   parser.add_argument('-t', '--task', default='default', type=str,
               help='overall configuration of operations and objects in system', )
   parser.add_argument('-d', '--dataset', choices=['babi', 'woz2', 'dstc2',
-              'e2e/movies', 'e2e/taxis', 'e2e/restaurants'], default='woz2',
+              'e2e/movies', 'ddq/movies', 'e2e/restaurants'], default='woz2',
               help='Choose the data to train on, defines labels', )
   parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
               'basic', 'attention', 'transformer', 'ddq', 'bilstm', 'glad'],
@@ -76,6 +76,9 @@ def solicit_args():
               help='when true, agent has warm start phase for training')
   parser.add_argument('--user', default='simulate', type=str,
               help='type of user to talk to', choices=['simulate', 'command', 'turk'])
+  parser.add_argument('--belief', default='discrete', type=str,
+              help='type of belief state representation',
+              choices=['discrete', 'memory', 'distributed'])
 
   # -------- MODEL CHECKPOINTS ----------------
   parser.add_argument('--save-model', default=False, action='store_true',

@@ -29,8 +29,7 @@ class Evaluator(object):
     self.ontology = processor.ontology
 
   def run_test(self):
-    for example in self.data:
-      output = self.module.forward(example)
+    output = self.module.run_glad_inference(self.data)
 
   def generate_report(self):
     if self.config.report_visual:

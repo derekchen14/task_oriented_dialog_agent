@@ -15,14 +15,18 @@ from utils.external import dialog_config
 class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
-  def __init__(self, args, sub_module, user_sim, world_model, real_user,
-          turk_user, ontology, movie_dictionary):
+  def __init__(self, args, sub_module, users, ontology, movie_dictionary):
+    if len(users) == 4:
+      user_sim, world_sim, real_user, turk_user = users
+    elif len(users) == 2:
+      user_sim, world_sim = users
+
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
 
     self.user_sim = user_sim
-    self.world_model = world_model
+    self.world_model = world_sim
     self.real_user = real_user
     self.turk_user = turk_user
 
@@ -64,7 +68,7 @@ class DialogManager:
     user_action = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
-    self.state_tracker.update(user_action=user_action)
+    self.state_tracker.update_user_state(user_action)
     self.print_function(user_action, 'user')
 
   def next(self, record_agent_data=True, record_user_data=True):
@@ -79,33 +83,34 @@ class DialogManager:
       output - next agent action
     """
     #   CALL AGENT TO TAKE HER TURN
-    self.agent_state = self.state_tracker.get_state_for_agent()
+    self.agent_state = self.state_tracker.get_state('agent')
     model_action = self.model.state_to_action(self.agent_state)
     #   Register AGENT action with the state_tracker
-    self.state_tracker.update(agent_action=model_action)
-    self.user_state = self.state_tracker.get_state_for_user()
+    self.state_tracker.update_agent_state(model_action)
+    self.user_state = self.state_tracker.get_state('user')
 
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     self.print_function(model_action['slot_action'], 'agent')
 
     #   CALL USER TO TAKE HER TURN
-    self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
+    self.sys_action = self.state_tracker.history_dictionaries[-1]
     if self.use_world_model:
       self.user_action, self.episode_over, self.reward = self.running_user.next(
               self.user_state, model_action)
     else:
       self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
       self.reward = self.model.reward_function(dialog_status)
-    """ Uncomment to use the belief tracker
-    user_utterance = self.user_action['nl']
-    pred_action = self.model.belief_tracker.classify_intent(user_utterance)
-    self.user_action = pred_action """
+    # Uncomment to use the belief tracker
+    # print("using the belief tracker")
+    # user_utterance = self.user_action['nl']
+    # pred_action = self.model.belief_tracker.classify_intent(user_utterance)
+    # self.user_action = pred_action
 
     #   Update state tracker with latest user action
     if self.episode_over != True:
-      self.state_tracker.update(user_action=self.user_action)
+      self.state_tracker.update_user_state(self.user_action)
       self.print_function(self.user_action, 'user')
-    next_agent_state = self.state_tracker.get_state_for_agent()
+    next_agent_state = self.state_tracker.get_state('agent')
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
     if record_agent_data:
@@ -129,11 +134,11 @@ class DialogManager:
     elif self.running_user.agent_input_mode == 'dialogue_act':
       user_input = self.parse_raw_input(raw_user_input)
     print(json.dumps(user_input, indent=2))
-    self.state_tracker.update(user_action=user_input)
+    self.state_tracker.update_user_state(user_input)
     # policy management
-    self.agent_state = self.state_tracker.get_state_for_agent()
+    self.agent_state = self.state_tracker.get_state('agent')
     model_action = self.model.state_to_action(self.agent_state)
-    self.state_tracker.update(agent_action=model_action)
+    self.state_tracker.update_agent_state(model_action)
     # text generation
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     agent_response = model_action['slot_action']['nl']

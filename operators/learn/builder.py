@@ -35,13 +35,7 @@ class Builder(object):
       print("Resuming {} at {} for training".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     else:
-      # small hack since NLU and NLG models are not defined yet
-      if model_type == "belief_tracker":
-        model.load_nlu_model('nlu_1468447442')
-      if model_type ==  "text_generator":
-        model.load_nlg_model('nlg_1468202263')
       print("Building {} at {}".format(model_str, self.dir))
-      # monitor.logger.info("Building model at {}".format(self.dir))
 
     model.save_dir = self.dir
     return model
@@ -133,6 +127,13 @@ class Builder(object):
       decoder = dec.Attn_Decoder(output_size, self.args)
       model = Seq2Seq(encoder, decoder)
       model.module_type = 'text_generator'
+    elif model_type == 'nlg_model':
+      model = NLG(self.loader, results_dir)
+      model.load_nlg_model('nlg_1468202263')
+      nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
+      model.load_predefine_act_nl_pairs(nl_pairs)
+      model.module_type = 'text_generator'
+      return model
 
     return model.to(device)
 
@@ -148,6 +149,7 @@ class Builder(object):
         module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
+        pm_model = NeuralPolicyManager(args, model)
         movie_kb = self.loader.json_data('movie_kb.1k')
         goal_set = self.loader.json_data('goal_set_v2')
 
@@ -155,8 +157,7 @@ class Builder(object):
         world_sim = NeuralSimulator(args, ontology, goal_set)
         real_user = CommandLineUser(args, ontology, goal_set)
         turk_user = MechanicalTurkUser(args, ontology, goal_set)
-        model = NeuralPolicyManager(args, model, device,
-              world_sim, ontology, movie_kb)
+        users = (user_sim, world_sim, real_user, turk_user)
 
         results_dir = os.path.join("results", self.args.task, self.args.dataset)
         nlu_model = NLU(self.loader, results_dir)
@@ -167,17 +168,13 @@ class Builder(object):
         nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
         nlg_model.load_predefine_act_nl_pairs(nl_pairs)
 
-        model.belief_tracker = nlu_model
         user_sim.nlu_model = nlu_model
         world_sim.nlu_model = nlu_model
-
-        model.text_generator = nlg_model
         user_sim.nlg_model = nlg_model
         world_sim.nlg_model = nlg_model
 
-        module = DialogManager(args, model, user_sim, world_sim, real_user,
-              turk_user, ontology, movie_kb)
-
+        pm_model.configure_settings(device, world_sim, ontology, movie_kb)
+        module = DialogManager(args, pm_model, users, ontology, movie_kb)
 
     elif model.module_type == 'text_generator':
       module = model
@@ -185,15 +182,24 @@ class Builder(object):
     module.dir = self.dir
     return module
 
-  def create_agent(self, belief_tracker, policy_manager, text_generator):
-    agent = policy_manager
+  def create_agent(self, bt_model, pm_model, tg_model):
+    kb, ontology = self.loader.kb, self.loader.ontology
+    movie_kb = self.loader.json_data('movie_kb.1k')
+    goal_set = self.loader.json_data('goal_set_v2')
 
-    agent.model.belief_tracker = belief_tracker
-    agent.user_sim.nlu_model = belief_tracker
-    agent.world_model.nlu_model = belief_tracker
+    user_sim = RuleSimulator(args, ontology, goal_set)
+    world_sim = NeuralSimulator(args, ontology, goal_set)
+    users = (user_sim, world_sim)
 
-    agent.model.text_generator = text_generator
-    agent.user_sim.nlg_model = text_generator
-    agent.world_model.nlg_model = text_generator
+    belief_tracker = NeuralBeliefTracker(args, bt_model)
+    policy_manager = NeuralPolicyManager(args, pm_model)
+    text_generator = NeuralTextGenerator(args, tg_model)
 
-    return agent
+    user_sim.nlu_model = belief_tracker
+    world_sim.nlu_model = belief_tracker
+    user_sim.nlg_model = text_generator
+    world_sim.nlg_model = text_generator
+
+    policy_manager.configure_settings(device, world_sim, ontology, movie_kb)
+
+    return DialogManager(args, pm_model, users, ontology, movie_kb)

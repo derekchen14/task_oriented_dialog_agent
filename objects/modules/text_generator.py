@@ -228,8 +228,8 @@ class RuleTextGenerator(BaseTextGenerator):
 
 
 class NeuralTextGenerator(BaseTextGenerator):
-  def __init__(self, *args):
-    super().__init__(args)
+  def __init__(self, args, model):
+    super().__init__(args, model)
 
   def learn(self):
     print("neural-based belief tracker is not configured")
@@ -241,7 +241,7 @@ class NeuralTextGenerator(BaseTextGenerator):
       self.predict_one(examples)
 
   def predict_one(self, example):
-    input_text
+    return example
 
 
 def to_consistent_data_structure(obj):

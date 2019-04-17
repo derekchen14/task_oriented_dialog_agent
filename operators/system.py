@@ -30,7 +30,7 @@ class SingleSystem(object):
     self.evaluator.module = self.module
     self.evaluator.monitor = self.monitor
     if self.args.test_mode:
-      pass # self.evaluator.run_test()
+      self.evaluator.run_test()
     self.evaluator.generate_report()
 
 class EndToEndSystem(object):
@@ -40,16 +40,10 @@ class EndToEndSystem(object):
     self.evaluator = evaluator
     self.monitor = RewardMonitor(args.metrics, args.threshold)
 
-    nlu_model = builder.get_model(processor, self.monitor, "belief_tracker")
-    pm_model = builder.get_model(processor, self.monitor, "policy_manager")
-    nlg_model = builder.get_model(processor, self.monitor, "text_generator")
-
-    belief_tracker = builder.configure_module(args, nlu_model)
-    policy_manager = builder.configure_module(args, pm_model)
-    text_generator = builder.configure_module(args, nlg_model)
-
-    modules = [belief_tracker, policy_manager, text_generator]
-    self.dialogue_agent = builder.create_agent(*modules)
+    bt_model = builder.get_model(processor, self.monitor, "glad")
+    pm_model = builder.get_model(processor, self.monitor, "ddq")
+    tg_model = builder.get_model(processor, self.monitor, "nlg_model")
+    self.dialogue_agent = builder.create_agent(bt_model, pm_model, tg_model)
 
     if args.use_existing:
       self.monitor.restore_from_checkpoint(modules)

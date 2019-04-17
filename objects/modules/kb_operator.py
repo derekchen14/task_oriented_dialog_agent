@@ -239,14 +239,14 @@ class KBHelper(object):
     return kb_results
 
 
-  def database_results_for_agent(self, current_slots):
+  def database_results(self, current_slots):
     """ A dictionary of the number of results matching each current constraint. The agent needs this to decide what to do next. """
 
     database_results ={} # { date:100, distanceconstraints:60, theater:30,  matching_all_constraints: 5}
     database_results = self.available_results_from_kb_for_slots(current_slots['inform_slots'])
     return database_results
 
-  def suggest_slot_values(self, request_slots, current_slots):
+  def suggest(self, request_slots, current_slots):
     """ Return the suggest slot values """
 
     avail_kb_results = self.available_results_from_kb(current_slots)
