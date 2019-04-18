@@ -52,7 +52,7 @@ class NeuralPolicyManager(BasePolicyManager):
   def configure_settings(self, device, world_sim, ontology, movie_dict=None):
     self.dqn = self.model
     sizes = self.model.input_size, self.model.hidden_size, self.model.output_size
-    self.target_dqn = DQN(*sizes).to(device)
+    self.target_dqn = DQN(*sizes).to('cpu')
     self.target_dqn.load_state_dict(self.dqn.state_dict())
     self.target_dqn.eval()
 
