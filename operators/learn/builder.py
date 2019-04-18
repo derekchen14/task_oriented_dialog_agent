@@ -122,6 +122,7 @@ class Builder(object):
     elif model_type == 'ddq':
       model = DQN(input_size, self.dhid, output_size)
       model.module_type = 'policy_manager'
+      model.to(torch.device('cpu'))
     elif model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)
