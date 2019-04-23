@@ -10,37 +10,37 @@ import torch
 import os, pdb, sys
 import numpy as np
 from objects.modules.dialog_state import DialogState
-from utils.external import dialog_config
+from utils.external import dialog_constants
 
 class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
   def __init__(self, args, sub_module, users, ontology, movie_dictionary):
-    if len(users) == 4:
-      user_sim, world_sim, real_user, turk_user = users
-    elif len(users) == 2:
-      user_sim, world_sim = users
 
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
+    self.task = args.task
 
+    if len(users) == 4:
+      user_sim, world_sim, real_user, turk_user = users
+      self.real_user = real_user
+      self.turk_user = turk_user
+    elif len(users) == 2:
+      user_sim, world_sim = users
     self.user_sim = user_sim
     self.world_model = world_sim
-    self.real_user = real_user
-    self.turk_user = turk_user
 
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
     self.state_tracker = DialogState(ontology, movie_dictionary)
-    self.user_action = None
+    self.user_intent = None
     self.reward = 0
     self.episode_over = False
 
     self.save_dir = sub_module.model.save_dir
     self.use_world_model = False
     self.running_user = self.user_sim
-    # self.run_mode = dialog_config.run_mode
 
   def initialize_episode(self, user_type):
     """ Refresh state for new dialog """
@@ -65,11 +65,11 @@ class DialogManager:
 
   def start_conversation(self, user_type):
     """ User takes the first turn and updates the dialog state """
-    user_action = self.running_user.take_first_turn()
+    user_intent = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
-    self.state_tracker.update_user_state(user_action)
-    self.print_function(user_action, 'user')
+    self.state_tracker.update_user_state(user_intent)
+    self.print_function(user_intent, 'user')
 
   def next(self, record_agent_data=True, record_user_data=True):
     """ Initiates exchange between agent and user (agent first)
@@ -95,21 +95,20 @@ class DialogManager:
     #   CALL USER TO TAKE HER TURN
     self.sys_action = self.state_tracker.history_dictionaries[-1]
     if self.use_world_model:
-      self.user_action, self.episode_over, self.reward = self.running_user.next(
+      self.user_intent, self.episode_over, self.reward = self.running_user.next(
               self.user_state, model_action)
     else:
-      self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
+      self.user_intent, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
       self.reward = self.model.reward_function(dialog_status)
-    # Uncomment to use the belief tracker
-    # print("using the belief tracker")
-    # user_utterance = self.user_action['nl']
-    # pred_action = self.model.belief_tracker.classify_intent(user_utterance)
-    # self.user_action = pred_action
+
+    if self.task == 'end_to_end':
+      bt = self.model.belief_tracker
+      self.user_intent = bt.classify_intent(self.user_intent, model_action)
 
     #   Update state tracker with latest user action
     if self.episode_over != True:
-      self.state_tracker.update_user_state(self.user_action)
-      self.print_function(self.user_action, 'user')
+      self.state_tracker.update_user_state(self.user_intent)
+      self.print_function(self.user_intent, 'user')
     next_agent_state = self.state_tracker.get_state('agent')
 
     #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
@@ -123,7 +122,7 @@ class DialogManager:
     if record_user_data and not self.use_world_model:
       self.world_model.store_experience(self.user_state,
         model_action['action_id'], next_agent_state, self.reward,
-        self.episode_over, self.user_action)
+        self.episode_over, self.user_intent)
 
     return (self.episode_over, self.reward)
 
@@ -187,13 +186,13 @@ class DialogManager:
       for k, v in action_dict.items(): print(kind, k, v)
     else:
       print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
-    if dialog_config.auto_suggest and kind == "agent":
+    if dialog_constants.auto_suggest and kind == "agent":
       output = self.state_tracker.make_suggestion(action_dict['request_slots'])
       print(f'(Suggested Values: {output})')
 
 
 
-  # def print_function(self, agent_action=None, user_action=None):
+  # def print_function(self, agent_action=None, user_intent=None):
   #   if agent_action:
   #     if self.run_mode == 0:
   #       if self.model.__class__.__name__ != 'AgentCmd':
@@ -209,28 +208,28 @@ class DialogManager:
   #         agent_action['request_slots']))
   #       print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
 
-  #     if dialog_config.auto_suggest == 1:
+  #     if dialog_constants.auto_suggest == 1:
   #       print(
   #         '(Suggested Values: %s)' % (
   #         self.state_tracker.get_suggest_slots_values(agent_action['request_slots'])))
-  #   elif user_action:
+  #   elif user_intent:
   #     if self.run_mode == 0:
-  #       print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
+  #       print("Turn %d usr: %s" % (user_intent['turn_count'], user_intent['nl']))
   #     elif self.run_mode == 1:
   #       print("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
-  #         user_action['request_slots']))
+  #         user_intent['turn_count'], user_intent['dialogue_act'], user_intent['inform_slots'],
+  #         user_intent['request_slots']))
   #     elif self.run_mode == 2:  # debug mode, show both
   #       print("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
-  #         user_action['request_slots']))
-  #       print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
+  #         user_intent['turn_count'], user_intent['dialogue_act'], user_intent['inform_slots'],
+  #         user_intent['request_slots']))
+  #       print("Turn %d usr: %s" % (user_intent['turn_count'], user_intent['nl']))
 
   #     if self.model.__class__.__name__ == 'AgentCmd':  # command line agent
-  #       user_request_slots = user_action['request_slots']
+  #       user_request_slots = user_intent['request_slots']
   #       if 'ticket' in user_request_slots.keys(): del user_request_slots['ticket']
   #       if len(user_request_slots) > 0:
-  #         possible_values = self.state_tracker.get_suggest_slots_values(user_action['request_slots'])
+  #         possible_values = self.state_tracker.get_suggest_slots_values(user_intent['request_slots'])
   #         for slot in possible_values.keys():
   #           if len(possible_values[slot]) > 0:
   #             print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))

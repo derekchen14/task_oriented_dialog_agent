@@ -119,14 +119,14 @@ class KBHelper(object):
   def available_slot_values(self, slot, kb_results):
     """ Return the set of values available for the slot based on the current constraints """
 
-    slot_values = {}
-    for movie_id in kb_results.keys():
-      if slot in kb_results[movie_id].keys():
-        slot_val = kb_results[movie_id][slot]
-        if slot_val in slot_values.keys():
-          slot_values[slot_val] += 1
-        else: slot_values[slot_val] = 1
-    return slot_values
+    available = {}
+    for movie_id, movie in kb_results.items():
+      if slot in movie.keys():
+        chosen_val = movie[slot]
+        if chosen_val in available.keys():
+          available[chosen_val] += 1
+        else: available[chosen_val] = 1
+    return available
 
   def build_constraints(self, informs):
     constrain_keys = informs.keys()
@@ -181,7 +181,7 @@ class KBHelper(object):
   def search_by_constraint(self, constrain_keys, constraints, cache_keys=None):
     results = []
     # kb_results = copy.deepcopy(self.knowledge_base)
-    for movie_id, movie in self.knowledge_base.items():
+    for movie_id, movie in enumerate(self.knowledge_base):
       # kb_keys consists of slots with available info for a particular movie
       kb_keys = movie.keys()
 
@@ -216,11 +216,10 @@ class KBHelper(object):
     if len(cached_kb_slot_ret) > 0:
       return cached_kb_slot_ret[0]
 
-    for movie_id in self.knowledge_base.keys():
+    for movie in self.knowledge_base:
       all_slots_match = True
       for slot in inform_slots.keys():
         desired_value = inform_slots[slot]
-        movie = self.knowledge_base[movie_id]
         if slot == 'taxi' or desired_value == dialog_config.I_DO_NOT_CARE:
           continue
 

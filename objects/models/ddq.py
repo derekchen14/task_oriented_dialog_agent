@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 from collections import namedtuple
 
-from utils.external import dialog_config
+from utils.external import dialog_constants
 from utils.external.dqn import *
 from objects.blocks.base import BasePolicyManager
 from objects.models.external import DeepDialogDecoder, lstm, biLSTM
@@ -58,7 +58,7 @@ class NLG(object):
       slot_vals = slot_val_dict[slot]
       slot_placeholder = slot + suffix
       if slot == 'result' or slot == 'numberofpeople': continue
-      if slot_vals == dialog_config.NO_VALUE_MATCH: continue
+      if slot_vals == dialog_constants.NO_VALUE_MATCH: continue
       tmp_sentence = sentence.replace(slot_placeholder, slot_vals, 1)
       sentence = tmp_sentence
 
@@ -83,10 +83,10 @@ class NLG(object):
     boolean_in = False
 
     # remove I do not care slot in task(complete)
-    if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] != dialog_config.NO_VALUE_MATCH:
+    if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] != dialog_constants.NO_VALUE_MATCH:
       inform_slot_set = list(dia_act['inform_slots'].keys()).copy()
       for slot in inform_slot_set:
-        if dia_act['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE:
+        if dia_act['inform_slots'][slot] == dialog_constants.I_DO_NOT_CARE:
           del dia_act['inform_slots'][slot]
 
     if dia_act['dialogue_act'] in self.diaact_nl_pairs['dia_acts'].keys():
@@ -96,7 +96,7 @@ class NLG(object):
           boolean_in = True
           break
 
-    if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] == dialog_config.NO_VALUE_MATCH:
+    if dia_act['dialogue_act'] == 'inform' and 'taskcomplete' in dia_act['inform_slots'].keys() and dia_act['inform_slots']['taskcomplete'] == dialog_constants.NO_VALUE_MATCH:
       sentence = "Oh sorry, there is no ticket available."
 
     if boolean_in == False: sentence = self.translate_diaact(dia_act)
@@ -175,7 +175,7 @@ class NLG(object):
       rnnmodel = DeepDialogDecoder(diaact_input_size, input_size, hidden_size, output_size)
 
     rnnmodel.model = copy.deepcopy(model_params['model'])
-    model_params['params']['beam_size'] = dialog_config.nlg_beam_size
+    model_params['params']['beam_size'] = dialog_constants.nlg_beam_size
 
     self.model = rnnmodel
     self.word_dict = copy.deepcopy(model_params['word_dict'])
@@ -193,10 +193,10 @@ class NLG(object):
     counter = 0
     for slot in dia_act['inform_slots'].keys():
       slot_val = dia_act['inform_slots'][slot]
-      if slot_val == dialog_config.NO_VALUE_MATCH:
+      if slot_val == dialog_constants.NO_VALUE_MATCH:
         sentence = slot + " is not available!"
         break
-      elif slot_val == dialog_config.I_DO_NOT_CARE:
+      elif slot_val == dialog_constants.I_DO_NOT_CARE:
         counter += 1
         sentence = sentence.replace('$'+slot+'$', '', 1)
         continue
@@ -204,15 +204,14 @@ class NLG(object):
       sentence = sentence.replace('$'+slot+'$', slot_val, 1)
 
     if counter > 0 and counter == len(dia_act['inform_slots']):
-      sentence = dialog_config.I_DO_NOT_CARE
+      sentence = dialog_constants.I_DO_NOT_CARE
 
     return sentence
 
 
-  def load_predefine_act_nl_pairs(self, nl_pairs):
+  def load_natural_langauge_templates(self, template_path):
     """ Load some pre-defined Dia_Act&NL Pairs from file """
-
-    self.diaact_nl_pairs = nl_pairs
+    self.diaact_nl_pairs = self.loader.json_data(template_path)
 
     for key in self.diaact_nl_pairs['dia_acts'].keys():
       for ele in self.diaact_nl_pairs['dia_acts'][key]:

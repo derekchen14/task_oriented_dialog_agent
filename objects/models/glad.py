@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from objects.blocks.attention import Attention
 from objects.components import device
+import pdb
 
 # the GlobalLocalModel model described in https://arxiv.org/abs/1805.09655.
 class GLAD(nn.Module):
@@ -24,7 +25,6 @@ class GLAD(nn.Module):
       self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
     else:
       self.embedding = nn.Embedding(len(vocab), self.demb)  # (num_embeddings, embedding_dim)
-
 
     self.utt_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.act_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)

@@ -16,10 +16,11 @@ sys_inform_slots = ['moviename', 'theater', 'starttime', 'date', 'state', 'city'
 # sys_request_slots = ['moviename', 'theater', 'starttime', 'date', 'numberofpeople', 'genre', 'state', 'city', 'zip', 'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price', 'actor', 'description', 'numberofkids']
 # sys_inform_slots = ['moviename', 'theater', 'starttime', 'date', 'genre', 'state', 'city', 'zip', 'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price', 'actor', 'description', 'numberofkids', 'taskcomplete', 'ticket']
 #
-start_dia_acts = {
+starting_dialogue_acts = ['request']
+# start_dia_acts = {
     # 'greeting':[],
-    'request': ['moviename', 'starttime', 'theater', 'city', 'state', 'date', 'ticket', 'numberofpeople']
-}
+    # 'request': ['moviename', 'starttime', 'theater', 'city', 'state', 'date', 'ticket', 'numberofpeople']
+# }
 
 # sys_request_slots = ['moviename', 'theater', 'starttime', 'date', 'numberofpeople', 'genre', 'state', 'city', 'zip',
 #                      'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price',

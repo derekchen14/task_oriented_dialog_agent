@@ -129,10 +129,9 @@ class Builder(object):
       model = Seq2Seq(encoder, decoder)
       model.module_type = 'text_generator'
     elif model_type == 'nlg_model':
-      model = NLG(self.loader, results_dir)
+      model = NLG(self.loader, 'results/end_to_end/ddq/movies/')
       model.load_nlg_model('nlg_1468202263')
-      nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
-      model.load_predefine_act_nl_pairs(nl_pairs)
+      model.load_natural_langauge_templates('nl_templates')
       model.module_type = 'text_generator'
       return model
 
@@ -150,8 +149,7 @@ class Builder(object):
         module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
-        pm_model = NeuralPolicyManager(args, model)
-        movie_kb = self.loader.json_data('movie_kb.1k')
+        pm_model = NeuralPolicyManager(args, model, ontology)
         goal_set = self.loader.json_data('goal_set_v2')
 
         user_sim = RuleSimulator(args, ontology, goal_set)
@@ -166,16 +164,15 @@ class Builder(object):
 
         nlg_model = NLG(self.loader, results_dir)
         nlg_model.load_nlg_model('nlg_1468202263')
-        nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
-        nlg_model.load_predefine_act_nl_pairs(nl_pairs)
+        nlg_model.load_natural_langauge_templates('dia_act_nl_pairs.v6')
 
         user_sim.nlu_model = nlu_model
         world_sim.nlu_model = nlu_model
         user_sim.nlg_model = nlg_model
         world_sim.nlg_model = nlg_model
 
-        pm_model.configure_settings(device, world_sim, ontology, movie_kb)
-        module = DialogManager(args, pm_model, users, ontology, movie_kb)
+        pm_model.configure_settings(device, world_sim, ontology, kb)
+        module = DialogManager(args, pm_model, users, ontology, kb)
 
     elif model.module_type == 'text_generator':
       module = model
@@ -184,23 +181,22 @@ class Builder(object):
     return module
 
   def create_agent(self, bt_model, pm_model, tg_model):
-    kb, ontology = self.loader.kb, self.loader.ontology
-    movie_kb = self.loader.json_data('movie_kb.1k')
-    goal_set = self.loader.json_data('goal_set_v2')
+    kb, goals = self.loader.kb, self.loader.goals
+    ontology = self.loader.ontology
 
-    user_sim = RuleSimulator(args, ontology, goal_set)
-    world_sim = NeuralSimulator(args, ontology, goal_set)
+    user_sim = RuleSimulator(self.args, ontology, goals)
+    world_sim = NeuralSimulator(self.args, ontology, goals)
     users = (user_sim, world_sim)
 
-    belief_tracker = NeuralBeliefTracker(args, bt_model)
-    policy_manager = NeuralPolicyManager(args, pm_model)
-    text_generator = NeuralTextGenerator(args, tg_model)
+    belief_tracker = NeuralBeliefTracker(self.args, bt_model)
+    policy_manager = NeuralPolicyManager(self.args, pm_model)
+    text_generator = NeuralTextGenerator(self.args, tg_model)
 
     user_sim.nlu_model = belief_tracker
     world_sim.nlu_model = belief_tracker
     user_sim.nlg_model = text_generator
     world_sim.nlg_model = text_generator
 
-    policy_manager.configure_settings(device, world_sim, ontology, movie_kb)
+    policy_manager.configure_settings(device, world_sim, ontology, kb)
 
-    return DialogManager(args, pm_model, users, ontology, movie_kb)
+    return DialogManager(self.args, policy_manager, users, ontology, kb)

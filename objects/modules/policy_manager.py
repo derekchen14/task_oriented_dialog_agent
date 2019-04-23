@@ -9,7 +9,7 @@ from collections import deque
 from objects.modules.user import UserSimulator, CommandLineUser
 from objects.blocks.base import BasePolicyManager
 from objects.models.ddq import DQN, Transition
-from utils.external import dialog_config
+from utils.external import dialog_constants
 
 import torch.nn.functional as F
 from torch import FloatTensor as tensor
@@ -24,10 +24,10 @@ class RulePolicyManager(BasePolicyManager):
           monitor.avg_reward, monitor.avg_turn))
 
 class NeuralPolicyManager(BasePolicyManager):
-  def __init__(self, args, model):
+  def __init__(self, args, model, ontology):
     super().__init__(args, model)
-    self.feasible_actions = dialog_config.feasible_actions
-    self.num_actions = len(self.feasible_actions)
+    self.feasible_agent_actions = ontology.feasible_agent_actions
+    self.num_actions = len(self.feasible_agent_actions)
 
     self.epsilon = args.epsilon
     self.agent_run_mode = 0 # params['agent_run_mode']
@@ -87,10 +87,10 @@ class NeuralPolicyManager(BasePolicyManager):
     action_id = self.run_policy(self.representation)
 
     # CHECK BELOW, maybe the fix is action_id[0]
-    act_slot_response = copy.deepcopy(self.feasible_actions[action_id])
+    act_slot_response = copy.deepcopy(self.feasible_agent_actions[action_id])
     # if self.warm_start == 1:
     # else:
-    #   act_slot_response = copy.deepcopy(self.feasible_actions[action_id[0]])
+    #   act_slot_response = copy.deepcopy(self.feasible_agent_actions[action_id[0]])
 
     return {'slot_action': act_slot_response, 'action_id': action_id}
 
@@ -238,11 +238,13 @@ class NeuralPolicyManager(BasePolicyManager):
   def action_index(self, act_slot_response):
     """ Return the index of action """
 
-    for (i, action) in enumerate(self.feasible_actions):
+    for (i, action) in enumerate(self.feasible_agent_actions):
       if act_slot_response == action:
         return i
-    print(act_slot_response)
-    raise(Exception("action index not found"))
+    print('feasible_agent_actions', self.feasible_agent_actions)
+    print('act_slot_response', act_slot_response)
+    print("action index not found")
+    pdb.set_trace()
     return None
 
   def store_experience(self, current_state, action, reward, next_state, episode_over):
@@ -310,9 +312,9 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def reward_function(self, dialog_status):
     # Reward Function 1: a reward function based on the dialog_status
-    if dialog_status == dialog_config.FAILED_DIALOG:
+    if dialog_status == dialog_constants.FAILED_DIALOG:
       reward = -self.max_turn                     # -40
-    elif dialog_status == dialog_config.SUCCESS_DIALOG:
+    elif dialog_status == dialog_constants.SUCCESS_DIALOG:
       reward = 2 * self.max_turn                  # +80
     else:  # for per turn
       reward = -1                                 # -20 over time

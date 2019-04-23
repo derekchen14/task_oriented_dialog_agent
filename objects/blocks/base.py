@@ -143,6 +143,12 @@ class BaseBeliefTracker(BaseModule):
 
       self.lines.append("{} confidence: {}".format(slot, conf))
 
+  def w2i(self, word):
+    try:
+      index = self.model.vocab.word2index(word)
+    except:
+      index = self.model.vocab.word2index('<unk>')
+    return index
 
 class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """

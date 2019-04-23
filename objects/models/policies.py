@@ -2,8 +2,6 @@ import os, pdb, sys  # set_trace
 import json
 import copy
 import random
-# import datasets.ddq.constants as dialog_config
-from utils.external import dialog_config
 
 class BaseAgent(object):
   """ Prototype for all agent policy models """
@@ -16,6 +14,9 @@ class BaseAgent(object):
     self.slot_cardinality = len(self.slot_set)
     # self.agent_run_mode = 0 or 1 and 2
     # self.agent_act_level = 1 or 0
+    self.agent_inform_slots = self.slot_set + ['task']
+    self.agent_request_slots = self.value_set['request']
+    self.feasible_agent_actions = ontology.agent_actions
 
   def initialize_episode(self):
     self.current_slot_id = 0
@@ -61,7 +62,7 @@ class InformPolicy(BaseAgent):
   all the slots and then issue: taskcomplete. """
   def state_to_action(self, state, available=None):
     self.agent_turn_count += 2
-    allowed_slots = dialog_config.movie_agent_inform_slots
+    allowed_slots = self.agent_inform_slots
     if self.current_slot_id < len(allowed_slots):
       slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
@@ -82,7 +83,7 @@ class RequestPolicy(BaseAgent):
         request all the slots and then issue: thanks(). """
   def state_to_action(self, state):
     self.agent_turn_count += 2
-    allowed_slots = dialog_config.movie_agent_request_slots
+    allowed_slots = self.agent_request_slots
     if self.current_slot_id < len(allowed_slots):
       slot = allowed_slots[self.current_slot_id]
       self.current_slot_id += 1
@@ -103,7 +104,7 @@ class RandomPolicy(BaseAgent):
   """ A simple agent to test the interface which chooses actions randomly. """
   def state_to_action(self, state):
     self.agent_turn_count += 2
-    random_action = random.choice(dialog_config.feasible_actions)
+    random_action = random.choice(self.feasible_agent_actions)
     slot_action = copy.deepcopy(random_action)
     slot_action['turn_count'] = self.agent_turn_count
 
@@ -133,14 +134,12 @@ class BasicsPolicy(BaseAgent):
 
   def __init__(self, ontology):
     super().__init__(ontology)
-    self.request_set = dialog_config.movie_agent_request_slots
-    self.inform_set = dialog_config.movie_agent_inform_slots
     self.complete = False
 
   def state_to_action(self, state):
     self.agent_turn_count += 2
-    if self.current_slot_id < len(self.request_set) -14:
-      slot = self.request_set[self.current_slot_id]
+    if self.current_slot_id < len(self.agent_request_slots) -14:
+      slot = self.agent_request_slots[self.current_slot_id]
       self.current_slot_id += 1
       slot_action = {'dialogue_act': "request",
                           'inform_slots': {},
@@ -167,8 +166,6 @@ class RequestThenInformPolicy(BaseAgent):
 
   def __init__(self, ontology):
     super().__init__(ontology)
-    self.request_set = dialog_config.movie_agent_request_slots
-    self.inform_set = dialog_config.movie_agent_inform_slots
     self.complete = False
 
   def initialize_episode(self):
@@ -178,15 +175,15 @@ class RequestThenInformPolicy(BaseAgent):
 
   def state_to_action(self, state):
     self.agent_turn_count += 2
-    if self.request_slot_id < len(self.request_set) -14:
-      slot = self.request_set[self.request_slot_id]
+    if self.request_slot_id < len(self.agent_request_slots) -14:
+      slot = self.agent_request_slots[self.request_slot_id]
       self.request_slot_id += 1
       slot_action = {'dialogue_act': "request",
                           'inform_slots': {},
                           'request_slots': {slot: "PLACEHOLDER"},
                           'turn_count': self.agent_turn_count }
-    elif self.inform_slot_id < len(self.inform_set) -14:
-      slot = self.inform_set[self.inform_slot_id]
+    elif self.inform_slot_id < len(self.agent_inform_slots) -14:
+      slot = self.agent_inform_slots[self.inform_slot_id]
       self.inform_slot_id += 1
       slot_action = {'dialogue_act': "inform",
                           'inform_slots': {slot: "PLACEHOLDER"},
@@ -215,7 +212,7 @@ class HackPolicy(BaseAgent):
     self.request_slot_id = 0
     self.inform_slot_id = 0
     self.agent_turn_count = -1
-    self.unknown_set = dialog_config.start_dia_acts["request"].copy()
+    self.unknown_set = self.value_set['request'].copy()
     self.known_set = []
     self.complete = False
 

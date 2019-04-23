@@ -85,7 +85,6 @@ class RuleTextGenerator(BaseTextGenerator):
 
     return sentence
 
-
   def translate_diaact(self, agent_action):
     """ embed the agent action into a vector representation
       then generate the sentence with the neural encoding model
@@ -242,6 +241,9 @@ class NeuralTextGenerator(BaseTextGenerator):
 
   def predict_one(self, example):
     return example
+
+  def generate(self, action, speaker):
+    return self.model.generate(action, speaker)
 
 
 def to_consistent_data_structure(obj):
