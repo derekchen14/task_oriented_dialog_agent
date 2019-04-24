@@ -61,14 +61,16 @@ class DialogState:
 
   def get_state(self, actor):
     # Get the state representatons of the actor, either "agent" or "user"
-    state = {'current_slots': self.current_slots,
-       'kb_results_dict':self.kb_helper.database_results(self.current_slots),
-       'turn_count': self.turn_count, 'history': self.history_dictionaries }
+    state = { 'turn_count': self.turn_count, 'history': self.history_dictionaries,
+       'user_action': None, 'agent_action': None, 'current_slots': self.current_slots,
+       'kb_results_dict':self.kb_helper.database_results(self.current_slots) }
 
-    other = 'user' if actor == 'agent' else 'agent'
-    state[f'{other}_action'] = self.history_dictionaries[-1]
-    lhd = len(self.history_dictionaries)
-    state[f'{actor}_action'] = self.history_dictionaries[-2] if lhd > 1 else None
+    found_user, found_agent = False, False
+    for entry in reversed(self.history_dictionaries):
+      if entry['speaker'] == 'user' and not found_user:
+        state['user_action'], found_user = entry, True
+      elif entry['speaker'] == 'agent' and not found_agent:
+        state['agent_action'], found_agent = entry, True
 
     return copy.deepcopy(state)
 

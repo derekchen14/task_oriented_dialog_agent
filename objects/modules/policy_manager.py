@@ -210,38 +210,44 @@ class NeuralPolicyManager(BasePolicyManager):
 
     return agent_act_rep, agent_inform_rep, agent_request_rep
 
+  def prepare_turns_and_kb(self, turn_count, kb_results, state_type):
+    if state_type == 'belief':
+      turn_rep = np.zeros((1, self.max_turn + 3))
+      turn_rep[0, turn_count] = 1.0
+      turn_rep[0, -1] = turn_count
+
+      kb_size = len(kb_results)
+      kb_count = np.array([[kb_size]])
+      return [turn_rep, kb_count]
+    elif state_type == 'intent':
+      # One-hot representation of the turn count
+      turn_rep = np.zeros((1, 1))
+      turn_onehot_rep = np.zeros((1, self.max_turn + 5))
+      turn_onehot_rep[0, turn_count] = 1.0
+      # Representation of KB results (binary)
+      kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
+      kb_count_rep = np.zeros((1, self.slot_cardinality + 1))
+      return [turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep]
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
-
-    # print(state['user_action']['turn_count'])
-    # if 'type' not in state['user_action'].keys():
-    #   pdb.set_trace()
-    #   sys.exit()
     state_type = state['user_action']['type']
     state_representation = []
 
     # Encode last user dialogue act, inform and request
     user_rep = self.prepare_user_rep(state['user_action'], state_type)
     state_representation.extend(user_rep)
-    # Create bag of filled_in slots based on the frame
-    frame_rep = self.prepare_frame_rep(state['current_slots'], state_type)
-    state_representation.append(frame_rep)
     # Encode last agent dialogue act, inform and request
     agent_representations = self.prepare_agent_rep(state['agent_action'])
     state_representation.extend(agent_representations)
-
-    # One-hot representation of the turn count
-    turn_rep = np.zeros((1, self.max_turn + 3))
-    turn_rep[0, state['turn_count']] = 1.0
-    turn_rep[0, -1] = state['turn_count']
-    state_representation.append(turn_rep)
-    #   Representation of KB results (binary)
-    kb_count = np.array([[len(state['kb_results_dict'])]])
-    state_representation.append(kb_count)
+    # Create bag of filled_in slots based on the frame
+    frame_rep = self.prepare_frame_rep(state['current_slots'], state_type)
+    state_representation.append(frame_rep)
+    # Get representations of the turn count and knowledge base
+    turn_kb_rep = self.prepare_turns_and_kb(state['turn_count'], state['kb_results_dict'], state_type)
+    state_representation.extend(turn_kb_rep)
 
     return np.hstack(state_representation)
-
 
   def store_experience(self, current_state, action, reward, next_state, episode_over):
     current_rep = self.prepare_state_representation(current_state)
