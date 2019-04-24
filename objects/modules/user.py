@@ -265,7 +265,7 @@ class RuleSimulator(BaseUser):
     """ randomly sample a start action based on user goal """
 
     starting_acts = dialog_constants.starting_dialogue_acts
-    if self.task == 'end_to_end': starting_acts.append('open')
+    if self.task == 'end_to_end': starting_acts.append('greeting')
     self.state['dialogue_act'] = random.choice(starting_acts)
 
     # "sample" informed slots
@@ -669,7 +669,7 @@ class NeuralSimulator(BaseUser):
     """ randomly sample a start action based on user goal """
 
     starting_acts = dialog_constants.starting_dialogue_acts
-    if self.task == 'end_to_end': starting_acts.append('open')
+    if self.task == 'end_to_end': starting_acts.append('greeting')
     self.state['dialogue_act'] = random.choice(starting_acts)
 
     # "sample" informed slots
@@ -724,20 +724,6 @@ class NeuralSimulator(BaseUser):
 
     self.user_goal_representation = np.hstack([request_slots_rep, inform_slots_rep])
     return self.user_goal_representation
-
-  def sample_from_buffer(self, batch_size):
-    """Sample batch size examples from experience buffer and convert it to torch readable format"""
-
-    batch = [random.choice(self.training_examples) for i in range(batch_size)]
-    np_batch = []
-
-    for x in range(len(Transition._fields)):
-      v = []
-      for i in range(batch_size):
-        v.append(batch[i][x])
-      np_batch.append(np.vstack(v))
-
-    return Transition(*np_batch)
 
   def train(self, batch_size=1, num_batches=1, verbose=False):
     """
@@ -876,36 +862,11 @@ class NeuralSimulator(BaseUser):
       if act_slot_response == action:
         return i
 
-    print('feasible_agent_actions', self.feasible_agent_actions)
+    print('feasible_user_actions', self.feasible_user_actions)
     print('act_slot_response', act_slot_response)
     print("action index not found")
     pdb.set_trace()
     return None
-
-  def store_experience(self, s_t, agent_a_t, s_tplus1, reward, term, user_a_t):
-    """ Register feedback from the environment, to be stored as future training data for world model"""
-
-    state_t_rep = self.prepare_state_representation(s_t)
-    goal_rep = self.prepare_user_goal_representation(self.goal)
-    state_t_rep = np.hstack([state_t_rep, goal_rep])
-    agent_action_t = agent_a_t
-    user_action_t = user_a_t
-    action_idx = self.action_index(copy.deepcopy(user_a_t))
-    reward_t = reward
-    term_t = term
-
-    if reward_t > 1:
-      reward_t = 1
-    elif reward_t < -1:
-      reward_t = -1
-    elif reward_t == -1:
-      reward_t = -0.1
-
-    state_tplus1_rep = self.prepare_state_representation(s_tplus1)
-    training_example_for_user = (state_t_rep, agent_action_t, state_tplus1_rep, reward_t, term, action_idx)
-
-    if self.predict_model:
-      self.training_examples.append(training_example_for_user)
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
@@ -1001,6 +962,46 @@ class NeuralSimulator(BaseUser):
       [user_act_rep, user_inform_slots_rep, user_request_slots_rep, agent_act_rep, agent_inform_slots_rep,
        agent_request_slots_rep, current_slots_rep, turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep])
     return self.final_representation
+
+  def store_experience(self, current_state, agent_action, next_state, reward, term, user_action):
+    """ Register feedback from the environment, to be stored as future training data for world model"""
+
+    state_t_rep = self.prepare_state_representation(current_state)
+    goal_rep = self.prepare_user_goal_representation(self.goal)
+    state_t_rep = np.hstack([state_t_rep, goal_rep])
+    # agent_action_t = agent_action
+    # user_action_t = user_action
+
+    action_idx = self.action_index(copy.deepcopy(user_action))
+    reward_t = reward
+    term_t = term
+
+    if reward_t > 1:
+      reward_t = 1
+    elif reward_t < -1:
+      reward_t = -1
+    elif reward_t == -1:
+      reward_t = -0.1
+
+    state_tplus1_rep = self.prepare_state_representation(next_state)
+    training_example_for_user = (state_t_rep, agent_action, state_tplus1_rep, reward_t, term, action_idx)
+
+    if self.predict_model:
+      self.training_examples.append(training_example_for_user)
+
+  def sample_from_buffer(self, batch_size):
+    """Sample batch size examples from experience buffer and convert it to torch readable format"""
+
+    batch = [random.choice(self.training_examples) for i in range(batch_size)]
+    np_batch = []
+    for x in range(len(Transition._fields)):
+      v = []
+      for i in range(batch_size):
+        v.append(batch[i][x])
+      np_batch.append(np.vstack(v))
+
+    return Transition(*np_batch)
+
 
 
  # Used for simulating the user portion of a cycle, mostly template retrieval

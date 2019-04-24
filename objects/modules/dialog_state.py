@@ -6,6 +6,7 @@ state tracker
 from objects.modules.kb_operator import KBHelper
 import numpy as np
 import copy
+import pdb
 
 class DialogState:
   """ Tracks local dialogue state across turns.  (see also: RewardMonitor)
@@ -29,10 +30,10 @@ class DialogState:
   def __init__(self, ontology, movie_kb):
     self.movie_kb = movie_kb
     self.initialize_episode()
-    self.history_vectors = None
+    self.frame_vector = None
     self.history_dictionaries = None
     self.current_slots = None
-    self.action_dimension = 10      # TODO REPLACE WITH REAL VALUE
+    self.action_dim = 10      # TODO REPLACE WITH REAL VALUE
     self.kb_result_dimension = 10   # TODO  REPLACE WITH REAL VALUE
     self.turn_count = 0
     self.kb_helper = KBHelper(movie_kb)
@@ -45,17 +46,18 @@ class DialogState:
   def initialize_episode(self):
     """ Initialize a new episode (dialog),
     flush the current state and tracked slots """
-    self.action_dimension = 10
-    self.history_vectors = np.zeros((1, self.action_dimension))
+    self.action_dim = 10
+    self.frame_vector = np.zeros((1, self.action_dim))
     self.history_dictionaries = []
     self.turn_count = 0
 
     self.current_slots = {}
     self.current_slots['inform_slots'] = {}
     self.current_slots['request_slots'] = {}
-    self.current_slots['act_slots'] = {}
     self.current_slots['proposed_slots'] = {}
     self.current_slots['agent_request_slots'] = {}
+    self.current_slots['act_slots'] = {}
+
 
   def get_state(self, actor):
     # Get the state representatons of the actor, either "agent" or "user"
@@ -111,28 +113,67 @@ class DialogState:
         self.current_slots['agent_request_slots'][slot] = "UNK"
 
     self.history_dictionaries.append(agent_action_values)
-    current_agent_vector = np.ones((1, self.action_dimension))
-    self.history_vectors = np.vstack([self.history_vectors, current_agent_vector])
+    current_agent_vector = np.ones((1, self.action_dim))
+    self.frame_vector = np.vstack([self.frame_vector, current_agent_vector])
     self.turn_count += 1
 
-  def update_user_state(self, intent):
+  def update_user_state(self, intents):
+    if 'act_slots' in intents.keys():
+      frame_entry = self.update_user_belief(intents)
+    else:
+      frame_entry = self.update_user_intent(intents)
+    self.history_dictionaries.append(copy.deepcopy(frame_entry))
+    self.turn_count += 1
+
+  def update_user_belief(self, beliefs):
+    #   Update the state to reflect the newly predicted user belief
+    for slot in self.slot_set:
+      # vc stands for a tuple of (Value, belief_sCore)
+      collected = beliefs[f'{slot}_slots']
+      if len(collected) > 0 and slot not in ['act', 'request']:
+        val_sort = sorted(collected, key=lambda tup: tup[1], reverse=True)
+        self.current_slots['inform_slots'][slot] = val_sort[0][0]
+        # first [0] is to get the highest ranked value
+        # second [0] is to extract the "val" from (val, score) tuple
+        if slot in self.current_slots['request_slots'].keys():
+          del self.current_slots['request_slots'][slot]
+
+    for req_slot, score in beliefs['request_slots'] :
+      if req_slot not in self.current_slots['request_slots']:
+        self.current_slots['request_slots'][req_slot] = "<unk>"
+
+    self.frame_vector = np.vstack([self.frame_vector, np.zeros((1,self.action_dim))])
+
+    frame_entry = beliefs.copy()
+    frame_entry['turn_count'] = self.turn_count
+    frame_entry['speaker'] = 'user'
+    frame_entry['type'] = 'belief'
+
+    return frame_entry
+
+
+  def update_user_intent(self, intent):
     #   Update the state to reflect the newly predicted user intent
     for slot in intent['inform_slots'].keys():
       self.current_slots['inform_slots'][slot] = intent['inform_slots'][slot]
+      # the information requested by the user has now been given
       if slot in self.current_slots['request_slots'].keys():
         del self.current_slots['request_slots'][slot]
 
+    # these are requests made by the agent
+    # the user is now responsible for finding an answer for this slot
     for slot in intent['request_slots'].keys():
       if slot not in self.current_slots['request_slots']:
         self.current_slots['request_slots'][slot] = "UNK"
 
-    self.history_vectors = np.vstack([self.history_vectors, np.zeros((1,self.action_dimension))])
-    new_move = {'turn_count': self.turn_count, 'speaker': "user",
-              'request_slots': intent['request_slots'],
-              'inform_slots': intent['inform_slots'],
-              'dialogue_act': intent['dialogue_act']}
-    self.history_dictionaries.append(copy.deepcopy(new_move))
-    self.turn_count += 1
+    self.frame_vector = np.vstack([self.frame_vector, np.zeros((1,self.action_dim))])
+
+    frame_entry = intent.copy()
+    frame_entry['turn_count'] = self.turn_count
+    frame_entry['speaker'] = 'user'
+    frame_entry['type'] = 'intent'
+
+    return frame_entry
 
 
   """
@@ -144,10 +185,10 @@ class DialogState:
   value_set               --  A representation of all the available movies.
           Generally this object is accessed via the KBHelper class
   Class Variables:
-  history_vectors         --  A record of the current dialog so far in vector format (act-slot, but no values)
+  frame_vector         --  A record of the current dialog so far in vector format (act-slot, but no values)
   history_dictionaries    --  A record of the current dialog in dictionary format
   current_slots           --  A dictionary that keeps a running record of which slots are filled current_slots['inform_slots'] and which are requested current_slots['request_slots'] (but not filed)
-  action_dimension        --  # TODO indicates the dimensionality of the vector representaiton of the action
+  action_dim        --  # TODO indicates the dimensionality of the vector representaiton of the action
   kb_result_dimension     --  A single integer denoting the dimension of the kb_results features.
   turn_count              --  A running count of which turn we are at in the present dialog
 

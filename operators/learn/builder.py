@@ -149,7 +149,7 @@ class Builder(object):
         module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
-        pm_model = NeuralPolicyManager(args, model, ontology)
+        pm_model = NeuralPolicyManager(args, model)
         goal_set = self.loader.json_data('goal_set_v2')
 
         user_sim = RuleSimulator(args, ontology, goal_set)

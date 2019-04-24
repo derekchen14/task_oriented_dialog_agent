@@ -99,10 +99,10 @@ class DataLoader(object):
 
     if self.task == "manage_policy":
       agent_acts = ['greeting', 'confirm_question', 'confirm_answer', 'thanks', 'deny']
-      user_acts = ['thanks', 'deny', 'closing', 'confirm_answer']
     else:
       agent_acts = ontology.acts + ['clarify']
-      user_acts = ontology.acts
+    user_acts = ['thanks', 'deny', 'closing', 'confirm_answer']
+    # user_acts = ontology.acts
 
     for act in agent_acts:
       action = {'dialogue_act':act, 'inform_slots':{}, 'request_slots':{}}
@@ -112,36 +112,30 @@ class DataLoader(object):
       user_actions.append(action)
 
     if 'request' in ontology.slots:
-      for req_slot in ontology.values['request']:
-        action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "<unk>"}}
-        agent_actions.append(action)
-        user_actions.append(action)
-
       valid_slots = [x for x in ontology.slots if x not in ['act', 'request']]
-      for inf_slot in valid_slots:
-        action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
-        agent_actions.append(action)
-        user_actions.append(action)
-
-      user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
-      agent_actions.append({'dialogue_act': 'inform', 'inform_slots': {"task": "complete"}, 'request_slots': {}})
-
+      for slot in valid_slots:
+        req_action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "<unk>"}}
+        agent_actions.append(req_action)
+        inf_action = {'dialogue_act': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}}
+        agent_actions.append(inf_action)
+      agent_actions.append({'dialogue_act': 'inform', 'inform_slots': {'task': 'complete'}, 'request_slots': {}})
     else:
-      for req_slot in dialog_constants.sys_request_slots_for_user:
-        action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
-        user_actions.append(action)
       for req_slot in dialog_constants.sys_request_slots:
         action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
         agent_actions.append(action)
-      for inf_slot in dialog_constants.sys_inform_slots_for_user:
-        action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
-        user_actions.append(action)
       for inf_slot in dialog_constants.sys_inform_slots:
         action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
         agent_actions.append(action)
-      user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
-
     ontology.feasible_agent_actions = agent_actions
+
+    for inf_slot in dialog_constants.sys_inform_slots_for_user:
+      action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
+      user_actions.append(action)
+    for req_slot in dialog_constants.sys_request_slots_for_user:
+      action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
+      user_actions.append(action)
+    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
+    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {'ticket': '<unk>'}})
     ontology.feasible_user_actions = user_actions
 
     return ontology

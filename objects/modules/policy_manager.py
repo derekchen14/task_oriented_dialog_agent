@@ -24,11 +24,8 @@ class RulePolicyManager(BasePolicyManager):
           monitor.avg_reward, monitor.avg_turn))
 
 class NeuralPolicyManager(BasePolicyManager):
-  def __init__(self, args, model, ontology):
+  def __init__(self, args, model):
     super().__init__(args, model)
-    self.feasible_agent_actions = ontology.feasible_agent_actions
-    self.num_actions = len(self.feasible_agent_actions)
-
     self.epsilon = args.epsilon
     self.agent_run_mode = 0 # params['agent_run_mode']
     self.agent_act_level = 0 # params['agent_act_level']
@@ -58,8 +55,12 @@ class NeuralPolicyManager(BasePolicyManager):
 
     self.act_set = {act: i for i, act in enumerate(ontology.acts)}
     self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
+    self.value_set = ontology.values
     self.act_cardinality = len(self.act_set)
     self.slot_cardinality = len(self.slot_set)
+
+    self.feasible_agent_actions = ontology.feasible_agent_actions
+    self.num_actions = len(self.feasible_agent_actions)
 
     self.user_planning = world_sim
     self.movie_dict = movie_dict
@@ -70,7 +71,6 @@ class NeuralPolicyManager(BasePolicyManager):
     self.init_optimizer(self.dqn.parameters())
     if self.use_existing:
       self.optimizer.load_state_dict(model.existing_checkpoint['optimizer'])
-
 
   def initialize_episode(self):
     """ Initialize a new episode. This function is called every time a new episode is run. """
@@ -94,107 +94,6 @@ class NeuralPolicyManager(BasePolicyManager):
 
     return {'slot_action': act_slot_response, 'action_id': action_id}
 
-  def prepare_state_representation(self, state):
-    if self.belief_state_type == 'discrete':
-      return self.prepare_discrete_state(state)
-    elif self.belief_state_type == 'distributed':
-      return self.prepare_distributed_state(state)
-
-  def prepare_discrete_state(self, state):
-    """ Create the representation for each state """
-    user_action = state['user_action']
-    frame = state['current_slots']
-    agent_last = state['agent_action']
-    kb_results_dict = state['kb_results_dict']
-
-    # Create one-hot of acts to represent the current user action
-    user_act_rep = np.zeros((1, self.act_cardinality))
-    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
-    # Create bag of inform slots representation from user action
-    user_inform_slots_rep = np.zeros((1, self.slot_cardinality))
-    for slot in user_action['inform_slots'].keys():
-      user_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-    # Create bag of request slots representation from user action
-    user_request_slots_rep = np.zeros((1, self.slot_cardinality))
-    for slot in user_action['request_slots'].keys():
-      user_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    # Create bag of filled_in slots based on the frame
-    frame_rep = np.zeros((1, self.slot_cardinality))
-    for slot in frame['inform_slots']:
-      frame_rep[0, self.slot_set[slot]] = 1.0
-
-    # Encode last agent dialogue act, inform and request
-    agent_act_rep = np.zeros((1, self.act_cardinality))
-    agent_inform_slots_rep = np.zeros((1, self.slot_cardinality))
-    agent_request_slots_rep = np.zeros((1, self.slot_cardinality))
-
-    if agent_last:
-      agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
-      for slot in agent_last['inform_slots'].keys():
-        agent_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-      for slot in agent_last['request_slots'].keys():
-        agent_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    # One-hot representation of the turn count
-    turn_onehot_rep = np.zeros((1, self.max_turn + 5))
-    turn_onehot_rep[0, state['turn_count']] = 1.0
-    turn_rep = np.zeros((1,1))
-
-    #   Representation of KB results (binary)
-    kb_count_rep = np.zeros((1, self.slot_cardinality + 1))
-    kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
-
-    final_representation = np.hstack(
-      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, agent_act_rep,
-        agent_inform_slots_rep, agent_request_slots_rep, frame_rep,
-        turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep])
-    return final_representation
-
-  def prepare_distributed_state(self, state):
-    """ Create the representation for each state """
-    user_action = state['user_action']
-    frame = state['current_slots']
-    agent_last = state['agent_action']
-    kb_results_dict = state['kb_results_dict']
-
-    # Create one-hot of acts to represent the current user action
-    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
-    for slot in user_action['inform_slots'].keys():
-      user_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-    # Create bag of request slots representation from user action
-    for slot in user_action['request_slots'].keys():
-      user_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    # Create bag of filled_in slots based on the frame
-    frame_rep = np.zeros((1, self.slot_cardinality))
-    for slot in frame['inform_slots']:
-      frame_rep[0, self.slot_set[slot]] = 1.0
-
-    # Encode last agent dialogue act, inform and request
-    agent_act_rep = np.zeros((1, self.act_cardinality))
-    agent_inform_slots_rep = np.zeros((1, self.slot_cardinality))
-    agent_request_slots_rep = np.zeros((1, self.slot_cardinality))
-
-    if agent_last:
-      agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
-      for slot in agent_last['inform_slots'].keys():
-        agent_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-      for slot in agent_last['request_slots'].keys():
-        agent_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    #  One-hot scalar representation of the turn count
-    turn_rep = np.zeros((1,1)) + state['turn_count'] / 10.
-
-    #   Representation of KB results (binary)
-    kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
-
-    final_representation = np.hstack(
-      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, frame_rep,
-        agent_act_rep, agent_inform_slots_rep, agent_request_slots_rep,
-        turn_rep, kb_binary_rep])
-    return final_representation
-
   def run_policy(self, representation):
     """ epsilon-greedy policy """
 
@@ -209,23 +108,23 @@ class NeuralPolicyManager(BasePolicyManager):
         return self.DQN_policy(representation)
 
   def rule_policy(self):
-    """ Rule Policy """
-    act_slot_response = {}
+    act_slot_response = {'dialogue_act': None, 'inform_slots': {}, 'request_slots': {}}
 
     if self.current_slot_id < len(self.request_set):
       slot = self.request_set[self.current_slot_id]
       self.current_slot_id += 1
-
-      act_slot_response = {}
       act_slot_response['dialogue_act'] = "request"
-      act_slot_response['inform_slots'] = {}
-      act_slot_response['request_slots'] = {slot: "UNK"}
+      unknown = '<unk>' if self.args.task == 'end_to_end' else 'UNK'
+      act_slot_response['request_slots'] = {slot: unknown}
     elif self.phase == 0:
-      act_slot_response = {'dialogue_act': "inform", 'inform_slots': {'taskcomplete': "PLACEHOLDER"},
-                 'request_slots': {}}
+      act_slot_response['dialogue_act'] = "inform"
+      if self.args.task == "end_to_end":
+        act_slot_response['inform_slots'] = {'task': 'complete'}
+      else:
+        act_slot_response['inform_slots'] = {'taskcomplete': "PLACEHOLDER"}
       self.phase += 1
     elif self.phase == 1:
-      act_slot_response = {'dialogue_act': "thanks", 'inform_slots': {}, 'request_slots': {}}
+      act_slot_response['dialogue_act'] = "thanks"
 
     return self.action_index(act_slot_response)
 
@@ -241,11 +140,108 @@ class NeuralPolicyManager(BasePolicyManager):
     for (i, action) in enumerate(self.feasible_agent_actions):
       if act_slot_response == action:
         return i
+
     print('feasible_agent_actions', self.feasible_agent_actions)
     print('act_slot_response', act_slot_response)
     print("action index not found")
     pdb.set_trace()
     return None
+
+  def prepare_user_rep(self, user_action, state_type):
+    if state_type == 'belief':     # for continuous user beliefs
+      user_representations = []
+
+      for slot, confidence_score in self.slot_set.items():
+        vals = self.value_set[slot]
+        partial_user_rep = np.zeros((1, len(vals) ))
+
+        for item in user_action[f'{slot}_slots']:
+          partial_user_rep[0, vals.index(item)] = confidence_score
+        user_representations.append(partial_user_rep)
+
+      return user_representations
+
+    elif state_type == 'intent':   # for discrete user intents
+      user_act_rep = np.zeros((1, self.act_cardinality))
+      user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
+
+      user_inform_rep = np.zeros((1, self.slot_cardinality))
+      for slot in user_action['inform_slots'].keys():
+        user_inform_rep[0, self.slot_set[slot]] = 1.0
+
+      user_request_rep = np.zeros((1, self.slot_cardinality))
+      for slot in user_action['request_slots'].keys():
+        user_request_rep[0, self.slot_set[slot]] = 1.0
+
+      return [user_act_rep, user_inform_rep, user_request_rep]
+    else:
+      raise(Exception("user action doesn't have a type"))
+
+  def prepare_frame_rep(self, current, state_type):
+    if state_type == 'belief':
+      inform_slots = copy.deepcopy(self.slot_set)
+      del inform_slots['act']
+      del inform_slots['request']
+
+      frame_rep = np.zeros((1, len(inform_slots) ))  # (1, 8)
+      for inf_slot, inf_value in current['inform_slots'].items():
+        # if inf_value in self.value_set[slot]:
+        idx = self.value_set[slot].index(inf_value)
+        frame_rep[0, inform_slots[inf_slot]] = idx
+
+    elif state_type == 'intent':
+      frame_rep = np.zeros((1, self.slot_cardinality))
+      for inf_slot in current['inform_slots']:
+        frame_rep[0, self.slot_set[inf_slot]] = 1.0
+
+    return frame_rep
+
+  def prepare_agent_rep(self, agent_action):
+    agent_act_rep = np.zeros((1, self.act_cardinality))
+    agent_inform_rep = np.zeros((1, self.slot_cardinality))
+    agent_request_rep = np.zeros((1, self.slot_cardinality))
+
+    if agent_action:
+      agent_act_rep[0, self.act_set[agent_action['dialogue_act']]] = 1.0
+      for slot in agent_action['inform_slots'].keys():
+        agent_inform_rep[0, self.slot_set[slot]] = 1.0
+      for slot in agent_action['request_slots'].keys():
+        agent_request_rep[0, self.slot_set[slot]] = 1.0
+
+    return agent_act_rep, agent_inform_rep, agent_request_rep
+
+
+  def prepare_state_representation(self, state):
+    """ Create the representation for each state """
+
+    # print(state['user_action']['turn_count'])
+    # if 'type' not in state['user_action'].keys():
+    #   pdb.set_trace()
+    #   sys.exit()
+    state_type = state['user_action']['type']
+    state_representation = []
+
+    # Encode last user dialogue act, inform and request
+    user_rep = self.prepare_user_rep(state['user_action'], state_type)
+    state_representation.extend(user_rep)
+    # Create bag of filled_in slots based on the frame
+    frame_rep = self.prepare_frame_rep(state['current_slots'], state_type)
+    state_representation.append(frame_rep)
+    # Encode last agent dialogue act, inform and request
+    agent_representations = self.prepare_agent_rep(state['agent_action'])
+    state_representation.extend(agent_representations)
+
+    # One-hot representation of the turn count
+    turn_rep = np.zeros((1, self.max_turn + 3))
+    turn_rep[0, state['turn_count']] = 1.0
+    turn_rep[0, -1] = state['turn_count']
+    state_representation.append(turn_rep)
+    #   Representation of KB results (binary)
+    kb_count = np.array([[len(state['kb_results_dict'])]])
+    state_representation.append(kb_count)
+
+    return np.hstack(state_representation)
+
 
   def store_experience(self, current_state, action, reward, next_state, episode_over):
     current_rep = self.prepare_state_representation(current_state)
@@ -328,5 +324,57 @@ class NeuralPolicyManager(BasePolicyManager):
   def __init__(self, args, model, kb, ontology):
     self.state = DialogueState(kb, ontology)
     self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
+
+  def prepare_distributed_state(self, state):
+    if self.belief_state_type == 'discrete':
+      return self.prepare_discrete_state(state)
+    elif self.belief_state_type == 'distributed':
+      return self.prepare_distributed_state(state)
+
+
+    # Create the representation for each state
+    user_action = state['user_action']
+    frame = state['current_slots']
+    agent_last = state['agent_action']
+    kb_results_dict = state['kb_results_dict']
+
+    # Create one-hot of acts to represent the current user action
+    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
+    for slot in user_action['inform_slots'].keys():
+      user_inform_slots_rep[0, self.slot_set[slot]] = 1.0
+    # Create bag of request slots representation from user action
+    for slot in user_action['request_slots'].keys():
+      user_request_slots_rep[0, self.slot_set[slot]] = 1.0
+
+    # Create bag of filled_in slots based on the frame
+    frame_rep = np.zeros((1, self.slot_cardinality))
+    for slot in frame['inform_slots']:
+      frame_rep[0, self.slot_set[slot]] = 1.0
+
+    # Encode last agent dialogue act, inform and request
+    agent_act_rep = np.zeros((1, self.act_cardinality))
+    agent_inform_slots_rep = np.zeros((1, self.slot_cardinality))
+    agent_request_slots_rep = np.zeros((1, self.slot_cardinality))
+
+    if agent_last:
+      agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
+      for slot in agent_last['inform_slots'].keys():
+        agent_inform_slots_rep[0, self.slot_set[slot]] = 1.0
+      for slot in agent_last['request_slots'].keys():
+        agent_request_slots_rep[0, self.slot_set[slot]] = 1.0
+
+    #  One-hot scalar representation of the turn count
+    turn_rep = np.zeros((1,1)) + state['turn_count'] / 10.
+
+    #   Representation of KB results (binary)
+    kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
+
+    final_representation = np.hstack(
+      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, frame_rep,
+        agent_act_rep, agent_inform_slots_rep, agent_request_slots_rep,
+        turn_rep, kb_binary_rep])
+    return final_representation
+
+
 
 """

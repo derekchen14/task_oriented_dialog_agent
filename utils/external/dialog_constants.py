@@ -138,3 +138,8 @@ for slot in sys_request_slots_for_user:
     feasible_actions_users.append({'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
 
 feasible_actions_users.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
+
+dialogue_act_forward_mapping = {'greeting': 'open', 'welcome': 'close', 'closing': 'close',
+                    'thanks': 'accept', 'deny': 'reject', 'not_sure': 'reject',
+                    'confirm_answer': 'accept', 'confirm_question': 'inform' }
+dialogue_act_backward_mapping = {'open': 'greeting', 'close': 'closing', 'accept': 'thanks', 'reject': 'deny'}

@@ -45,20 +45,44 @@ class NeuralBeliefTracker(BaseBeliefTracker):
     super().__init__(args, model)
     self.vocab = None
 
+  def extract_beliefs(self, scores, threshold=0.01):
+    batch_size = len(list(scores.values())[0])
+    predictions = [set() for i in range(batch_size)]
+    ont = self.model.ontology
+    for s in ont.slots:
+      # idx is an index of the batch size
+      for idx, p in enumerate(scores[s]):
+        triggered = [(s, v, p_v) for v, p_v in zip(ont.values[s], p) if p_v > threshold]
+        if batch_size == 1: # grab all triggered values, along with the score
+          for belief in triggered:
+            predictions[idx].add(belief)
+        elif s == 'request':
+          # we can have multiple requests predictions
+          predictions[idx] |= set([(s, v) for s, v, p_v in triggered])
+        elif triggered:
+          # only extract the top inform prediction
+          sort = sorted(triggered, key=lambda tup: tup[-1], reverse=True)
+          predictions[idx].add((sort[0][0], sort[0][1]))
+    return predictions
+
   def extract_predictions(self, scores, threshold=0.5):
     batch_size = len(list(scores.values())[0])
     predictions = [set() for i in range(batch_size)]
     ont = self.model.ontology
     for s in ont.slots:
-      for i, p in enumerate(scores[s]):
+      # idx is an index of the batch size
+      for idx, p in enumerate(scores[s]):
         triggered = [(s, v, p_v) for v, p_v in zip(ont.values[s], p) if p_v > threshold]
-        if s == 'request':
+        if batch_size == 1: # grab all triggered values, along with the score
+          for belief in triggered:
+            predictions[idx].add(belief)
+        elif s == 'request':
           # we can have multiple requests predictions
-          predictions[i] |= set([(s, v) for s, v, p_v in triggered])
+          predictions[idx] |= set([(s, v) for s, v, p_v in triggered])
         elif triggered:
           # only extract the top inform prediction
           sort = sorted(triggered, key=lambda tup: tup[-1], reverse=True)
-          predictions[i].add((sort[0][0], sort[0][1]))
+          predictions[idx].add((sort[0][0], sort[0][1]))
     return predictions
 
   def run_glad_inference(self, data):
@@ -84,20 +108,17 @@ class NeuralBeliefTracker(BaseBeliefTracker):
 
     turn = Turn.from_dict(example)
     _, scores = self.model([turn])
-    predictions = self.extract_predictions(scores)
-    pred = predictions[0]
+    predictions = self.extract_beliefs(scores)
 
-    user_intent = raw_intent.copy()
-    user_intent['inform_slots'] = {}
-    user_intent['request_slots'] = {}
+    user_beliefs = raw_intent.copy()
+    assert len(self.model.ontology.slots) == 10
 
-    for slot, value in pred:
-      if slot == 'request':
-        user_intent['request_slots'][slot] = value
-      else:
-        user_intent['inform_slots'][slot] = value
+    for slot_type in self.model.ontology.slots:
+      user_beliefs[f'{slot_type}_slots'] = []
+    for slot, value, score in pred:
+      user_beliefs[f'{slot}_slots'].append((value,score))
 
-    return user_intent
+    return user_beliefs
 
 
   def scrub(self, agent_action):

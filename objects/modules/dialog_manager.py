@@ -96,18 +96,20 @@ class DialogManager:
     self.sys_action = self.state_tracker.history_dictionaries[-1]
     if self.use_world_model:
       self.user_intent, self.episode_over, self.reward = self.running_user.next(
-              self.user_state, model_action)
+                                      self.user_state, model_action)
     else:
       self.user_intent, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
       self.reward = self.model.reward_function(dialog_status)
 
-    if self.task == 'end_to_end':
-      bt = self.model.belief_tracker
-      self.user_intent = bt.classify_intent(self.user_intent, model_action)
-
+    if self.task == 'end_to_end' and self.use_world_model:
+      user_belief = self.model.belief_tracker.classify_intent(self.user_intent, model_action)
     #   Update state tracker with latest user action
     if self.episode_over != True:
-      self.state_tracker.update_user_state(self.user_intent)
+      if self.task == 'end_to_end' and self.use_world_model:
+        self.state_tracker.update_user_state(user_belief)
+      else:
+        self.state_tracker.update_user_state(self.user_intent)
+
       self.print_function(self.user_intent, 'user')
     next_agent_state = self.state_tracker.get_state('agent')
 
@@ -189,52 +191,3 @@ class DialogManager:
     if dialog_constants.auto_suggest and kind == "agent":
       output = self.state_tracker.make_suggestion(action_dict['request_slots'])
       print(f'(Suggested Values: {output})')
-
-
-
-  # def print_function(self, agent_action=None, user_intent=None):
-  #   if agent_action:
-  #     if self.run_mode == 0:
-  #       if self.model.__class__.__name__ != 'AgentCmd':
-  #         print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-  #     elif self.run_mode == 1:
-  #       if self.model.__class__.__name__ != 'AgentCmd':
-  #         print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-  #           agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
-  #           agent_action['request_slots']))
-  #     elif self.run_mode == 2:  # debug mode
-  #       print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-  #         agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
-  #         agent_action['request_slots']))
-  #       print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-
-  #     if dialog_constants.auto_suggest == 1:
-  #       print(
-  #         '(Suggested Values: %s)' % (
-  #         self.state_tracker.get_suggest_slots_values(agent_action['request_slots'])))
-  #   elif user_intent:
-  #     if self.run_mode == 0:
-  #       print("Turn %d usr: %s" % (user_intent['turn_count'], user_intent['nl']))
-  #     elif self.run_mode == 1:
-  #       print("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_intent['turn_count'], user_intent['dialogue_act'], user_intent['inform_slots'],
-  #         user_intent['request_slots']))
-  #     elif self.run_mode == 2:  # debug mode, show both
-  #       print("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_intent['turn_count'], user_intent['dialogue_act'], user_intent['inform_slots'],
-  #         user_intent['request_slots']))
-  #       print("Turn %d usr: %s" % (user_intent['turn_count'], user_intent['nl']))
-
-  #     if self.model.__class__.__name__ == 'AgentCmd':  # command line agent
-  #       user_request_slots = user_intent['request_slots']
-  #       if 'ticket' in user_request_slots.keys(): del user_request_slots['ticket']
-  #       if len(user_request_slots) > 0:
-  #         possible_values = self.state_tracker.get_suggest_slots_values(user_intent['request_slots'])
-  #         for slot in possible_values.keys():
-  #           if len(possible_values[slot]) > 0:
-  #             print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))
-  #           elif len(possible_values[slot]) == 0:
-  #             print('(Suggested Values: there is no available %s)' % (slot))
-  #       else:
-  #         kb_results = self.state_tracker.get_current_kb_results()
-  #         print('(Number of movies in KB satisfying current constraints: %s)' % len(kb_results))
