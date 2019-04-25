@@ -139,7 +139,11 @@ for slot in sys_request_slots_for_user:
 
 feasible_actions_users.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
 
-dialogue_act_forward_mapping = {'greeting': 'open', 'welcome': 'close', 'closing': 'close',
-                    'thanks': 'accept', 'deny': 'reject', 'not_sure': 'reject',
-                    'confirm_answer': 'accept', 'confirm_question': 'inform' }
-dialogue_act_backward_mapping = {'open': 'greeting', 'close': 'closing', 'accept': 'thanks', 'reject': 'deny'}
+lexicon = {}
+lexicon['act_mapper'] = {'greeting': 'open', 'deny': 'reject', 'confirm_question': 'inform',
+    'inform': 'skip', 'thanks': 'accept', 'welcome': 'close', 'closing': 'close',
+    'request': 'skip', 'confirm_answer': 'accept', 'not_sure': 'reject'}
+lexicon['slot_mapper'] = {}
+lexicon['val_mapper'] = { I_DO_NOT_CARE: 'any',
+    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+    'six': '6', 'seven': '7', 'eight': '8', 'nine': '9' }

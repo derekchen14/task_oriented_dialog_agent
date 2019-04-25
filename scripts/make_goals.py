@@ -3,16 +3,16 @@ import pickle as pkl
 import numpy as np
 import re, copy
 import pdb
-import string
+import string, random
 from collections import defaultdict
 
-data = json.load(open("kb_v2.json", "r"))
+data = json.load(open("goals.json", "r"))
 ontology = json.load(open("ontology.json", "r"))
-valid_slots = list(ontology["slot_values"].keys())
-valid_values = ontology["slot_values"]
+valid_slots = ontology["slots"]
+valid_values = ontology["values"]
 
-valid_slots.remove('state')
-valid_slots.remove('starttime')
+# valid_slots.remove('state')
+# valid_slots.remove('starttime')
 
 # samples = np.random.choice(data, size=200, replace=False)
 new_values = defaultdict(set)
@@ -34,6 +34,7 @@ def scrub_theater(candidate):
     candidate = candidate.rstrip()
   return candidate
 
+"""
 old_kb = data
 new_kb = []
 for sample in old_kb:
@@ -57,19 +58,37 @@ for sample in old_kb:
   new_kb.append(entry)
 
 print(f"We created {len(new_kb)} entries!")
-# new_data = {
-#   "all": goals,
-#   "train": goals[:140],
-#   "dev": goals[140:180],
-#   "test": goals[180:],
-# }
+"""
 
-# for slot, values in new_values.items():
-#   list_values = list(values)
-#   if slot in ['starttime', 'theater']:
-#     ontology['slot_values'][slot].extend(list_values)
+counter = 0
+
+for goal in data['all']:
+  # new_goal = goal.copy()
+  for slot in valid_slots:
+    for goal_slot, goal_attr in goal['inform_slots'].items():
+      counter += 1
+      if slot == goal_slot:
+        value_attributes = valid_values[slot]
+        if goal_attr not in value_attributes:
+          # new_attr = random.choice(value_attributes)
+          # new_goal['inform_slots'][slot] = new_attr
+          new_values[slot].add(goal_attr)
+  # train_goals.append(new_goal)
+
+"""
+all_goals = train_goals + test_goals
+
+combined = {
+  "all": all_goals,
+  "train": train_goals,   # goals[:140],
+  "dev": [],              # goals[140:180],
+  "test": test_goals      # goals[180:],
+}
+"""
 
 print(new_values)
-pdb.set_trace()
-json.dump(new_kb, open("kb.json", "w"))
+print(counter)
+# pdb.set_trace()
+# json.dump(combined, open("goals.json", "w"))
+# json.dump(new_kb, open("kb.json", "w"))
 # json.dump(ontology, open("ontology_v2.json", "w"))

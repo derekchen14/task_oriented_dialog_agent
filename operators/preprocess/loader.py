@@ -33,6 +33,8 @@ class DataLoader(object):
       self.kb = self.json_data('kb')
       self.goals = self.json_data('goals')
       self.vocab = Vocab.from_dict(self.json_data('vocab'))
+      self.old_ont = {'acts': self.text_data('act_set'),
+                      'slots': self.text_data('slot_set') }
 
     self.load_datasets()
 
@@ -97,12 +99,10 @@ class DataLoader(object):
     agent_actions = []
     user_actions = []
 
-    if self.task == "manage_policy":
-      agent_acts = ['greeting', 'confirm_question', 'confirm_answer', 'thanks', 'deny']
-    else:
-      agent_acts = ontology.acts + ['clarify']
+    agent_acts = ['greeting', 'confirm_question', 'confirm_answer', 'thanks', 'deny']
     user_acts = ['thanks', 'deny', 'closing', 'confirm_answer']
-    # user_acts = ontology.acts
+    # if self.task == "end_to_end":
+    #   agent_acts.append('clarify')
 
     for act in agent_acts:
       action = {'dialogue_act':act, 'inform_slots':{}, 'request_slots':{}}
@@ -114,11 +114,11 @@ class DataLoader(object):
     if 'request' in ontology.slots:
       valid_slots = [x for x in ontology.slots if x not in ['act', 'request']]
       for slot in valid_slots:
-        req_action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "<unk>"}}
+        req_action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}}
         agent_actions.append(req_action)
         inf_action = {'dialogue_act': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}}
         agent_actions.append(inf_action)
-      agent_actions.append({'dialogue_act': 'inform', 'inform_slots': {'task': 'complete'}, 'request_slots': {}})
+      agent_actions.append({'dialogue_act': 'inform', 'inform_slots': {'taskcomplete': 'PLACEHOLDER'}, 'request_slots': {}})
     else:
       for req_slot in dialog_constants.sys_request_slots:
         action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
@@ -135,7 +135,7 @@ class DataLoader(object):
       action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
       user_actions.append(action)
     user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
-    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {'ticket': '<unk>'}})
+    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {'ticket': 'UNK'}})
     ontology.feasible_user_actions = user_actions
 
     return ontology

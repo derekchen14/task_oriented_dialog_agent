@@ -265,7 +265,7 @@ class RuleSimulator(BaseUser):
     """ randomly sample a start action based on user goal """
 
     starting_acts = dialog_constants.starting_dialogue_acts
-    if self.task == 'end_to_end': starting_acts.append('greeting')
+    # if self.task == 'end_to_end': starting_acts.append('greeting')
     self.state['dialogue_act'] = random.choice(starting_acts)
 
     # "sample" informed slots
@@ -631,19 +631,13 @@ class RuleSimulator(BaseUser):
 class NeuralSimulator(BaseUser):
   """ A rule-based user simulator for testing dialog policy """
 
-  def __init__(self, params, ontology, goal_set=None):
+  def __init__(self, params, ontology, goal_set=None, old_ont=None):
     super().__init__(params, ontology, goal_set)
 
     self.task = params.task
     if self.task == "end_to_end":
-      set_of_slots = set(self.slot_set.keys())
-      for req in self.value_set["request"]:
-        set_of_slots.add(req)
-
-      set_of_slots.remove('request')
-      set_of_slots.remove('act')
-      set_of_slots.remove('other')
-      self.slot_set = {slot: k for k, slot in enumerate(set_of_slots)}
+      self.act_set = {act: i for i, act in enumerate(old_ont['acts'])}
+      self.slot_set = {slot: j for j, slot in enumerate(old_ont['slots'])}
 
     self.act_cardinality = len(self.act_set.keys())
     self.slot_cardinality = len(self.slot_set.keys())
@@ -669,7 +663,7 @@ class NeuralSimulator(BaseUser):
     """ randomly sample a start action based on user goal """
 
     starting_acts = dialog_constants.starting_dialogue_acts
-    if self.task == 'end_to_end': starting_acts.append('greeting')
+    # if self.task == 'end_to_end': starting_acts.append('greeting')
     self.state['dialogue_act'] = random.choice(starting_acts)
 
     # "sample" informed slots
@@ -963,28 +957,27 @@ class NeuralSimulator(BaseUser):
        agent_request_slots_rep, current_slots_rep, turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep])
     return self.final_representation
 
-  def store_experience(self, current_state, agent_action, next_state, reward, term, user_action):
+  def store_experience(self, current_state, agent_action, reward, next_state, term, user_action):
     """ Register feedback from the environment, to be stored as future training data for world model"""
 
-    state_t_rep = self.prepare_state_representation(current_state)
+    current_state_rep = self.prepare_state_representation(current_state)
     goal_rep = self.prepare_user_goal_representation(self.goal)
-    state_t_rep = np.hstack([state_t_rep, goal_rep])
+    current_state_rep = np.hstack([current_state_rep, goal_rep])
     # agent_action_t = agent_action
     # user_action_t = user_action
-
     action_idx = self.action_index(copy.deepcopy(user_action))
-    reward_t = reward
-    term_t = term
+    # reward = reward
+    # term_t = term
 
-    if reward_t > 1:
-      reward_t = 1
-    elif reward_t < -1:
-      reward_t = -1
-    elif reward_t == -1:
-      reward_t = -0.1
+    if reward > 1:
+      reward = 1
+    elif reward < -1:
+      reward = -1
+    elif reward == -1:
+      reward = -0.1
 
-    state_tplus1_rep = self.prepare_state_representation(next_state)
-    training_example_for_user = (state_t_rep, agent_action, state_tplus1_rep, reward_t, term, action_idx)
+    next_state_rep = self.prepare_state_representation(next_state)
+    training_example_for_user = (current_state_rep, agent_action, next_state_rep, reward, term, action_idx)
 
     if self.predict_model:
       self.training_examples.append(training_example_for_user)

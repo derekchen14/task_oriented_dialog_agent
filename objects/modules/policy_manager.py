@@ -46,7 +46,7 @@ class NeuralPolicyManager(BasePolicyManager):
     self.max_turn = args.max_turn
     self.use_existing = args.use_existing
 
-  def configure_settings(self, device, world_sim, ontology, movie_dict=None):
+  def configure_settings(self, device, world_sim, ontology, movie_dict, old_ont=None):
     self.dqn = self.model
     sizes = self.model.input_size, self.model.hidden_size, self.model.output_size
     self.target_dqn = DQN(*sizes).to('cpu')
@@ -56,8 +56,15 @@ class NeuralPolicyManager(BasePolicyManager):
     self.act_set = {act: i for i, act in enumerate(ontology.acts)}
     self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
     self.value_set = ontology.values
-    self.act_cardinality = len(self.act_set)
-    self.slot_cardinality = len(self.slot_set)
+
+    if old_ont is not None:
+      self.old_acts = old_ont['acts']
+      self.old_slots = old_ont['slots']
+    else:
+      self.old_acts = self.act_set
+      self.old_slots = self.slot_set
+    self.act_cardinality = len(self.old_acts)
+    self.slot_cardinality = len(self.old_slots)
 
     self.feasible_agent_actions = ontology.feasible_agent_actions
     self.num_actions = len(self.feasible_agent_actions)
@@ -114,14 +121,10 @@ class NeuralPolicyManager(BasePolicyManager):
       slot = self.request_set[self.current_slot_id]
       self.current_slot_id += 1
       act_slot_response['dialogue_act'] = "request"
-      unknown = '<unk>' if self.args.task == 'end_to_end' else 'UNK'
-      act_slot_response['request_slots'] = {slot: unknown}
+      act_slot_response['request_slots'] = {slot: 'UNK'}
     elif self.phase == 0:
       act_slot_response['dialogue_act'] = "inform"
-      if self.args.task == "end_to_end":
-        act_slot_response['inform_slots'] = {'task': 'complete'}
-      else:
-        act_slot_response['inform_slots'] = {'taskcomplete': "PLACEHOLDER"}
+      act_slot_response['inform_slots'] = {'taskcomplete': "PLACEHOLDER"}
       self.phase += 1
     elif self.phase == 1:
       act_slot_response['dialogue_act'] = "thanks"
@@ -147,21 +150,45 @@ class NeuralPolicyManager(BasePolicyManager):
     pdb.set_trace()
     return None
 
-  def prepare_user_rep(self, user_action, state_type):
-    if state_type == 'belief':     # for continuous user beliefs
+  def prepare_user_intent(self, user_action):
+    if self.args.task == 'end_to_end':
       user_representations = []
+      act_mapper = dialog_constants.lexicon['act_mapper']
+      slot_mapper = dialog_constants.lexicon['slot_mapper']
+      val_mapper = dialog_constants.lexicon['val_mapper']
 
-      for slot, confidence_score in self.slot_set.items():
+      for slot in self.slot_set:
         vals = self.value_set[slot]
         partial_user_rep = np.zeros((1, len(vals) ))
 
-        for item in user_action[f'{slot}_slots']:
-          partial_user_rep[0, vals.index(item)] = confidence_score
+        if slot == 'act':
+          converted = act_mapper[user_action['dialogue_act']]
+          if converted != 'skip':
+            partial_user_rep[0, vals.index(converted)] = 1.0
+        elif slot == 'request':
+          for req_slot in user_action['request_slots'].keys():
+            if req_slot not in vals:
+              req_slot = 'other'
+            partial_user_rep[0, vals.index(req_slot)] = 1.0
+        else:    # slot is some type of inform
+          for inf_slot, inf_val in user_action['inform_slots'].items():
+            if slot == inf_slot:
+              if inf_val in val_mapper.keys():
+                inf_val = val_mapper[inf_val]
+              try:
+                partial_user_rep[0, vals.index(inf_val)] = 1.0
+              except(ValueError):
+                print(len(vals))
+                print("val", inf_val)
+                print("slot", inf_slot)
+                pdb.set_trace()
+                sys.exit()
+
         user_representations.append(partial_user_rep)
 
       return user_representations
 
-    elif state_type == 'intent':   # for discrete user intents
+    else:   # for discrete user intents
       user_act_rep = np.zeros((1, self.act_cardinality))
       user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
 
@@ -174,8 +201,26 @@ class NeuralPolicyManager(BasePolicyManager):
         user_request_rep[0, self.slot_set[slot]] = 1.0
 
       return [user_act_rep, user_inform_rep, user_request_rep]
+
+
+  def prepare_user_rep(self, user_action, state_type):
+    if state_type == 'belief':     # for continuous user beliefs
+      user_representations = []
+
+      for slot in self.slot_set:
+        vals = self.value_set[slot]
+        partial_user_rep = np.zeros((1, len(vals) ))
+
+        for val, confidence_score in user_action[f'{slot}_slots'].items():
+          partial_user_rep[0, vals.index(val)] = confidence_score
+        user_representations.append(partial_user_rep)
+
+      return user_representations
+
+    elif state_type == 'intent':
+      return self.prepare_user_intent(user_action)
     else:
-      raise(Exception("user action doesn't have a type"))
+      raise(Exception('missing a user state type!'))
 
   def prepare_frame_rep(self, current, state_type):
     if state_type == 'belief':
@@ -192,7 +237,7 @@ class NeuralPolicyManager(BasePolicyManager):
     elif state_type == 'intent':
       frame_rep = np.zeros((1, self.slot_cardinality))
       for inf_slot in current['inform_slots']:
-        frame_rep[0, self.slot_set[inf_slot]] = 1.0
+        frame_rep[0, self.old_slots[inf_slot]] = 1.0
 
     return frame_rep
 
@@ -202,17 +247,17 @@ class NeuralPolicyManager(BasePolicyManager):
     agent_request_rep = np.zeros((1, self.slot_cardinality))
 
     if agent_action:
-      agent_act_rep[0, self.act_set[agent_action['dialogue_act']]] = 1.0
+      agent_act_rep[0, self.old_acts[agent_action['dialogue_act']]] = 1.0
       for slot in agent_action['inform_slots'].keys():
-        agent_inform_rep[0, self.slot_set[slot]] = 1.0
+        agent_inform_rep[0, self.old_slots[slot]] = 1.0
       for slot in agent_action['request_slots'].keys():
-        agent_request_rep[0, self.slot_set[slot]] = 1.0
+        agent_request_rep[0, self.old_slots[slot]] = 1.0
 
     return agent_act_rep, agent_inform_rep, agent_request_rep
 
   def prepare_turns_and_kb(self, turn_count, kb_results, state_type):
-    if state_type == 'belief':
-      turn_rep = np.zeros((1, self.max_turn + 3))
+    if state_type == 'belief' or self.args.task == 'end_to_end':
+      turn_rep = np.zeros((1, self.max_turn + 5))
       turn_rep[0, turn_count] = 1.0
       turn_rep[0, -1] = turn_count
 
@@ -227,7 +272,15 @@ class NeuralPolicyManager(BasePolicyManager):
       # Representation of KB results (binary)
       kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
       kb_count_rep = np.zeros((1, self.slot_cardinality + 1))
+
       return [turn_rep, turn_onehot_rep, kb_binary_rep, kb_count_rep]
+
+  def totals(self, rep):
+    counter = 0
+    for thing in rep:
+      counter += thing.shape[1]
+    # print(counter)
+    return counter
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
@@ -237,15 +290,19 @@ class NeuralPolicyManager(BasePolicyManager):
     # Encode last user dialogue act, inform and request
     user_rep = self.prepare_user_rep(state['user_action'], state_type)
     state_representation.extend(user_rep)
+    self.totals(state_representation)
     # Encode last agent dialogue act, inform and request
     agent_representations = self.prepare_agent_rep(state['agent_action'])
     state_representation.extend(agent_representations)
+    self.totals(state_representation)
     # Create bag of filled_in slots based on the frame
     frame_rep = self.prepare_frame_rep(state['current_slots'], state_type)
     state_representation.append(frame_rep)
+    self.totals(state_representation)
     # Get representations of the turn count and knowledge base
     turn_kb_rep = self.prepare_turns_and_kb(state['turn_count'], state['kb_results_dict'], state_type)
     state_representation.extend(turn_kb_rep)
+    yup = self.totals(state_representation)
 
     return np.hstack(state_representation)
 

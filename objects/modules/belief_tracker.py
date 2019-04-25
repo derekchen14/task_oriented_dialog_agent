@@ -95,6 +95,10 @@ class NeuralBeliefTracker(BaseBeliefTracker):
 
   def classify_intent(self, raw_intent, agent_action):
     utterance = raw_intent['nl']
+    # try:
+    # except(KeyError):
+    #   print(raw_intent)
+    #   pdb.set_trace()
     example = {'turn_id': 14, 'utterance': '', 'user_intent': {}, 'num': {},
       'belief_state': {}, 'agent_actions': {}, 'agent_utterance': {}}
 

@@ -16,7 +16,6 @@ class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
   def __init__(self, args, sub_module, users, ontology, movie_dictionary):
-
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
@@ -34,7 +33,6 @@ class DialogManager:
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
     self.state_tracker = DialogState(ontology, movie_dictionary)
-    self.user_intent = None
     self.reward = 0
     self.episode_over = False
 
@@ -77,56 +75,68 @@ class DialogManager:
       input - dialogue state consisting of:
         1) current user intent --> act(slot-relation-value) + confidence score
         2) previous agent action
-        3) knowledge base query results
+        3) complete semantic frame
         4) turn count
-        5) complete semantic frame
+        5) knowledge base query result count
       output - next agent action
-    """
-    #   CALL AGENT TO TAKE HER TURN
-    self.agent_state = self.state_tracker.get_state('agent')
-    model_action = self.model.state_to_action(self.agent_state)
-    #   Register AGENT action with the state_tracker
-    self.state_tracker.update_agent_state(model_action)
-    self.user_state = self.state_tracker.get_state('user')
 
-    self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
-    self.print_function(model_action['slot_action'], 'agent')
-
-    #   CALL USER TO TAKE HER TURN
-    self.sys_action = self.state_tracker.history_dictionaries[-1]
-    if self.use_world_model:
-      self.user_intent, self.episode_over, self.reward = self.running_user.next(
-                                      self.user_state, model_action)
-    else:
-      self.user_intent, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
-      self.reward = self.model.reward_function(dialog_status)
+      > model_action keys: slot_action, action_id
+        slot action: nl, dialogue_act, inform_slots, request_slots, turn_count
+      > sys_action keys: speaker, dialogue_act, inform_slots, request_slots, turn_count
+      > user_intent keys: dialogue_act, inform_slots, request_slots
 
     if self.task == 'end_to_end' and self.use_world_model:
-      user_belief = self.model.belief_tracker.classify_intent(self.user_intent, model_action)
+      user_belief = self.model.belief_tracker.classify_intent(user_intent, model_action)
     #   Update state tracker with latest user action
+
+    """
+    #   CURRENT STATE (s)
+    self.agent_state = self.state_tracker.get_state('agent')
+    #   ACTION (a)
+    model_action = self.model.state_to_action(self.agent_state)
+
+    #   Register agent action with the state_tracker
+    self.state_tracker.update_agent_state(model_action)
+    self.user_state = self.state_tracker.get_state('user')
+    self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
+    self.print_function(model_action['slot_action'], 'agent')
+    self.sys_action = self.state_tracker.history_dictionaries[-1]
+
+    """
+    Have the user take their turn, note that the environment takes
+      the form of a user simulator.  Thus, this is how we get the reward.
+    Note also, that an environment should return a next agent state.
+      In this case, the user intent *is* the next agent state.
+    """
+
+    # REWARD (r)
+    if self.use_world_model:
+      user_output = self.running_user.next(self.user_state, model_action)
+      user_intent, self.episode_over, self.reward = user_output
+    else:
+      user_output = self.running_user.next(self.sys_action)
+      user_intent, self.episode_over, dialog_status = user_output
+      self.reward = self.model.reward_function(dialog_status)
+
+    #   Register user action with the state_tracker
     if self.episode_over != True:
-      if self.task == 'end_to_end' and self.use_world_model:
-        self.state_tracker.update_user_state(user_belief)
-      else:
-        self.state_tracker.update_user_state(self.user_intent)
+      self.state_tracker.update_user_state(user_intent)
+      self.print_function(user_intent, 'user')
 
-      self.print_function(self.user_intent, 'user')
+    # NEXT STATE (s')
     next_agent_state = self.state_tracker.get_state('agent')
+    next_user_state = self.state_tracker.get_state('user')
 
-    #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
+    # Record data in experience replay pools
     if record_agent_data:
       self.model.use_world_model = self.use_world_model
       self.model.store_experience(self.agent_state, model_action['action_id'],
         self.reward, next_agent_state, self.episode_over)
-
-    #  Inform world model of the outcome for this timestep
-    # (s_t, a_t, s_{t+1}, r, t, ua_t)
     if record_user_data and not self.use_world_model:
-      self.world_model.store_experience(self.user_state,
-        model_action['action_id'], next_agent_state, self.reward,
-        self.episode_over, self.user_intent)
+      self.world_model.store_experience(self.user_state, model_action['action_id'],
+        self.reward, next_agent_state, self.episode_over, user_intent)
 
-    return (self.episode_over, self.reward)
+    return self.episode_over, self.reward
 
   def respond_to_turker(self, raw_user_input):
     # intent classification

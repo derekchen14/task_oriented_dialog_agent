@@ -182,10 +182,10 @@ class Builder(object):
 
   def create_agent(self, bt_model, pm_model, tg_model):
     kb, goals = self.loader.kb, self.loader.goals
-    ontology = self.loader.ontology
+    ontology, old_ont = self.loader.ontology, self.loader.old_ont
 
     user_sim = RuleSimulator(self.args, ontology, goals)
-    world_sim = NeuralSimulator(self.args, ontology, goals)
+    world_sim = NeuralSimulator(self.args, ontology, goals, old_ont)
     users = (user_sim, world_sim)
 
     belief_tracker = NeuralBeliefTracker(self.args, bt_model)
@@ -197,6 +197,6 @@ class Builder(object):
     user_sim.nlg_model = text_generator
     world_sim.nlg_model = text_generator
 
-    policy_manager.configure_settings(device, world_sim, ontology, kb)
+    policy_manager.configure_settings(device, world_sim, ontology, kb, old_ont)
 
     return DialogManager(self.args, policy_manager, users, ontology, kb)
