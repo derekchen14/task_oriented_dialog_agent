@@ -462,20 +462,29 @@ class RuleSimulator(BaseUser):
     """ Response for Request (System Action) """
 
     if len(agent_action['request_slots'].keys()) > 0:
-      slot = list(agent_action['request_slots'].keys())[0] # only one slot
-      if slot in self.goal['inform_slots'].keys(): # request slot in user's constraints  #and slot not in self.state['request_slots'].keys():
+      # grab just the first slot from among agent's requests
+      slot = list(agent_action['request_slots'].keys())[0]
+      # if requested slot in user's constraints (ie. part of the goal set)
+      if slot in self.goal['inform_slots'].keys():
         self.state['inform_slots'][slot] = self.goal['inform_slots'][slot]
         self.state['dialogue_act'] = "inform"
         if slot in self.state['rest_slots']: self.state['rest_slots'].remove(slot)
-        if slot in self.state['request_slots'].keys(): del self.state['request_slots'][slot]
+        if slot in self.state['request_slots'].keys():
+          del self.state['request_slots'][slot]
         self.state['request_slots'].clear()
-      elif slot in self.goal['request_slots'].keys() and slot not in self.state['rest_slots'] and slot in self.state['history_slots'].keys(): # the requested slot has been answered
+      # the requested slot has been answered
+      elif slot in self.goal['request_slots'].keys() and slot not in self.state['rest_slots'] and slot in self.state['history_slots'].keys():
+        # and slot not in self.state['rest_slots']
+        # and slot in self.state['history_slots'].keys()
         self.state['inform_slots'][slot] = self.state['history_slots'][slot]
         self.state['request_slots'].clear()
         self.state['dialogue_act'] = "inform"
-      elif slot in self.goal['request_slots'].keys() and slot in self.state['rest_slots']: # request slot in user's goal's request slots, and not answered yet
-        self.state['request_slots'].clear() # changed on Dec 08 for unique action
-        self.state['dialogue_act'] = "request" # "confirm_question"
+      # request slot in user's goal's request slots, and not answered yet
+      elif slot in self.goal['request_slots'].keys() and slot in self.state['rest_slots']:
+        # changed on Dec 08 for unique action
+        self.state['request_slots'].clear()
+        # "confirm_question"
+        self.state['dialogue_act'] = "request"
         self.state['request_slots'][slot] = "UNK"
 
 

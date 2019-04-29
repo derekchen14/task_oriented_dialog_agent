@@ -111,11 +111,11 @@ class Dataset:
         yield t
 
   def to_dict(self):
-    return {'dialogues': [d.to_dict() for d in self.dialogues]}
+    return [d.to_dict() for d in self.dialogues]
 
   @classmethod
-  def from_dict(cls, d):
-    return cls([Dialogue.from_dict(dd) for dd in d['dialogues']])
+  def from_dict(cls, dialogues):
+    return cls([Dialogue.from_dict(dd) for dd in dialogues])
 
   @classmethod
   def annotate_raw(cls, fname):
@@ -183,8 +183,8 @@ class Dataset:
   def record_preds(self, preds, to_file):
     data = self.to_dict()
     i = 0
-    for d in data['dialogues']:
-      for t in d['turns']:
+    for dialogue in data:
+      for t in dialogue['turns']:
         t['pred'] = sorted(list(preds[i]))
         i += 1
     with open(to_file, 'wt') as f:

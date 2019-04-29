@@ -48,7 +48,7 @@ class KBHelper(object):
           filled_slots[slot] = inform_slots_to_be_filled[slot]
         continue
 
-      if slot == 'ticket' or slot == 'reservation' or slot == 'taxi' or slot == 'taskcomplete':
+      if slot == 'ticket' or slot == 'reservation' or slot == 'ride' or slot == 'taskcomplete':
         filled_slots[slot] = dialog_config.TICKET_AVAILABLE # if len(kb_results) > 0 else dialog_config.NO_VALUE_MATCH
         continue
 
@@ -62,15 +62,12 @@ class KBHelper(object):
 
       if len(values_counts) > 0:
         if inform_slots_to_be_filled[slot] == "PLACEHOLDER":
-          # print("aaa")
           # - means largest goes first, [1] sort by count,
           # [0] grab the largest tuple, [0] get the value rather than the count
           filled_slots[slot] = sorted(values_counts, key=lambda x: -x[1])[0][0]
         else:
-          # print("bbb")
           filled_slots[slot] = inform_slots_to_be_filled[slot]
       else:
-        # print("ccc")
         # filled_slots[slot] = dialog_config.NO_VALUE_MATCH
         #"NO VALUE MATCHES SNAFU!!!"
         filled_slots[slot] = self.find_alternate(slot, current_slots)

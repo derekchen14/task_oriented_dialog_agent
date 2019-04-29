@@ -3,7 +3,13 @@ CUDA_VISIBLE_DEVICES=1  python run.py --gpu=1 --task track_intent  \
       --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
       --epochs 50 --threshold 0.3 --optimizer adam --dataset woz2 \
       --early-stop joint_goal  --save-model \
-      --prefix apr17_  --suffix _unittest --seed 14 --verbose
+      --prefix apr29_  --suffix _unittest_14 --seed 14 --verbose
+
+CUDA_VISIBLE_DEVICES=1  python run.py --gpu=1 --task track_intent  \
+      --model glad --learning-rate 1e-3 --hidden-dim 200 --embedding-size 400 \
+      --epochs 50 --threshold 0.3 --optimizer adam --dataset woz2 \
+      --early-stop joint_goal  --save-model \
+      --prefix apr29_  --suffix _unittest_15 --seed 14 --verbose
 
 # Hyperparameter Tuning
 # CUDA_VISIBLE_DEVICES=1  python run.py --gpu=1 --task track_intent  \

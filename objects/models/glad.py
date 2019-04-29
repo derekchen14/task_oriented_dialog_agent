@@ -76,8 +76,8 @@ class GLAD(nn.Module):
     if self.training:
       # create label variable and compute loss
       labels = {s: [len(self.ontology.values[s]) * [0] for i in range(len(batch))] for s in self.ontology.slots}
-      for i, e in enumerate(batch):
-        for s, v in e.user_intent:
+      for i, example in enumerate(batch):
+        for s, v in example.user_intent:
           labels[s][i][self.ontology.values[s].index(v)] = 1
       labels = {s: torch.Tensor(m).to(device) for s, m in labels.items()}
 
