@@ -1,5 +1,6 @@
 import os, pdb, sys
 import math
+import numpy as np
 import json
 
 import torch
@@ -14,6 +15,8 @@ class BaseModule(object):
     self.model = model
 
     self.batch_size = args.batch_size
+    self.save_model = args.save_model
+
     self.opt = args.optimizer
     self.lr = args.learning_rate
     self.reg = args.weight_decay
@@ -62,8 +65,9 @@ class BaseModule(object):
       'summary': monitor.summary,
       'optimizer': self.optimizer.state_dict(),
     }
-    torch.save(state, filepath)
-    print("Saved model at {}".format(filepath))
+    if self.save_model:
+      torch.save(state, filepath)
+      print("Saved model at {}".format(filepath))
 
   def prune_saves(self, n_keep=5):
     scores_and_files = get_saves(self.model.save_dir, self.args.early_stop)
@@ -79,12 +83,72 @@ class BaseBeliefTracker(BaseModule):
     predictions = self.run_glad_inference(data)
     return data.evaluate_preds(predictions)
 
-  def qual_report(self, data):
-    self.eval()
-    one_batch = next(dev_data.batch(self.batch_size, shuffle=True))
-    loss, scores = self.forward(one_batch)
-    predictions = self.extract_predictions(scores)
-    return data.run_report(one_batch, predictions, scores)
+  def qual_report(self, samples, preds, confidence, vals):
+    num_samples = len(preds)
+    corrects = {'inform': [], 'request': [], 'act': []}
+    joint_goal = []
+    self.lines = []
+
+    idx = 0
+    pred_state = {}
+    for sample in samples:
+      if idx >= num_samples: break
+      possible = set()
+
+      gold = {'inform': set(), 'request': set(), 'act': set()}
+      for slot, values in sample.user_intent:
+        possible.add(slot)
+        if slot in ['request', 'act']:
+          gold[slot].add((slot, values))
+        else:  # dialogue_act == inform
+          gold['inform'].add((slot, values))
+
+      pred = {'inform': set(), 'request': set(), 'act': set()}
+      for slot, values in preds[idx]:
+        if slot in ['request', 'act']:
+          pred[slot].add((slot, values))
+        else:  # dialogue_act == inform
+          pred['inform'].add((slot, values))
+
+      all_correct = True
+      for category in ['inform', 'request', 'act']:
+        is_correct = gold[category] == pred[category]
+        corrects[category].append(is_correct)
+        if not is_correct:
+          all_correct = False
+      joint_goal.append(all_correct)
+
+      if not all_correct:
+        utt = sample.utterance
+        self.lines.append(utt if isinstance(utt, str) else " ".join(utt))
+        self.lines.append(f'Actual: {sample.user_intent}')
+        self.lines.append(f'Predicted: {preds[idx]}')
+        self.process_confidence(list(possible), confidence, vals, idx)
+        self.lines.append('----------------')
+
+      idx += 1
+
+    for category, scores in corrects.items():
+      self.lines.append(f'avg_{category}: {np.mean(scores)}')
+    self.lines.append(f'joint_goal: {np.mean(joint_goal)}')
+    return self.lines
+
+  def process_confidence(self, possible_slots, confidence, vals, idx):
+    for slot in possible_slots:
+      conf = []
+      for jdx, score in enumerate(confidence[slot][idx]):
+        if score > 0.01:
+          conf.append(vals[slot][jdx])
+        conf.append(round(score,3))
+
+      self.lines.append("{} confidence: {}".format(slot, conf))
+
+  def w2i(self, word):
+    try:
+      index = self.model.vocab.word2index(word)
+    except:
+      index = self.model.vocab.word2index('<unk>')
+    return index
 
 class BasePolicyManager(BaseModule):
   """ Prototype for all agent classes, defining the interface they must uphold """

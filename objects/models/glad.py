@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from objects.blocks.attention import Attention
 from objects.components import device
+import pdb
 
 # the GlobalLocalModel model described in https://arxiv.org/abs/1805.09655.
 class GLAD(nn.Module):
@@ -17,6 +18,7 @@ class GLAD(nn.Module):
     self.demb = args.embedding_size    # aka embedding dimension
     self.dhid = args.hidden_dim       # aka hidden state dimension
     dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
+    self.drop_rate = args.drop_prob
 
     self.vocab = vocab
     self.ontology = ontology
@@ -24,7 +26,6 @@ class GLAD(nn.Module):
       self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(Eword))
     else:
       self.embedding = nn.Embedding(len(vocab), self.demb)  # (num_embeddings, embedding_dim)
-
 
     self.utt_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
     self.act_encoder = GLADEncoder(self.demb, self.dhid, ontology.slots, dropout)
@@ -76,8 +77,8 @@ class GLAD(nn.Module):
     if self.training:
       # create label variable and compute loss
       labels = {s: [len(self.ontology.values[s]) * [0] for i in range(len(batch))] for s in self.ontology.slots}
-      for i, e in enumerate(batch):
-        for s, v in e.user_intent:
+      for i, example in enumerate(batch):
+        for s, v in example.user_intent:
           labels[s][i][self.ontology.values[s].index(v)] = 1
       labels = {s: torch.Tensor(m).to(device) for s, m in labels.items()}
 
@@ -92,6 +93,6 @@ class GLAD(nn.Module):
     lens = [len(s) for s in seqs]
     max_len = max(lens)
     padded = torch.LongTensor([s + (max_len-l) * [pad] for s, l in zip(seqs, lens)])
-    return emb(padded.to(device)), lens
-    # out = F.dropout(emb(padded.to(device)), drop_rate)
-    # return out, lens
+    # return emb(padded.to(device)), lens
+    out = F.dropout(emb(padded.to(device)), self.drop_rate)
+    return out, lens

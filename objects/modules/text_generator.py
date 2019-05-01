@@ -85,7 +85,6 @@ class RuleTextGenerator(BaseTextGenerator):
 
     return sentence
 
-
   def translate_diaact(self, agent_action):
     """ embed the agent action into a vector representation
       then generate the sentence with the neural encoding model
@@ -228,8 +227,8 @@ class RuleTextGenerator(BaseTextGenerator):
 
 
 class NeuralTextGenerator(BaseTextGenerator):
-  def __init__(self, *args):
-    super().__init__(args)
+  def __init__(self, args, model):
+    super().__init__(args, model)
 
   def learn(self):
     print("neural-based belief tracker is not configured")
@@ -241,7 +240,10 @@ class NeuralTextGenerator(BaseTextGenerator):
       self.predict_one(examples)
 
   def predict_one(self, example):
-    input_text
+    return example
+
+  def generate(self, action, speaker):
+    return self.model.generate(action, speaker)
 
 
 def to_consistent_data_structure(obj):

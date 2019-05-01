@@ -35,13 +35,7 @@ class Builder(object):
       print("Resuming {} at {} for training".format(model_str, self.dir))
       model = self.load_best_model(self.dir, model, model_type)
     else:
-      # small hack since NLU and NLG models are not defined yet
-      if model_type == "belief_tracker":
-        model.load_nlu_model('nlu_1468447442')
-      if model_type ==  "text_generator":
-        model.load_nlg_model('nlg_1468202263')
       print("Building {} at {}".format(model_str, self.dir))
-      # monitor.logger.info("Building model at {}".format(self.dir))
 
     model.save_dir = self.dir
     return model
@@ -64,15 +58,15 @@ class Builder(object):
 
   def load_best_model(self, directory, model, model_type):
     scores_and_files = get_saves(directory, self.args.early_stop)
-    if model.module_type == 'belief_tracker':
+    if scores_and_files:
+      assert scores_and_files, 'no saves exist at {}'.format(directory)
+      score, filepath = scores_and_files[0]
+    elif model.module_type == 'belief_tracker':
       model.load_nlu_model('nlu_1468447442')
       return model
     elif model.module_type == 'text_generator':
       model.load_nlg_model('nlg_1468202263')
       return model
-    elif scores_and_files:
-      assert scores_and_files, 'no saves exist at {}'.format(directory)
-      score, filepath = scores_and_files[0]
     else:
       filename = "epoch=12_success=25.4042_recall@two=41.3395"
       filepath = os.path.join(self.save_dir, filename)
@@ -128,11 +122,18 @@ class Builder(object):
     elif model_type == 'ddq':
       model = DQN(input_size, self.dhid, output_size)
       model.module_type = 'policy_manager'
+      return model.to(torch.device('cpu'))
     elif model_type == "attention":
       encoder = enc.GRU_Encoder(input_size, self.args)
       decoder = dec.Attn_Decoder(output_size, self.args)
       model = Seq2Seq(encoder, decoder)
       model.module_type = 'text_generator'
+    elif model_type == 'nlg_model':
+      model = NLG(self.loader, 'results/end_to_end/ddq/movies/')
+      model.load_nlg_model('nlg_1468202263')
+      model.load_natural_langauge_templates('nl_templates')
+      model.module_type = 'text_generator'
+      return model
 
     return model.to(device)
 
@@ -148,15 +149,14 @@ class Builder(object):
         module.user.text_generator = RuleTextGenerator.from_pretrained(args)
         module.user.text_generator.set_templates(args.dataset)
       elif args.model == 'ddq':
-        movie_kb = self.loader.json_data('movie_kb.1k')
+        pm_model = NeuralPolicyManager(args, model)
         goal_set = self.loader.json_data('goal_set_v2')
 
         user_sim = RuleSimulator(args, ontology, goal_set)
         world_sim = NeuralSimulator(args, ontology, goal_set)
         real_user = CommandLineUser(args, ontology, goal_set)
         turk_user = MechanicalTurkUser(args, ontology, goal_set)
-        model = NeuralPolicyManager(args, model, device,
-              world_sim, ontology, movie_kb)
+        users = (user_sim, world_sim, real_user, turk_user)
 
         results_dir = os.path.join("results", self.args.task, self.args.dataset)
         nlu_model = NLU(self.loader, results_dir)
@@ -164,20 +164,15 @@ class Builder(object):
 
         nlg_model = NLG(self.loader, results_dir)
         nlg_model.load_nlg_model('nlg_1468202263')
-        nl_pairs = self.loader.json_data('dia_act_nl_pairs.v6')
-        nlg_model.load_predefine_act_nl_pairs(nl_pairs)
+        nlg_model.load_natural_langauge_templates('dia_act_nl_pairs.v6')
 
-        model.belief_tracker = nlu_model
         user_sim.nlu_model = nlu_model
         world_sim.nlu_model = nlu_model
-
-        model.text_generator = nlg_model
         user_sim.nlg_model = nlg_model
         world_sim.nlg_model = nlg_model
 
-        module = DialogManager(args, model, user_sim, world_sim, real_user,
-              turk_user, ontology, movie_kb)
-
+        pm_model.configure_settings(device, world_sim, ontology, kb)
+        module = DialogManager(args, pm_model, users, ontology, kb)
 
     elif model.module_type == 'text_generator':
       module = model
@@ -185,15 +180,23 @@ class Builder(object):
     module.dir = self.dir
     return module
 
-  def create_agent(self, belief_tracker, policy_manager, text_generator):
-    agent = policy_manager
+  def create_agent(self, bt_model, pm_model, tg_model):
+    kb, goals = self.loader.kb, self.loader.goals
+    ontology, old_ont = self.loader.ontology, self.loader.old_ont
 
-    agent.model.belief_tracker = belief_tracker
-    agent.user_sim.nlu_model = belief_tracker
-    agent.world_model.nlu_model = belief_tracker
+    user_sim = RuleSimulator(self.args, ontology, goals)
+    world_sim = NeuralSimulator(self.args, ontology, goals, old_ont)
+    users = (user_sim, world_sim)
 
-    agent.model.text_generator = text_generator
-    agent.user_sim.nlg_model = text_generator
-    agent.world_model.nlg_model = text_generator
+    belief_tracker = NeuralBeliefTracker(self.args, bt_model)
+    policy_manager = NeuralPolicyManager(self.args, pm_model)
+    text_generator = NeuralTextGenerator(self.args, tg_model)
 
-    return agent
+    user_sim.nlu_model = belief_tracker
+    world_sim.nlu_model = belief_tracker
+    user_sim.nlg_model = text_generator
+    world_sim.nlg_model = text_generator
+
+    policy_manager.configure_settings(device, world_sim, ontology, kb, old_ont)
+
+    return DialogManager(self.args, policy_manager, users, ontology, kb)

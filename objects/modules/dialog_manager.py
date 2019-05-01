@@ -10,33 +10,35 @@ import torch
 import os, pdb, sys
 import numpy as np
 from objects.modules.dialog_state import DialogState
-from utils.external import dialog_config
+from utils.external import dialog_constants
 
 class DialogManager:
   """ A dialog manager to mediate the interaction between an agent and a customer """
 
-  def __init__(self, args, sub_module, user_sim, world_model, real_user,
-          turk_user, ontology, movie_dictionary):
+  def __init__(self, args, sub_module, users, ontology, movie_dictionary):
     self.model = sub_module
     self.debug = args.debug
     self.verbose = args.verbose
+    self.task = args.task
 
+    if len(users) == 4:
+      user_sim, world_sim, real_user, turk_user = users
+      self.real_user = real_user
+      self.turk_user = turk_user
+    elif len(users) == 2:
+      user_sim, world_sim = users
     self.user_sim = user_sim
-    self.world_model = world_model
-    self.real_user = real_user
-    self.turk_user = turk_user
+    self.world_model = world_sim
 
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
     self.state_tracker = DialogState(ontology, movie_dictionary)
-    self.user_action = None
     self.reward = 0
     self.episode_over = False
 
     self.save_dir = sub_module.model.save_dir
     self.use_world_model = False
     self.running_user = self.user_sim
-    # self.run_mode = dialog_config.run_mode
 
   def initialize_episode(self, user_type):
     """ Refresh state for new dialog """
@@ -61,11 +63,11 @@ class DialogManager:
 
   def start_conversation(self, user_type):
     """ User takes the first turn and updates the dialog state """
-    user_action = self.running_user.take_first_turn()
+    user_intent = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
-    self.state_tracker.update(user_action=user_action)
-    self.print_function(user_action, 'user')
+    self.state_tracker.update_user_state(user_intent)
+    self.print_function(user_intent, 'user')
 
   def next(self, record_agent_data=True, record_user_data=True):
     """ Initiates exchange between agent and user (agent first)
@@ -73,54 +75,68 @@ class DialogManager:
       input - dialogue state consisting of:
         1) current user intent --> act(slot-relation-value) + confidence score
         2) previous agent action
-        3) knowledge base query results
+        3) complete semantic frame
         4) turn count
-        5) complete semantic frame
+        5) knowledge base query result count
       output - next agent action
-    """
-    #   CALL AGENT TO TAKE HER TURN
-    self.agent_state = self.state_tracker.get_state_for_agent()
-    model_action = self.model.state_to_action(self.agent_state)
-    #   Register AGENT action with the state_tracker
-    self.state_tracker.update(agent_action=model_action)
-    self.user_state = self.state_tracker.get_state_for_user()
 
+      > model_action keys: slot_action, action_id
+        slot action: nl, dialogue_act, inform_slots, request_slots, turn_count
+      > sys_action keys: speaker, dialogue_act, inform_slots, request_slots, turn_count
+      > user_intent keys: dialogue_act, inform_slots, request_slots
+
+    if self.task == 'end_to_end' and self.use_world_model:
+      user_belief = self.model.belief_tracker.classify_intent(user_intent, model_action)
+    #   Update state tracker with latest user action
+
+    """
+    #   CURRENT STATE (s)
+    self.agent_state = self.state_tracker.get_state('agent')
+    #   ACTION (a)
+    model_action = self.model.state_to_action(self.agent_state)
+
+    #   Register agent action with the state_tracker
+    self.state_tracker.update_agent_state(model_action)
+    self.user_state = self.state_tracker.get_state('user')
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     self.print_function(model_action['slot_action'], 'agent')
+    self.sys_action = self.state_tracker.history_dictionaries[-1]
 
-    #   CALL USER TO TAKE HER TURN
-    self.sys_action = self.state_tracker.dialog_history_dictionaries()[-1]
+    """
+    Have the user take their turn, note that the environment takes
+      the form of a user simulator.  Thus, this is how we get the reward.
+    Note also, that an environment should return a next agent state.
+      In this case, the user intent *is* the next agent state.
+    """
+
+    # REWARD (r)
     if self.use_world_model:
-      self.user_action, self.episode_over, self.reward = self.running_user.next(
-              self.user_state, model_action)
+      user_output = self.running_user.next(self.user_state, model_action)
+      user_intent, self.episode_over, self.reward = user_output
     else:
-      self.user_action, self.episode_over, dialog_status = self.running_user.next(self.sys_action)
+      user_output = self.running_user.next(self.sys_action)
+      user_intent, self.episode_over, dialog_status = user_output
       self.reward = self.model.reward_function(dialog_status)
-    """ Uncomment to use the belief tracker
-    user_utterance = self.user_action['nl']
-    pred_action = self.model.belief_tracker.classify_intent(user_utterance)
-    self.user_action = pred_action """
 
-    #   Update state tracker with latest user action
+    #   Register user action with the state_tracker
     if self.episode_over != True:
-      self.state_tracker.update(user_action=self.user_action)
-      self.print_function(self.user_action, 'user')
-    next_agent_state = self.state_tracker.get_state_for_agent()
+      self.state_tracker.update_user_state(user_intent)
+      self.print_function(user_intent, 'user')
 
-    #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over, s_t_u, user_world_model)
+    # NEXT STATE (s')
+    next_agent_state = self.state_tracker.get_state('agent')
+    next_user_state = self.state_tracker.get_state('user')
+
+    # Record data in experience replay pools
     if record_agent_data:
       self.model.use_world_model = self.use_world_model
       self.model.store_experience(self.agent_state, model_action['action_id'],
         self.reward, next_agent_state, self.episode_over)
-
-    #  Inform world model of the outcome for this timestep
-    # (s_t, a_t, s_{t+1}, r, t, ua_t)
     if record_user_data and not self.use_world_model:
-      self.world_model.store_experience(self.user_state,
-        model_action['action_id'], next_agent_state, self.reward,
-        self.episode_over, self.user_action)
+      self.world_model.store_experience(self.user_state, model_action['action_id'],
+        self.reward, next_agent_state, self.episode_over, user_intent)
 
-    return (self.episode_over, self.reward)
+    return self.episode_over, self.reward
 
   def respond_to_turker(self, raw_user_input):
     # intent classification
@@ -129,11 +145,11 @@ class DialogManager:
     elif self.running_user.agent_input_mode == 'dialogue_act':
       user_input = self.parse_raw_input(raw_user_input)
     print(json.dumps(user_input, indent=2))
-    self.state_tracker.update(user_action=user_input)
+    self.state_tracker.update_user_state(user_input)
     # policy management
-    self.agent_state = self.state_tracker.get_state_for_agent()
+    self.agent_state = self.state_tracker.get_state('agent')
     model_action = self.model.state_to_action(self.agent_state)
-    self.state_tracker.update(agent_action=model_action)
+    self.state_tracker.update_agent_state(model_action)
     # text generation
     self.model.action_to_nl(model_action)  # add NL to Agent Dia_Act
     agent_response = model_action['slot_action']['nl']
@@ -182,55 +198,6 @@ class DialogManager:
       for k, v in action_dict.items(): print(kind, k, v)
     else:
       print ("{}) {}: {}".format(action_dict['turn_count'], kind, action_dict['nl']))
-    if dialog_config.auto_suggest and kind == "agent":
+    if dialog_constants.auto_suggest and kind == "agent":
       output = self.state_tracker.make_suggestion(action_dict['request_slots'])
       print(f'(Suggested Values: {output})')
-
-
-
-  # def print_function(self, agent_action=None, user_action=None):
-  #   if agent_action:
-  #     if self.run_mode == 0:
-  #       if self.model.__class__.__name__ != 'AgentCmd':
-  #         print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-  #     elif self.run_mode == 1:
-  #       if self.model.__class__.__name__ != 'AgentCmd':
-  #         print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-  #           agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
-  #           agent_action['request_slots']))
-  #     elif self.run_mode == 2:  # debug mode
-  #       print("Turn %d sys: %s, inform_slots: %s, request slots: %s" % (
-  #         agent_action['turn_count'], agent_action['dialogue_act'], agent_action['inform_slots'],
-  #         agent_action['request_slots']))
-  #       print("Turn %d sys: %s" % (agent_action['turn_count'], agent_action['nl']))
-
-  #     if dialog_config.auto_suggest == 1:
-  #       print(
-  #         '(Suggested Values: %s)' % (
-  #         self.state_tracker.get_suggest_slots_values(agent_action['request_slots'])))
-  #   elif user_action:
-  #     if self.run_mode == 0:
-  #       print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
-  #     elif self.run_mode == 1:
-  #       print("Turn %s usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
-  #         user_action['request_slots']))
-  #     elif self.run_mode == 2:  # debug mode, show both
-  #       print("Turn %d usr: %s, inform_slots: %s, request_slots: %s" % (
-  #         user_action['turn_count'], user_action['dialogue_act'], user_action['inform_slots'],
-  #         user_action['request_slots']))
-  #       print("Turn %d usr: %s" % (user_action['turn_count'], user_action['nl']))
-
-  #     if self.model.__class__.__name__ == 'AgentCmd':  # command line agent
-  #       user_request_slots = user_action['request_slots']
-  #       if 'ticket' in user_request_slots.keys(): del user_request_slots['ticket']
-  #       if len(user_request_slots) > 0:
-  #         possible_values = self.state_tracker.get_suggest_slots_values(user_action['request_slots'])
-  #         for slot in possible_values.keys():
-  #           if len(possible_values[slot]) > 0:
-  #             print('(Suggested Values: %s: %s)' % (slot, possible_values[slot]))
-  #           elif len(possible_values[slot]) == 0:
-  #             print('(Suggested Values: there is no available %s)' % (slot))
-  #       else:
-  #         kb_results = self.state_tracker.get_current_kb_results()
-  #         print('(Number of movies in KB satisfying current constraints: %s)' % len(kb_results))

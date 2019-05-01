@@ -1,6 +1,5 @@
 from objects.components import var
 from utils.internal.initialization import pickle_io
-from utils.external.dialog_config import feasible_actions
 import os, pdb
 
 class PreProcessor(object):
@@ -31,16 +30,20 @@ class PreProcessor(object):
       act_cardinality = 2 * len(self.loader.ontology.acts)
       slot_cardinality = 7 * len(self.loader.ontology.slots)
       other_count = 3 + self.max_turn + 5    # where does 5 come from?
-      num_beliefs = act_cardinality + slot_cardinality + other_count
-      num_actions = len(feasible_actions)
-      return num_beliefs, num_actions
+      num_intents = act_cardinality + slot_cardinality + other_count
+      num_actions = len(self.ontology.feasible_agent_actions)
+      return num_intents, num_actions    # (273, 30)
     elif self.task == 'generate_text':
-      num_actions = len(self.ontology.feasible_actions)
+      num_actions = len(self.ontology.feasible_agent_actions)
       return num_actions, self.vocab.ulary_size()
     elif self.task == 'end_to_end':
-      num_slots = len(self.ontology.slots)
-      num_actions = len(feasible_actions)
-      return num_slots, num_actions
+      num_beliefs = sum([len(vals) for vals in self.ontology.values.values()])
+      ont = self.loader.old_ont
+      num_beliefs += len(ont['slots'])*3 + len(ont['acts'])
+      num_beliefs += self.max_turn + 5 + 1
+      num_actions = len(self.ontology.feasible_agent_actions)
+
+      return num_beliefs, num_actions      # (904, 30)   # currently 10, 22?
 
   def prepare_examples(self, split, use_context):
     dataset = self.datasets[split]

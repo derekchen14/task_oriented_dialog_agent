@@ -48,7 +48,7 @@ class KBHelper(object):
           filled_slots[slot] = inform_slots_to_be_filled[slot]
         continue
 
-      if slot == 'ticket' or slot == 'reservation' or slot == 'taxi' or slot == 'taskcomplete':
+      if slot == 'ticket' or slot == 'reservation' or slot == 'ride' or slot == 'taskcomplete':
         filled_slots[slot] = dialog_config.TICKET_AVAILABLE # if len(kb_results) > 0 else dialog_config.NO_VALUE_MATCH
         continue
 
@@ -62,18 +62,14 @@ class KBHelper(object):
 
       if len(values_counts) > 0:
         if inform_slots_to_be_filled[slot] == "PLACEHOLDER":
-          # print("aaa")
           # - means largest goes first, [1] sort by count,
           # [0] grab the largest tuple, [0] get the value rather than the count
           filled_slots[slot] = sorted(values_counts, key=lambda x: -x[1])[0][0]
         else:
-          # print("bbb")
           filled_slots[slot] = inform_slots_to_be_filled[slot]
       else:
-        # print("ccc")
-        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH
-        #"NO VALUE MATCHES SNAFU!!!"
         filled_slots[slot] = self.find_alternate(slot, current_slots)
+        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH  this hurts performance
 
     return filled_slots
 
@@ -119,14 +115,14 @@ class KBHelper(object):
   def available_slot_values(self, slot, kb_results):
     """ Return the set of values available for the slot based on the current constraints """
 
-    slot_values = {}
-    for movie_id in kb_results.keys():
-      if slot in kb_results[movie_id].keys():
-        slot_val = kb_results[movie_id][slot]
-        if slot_val in slot_values.keys():
-          slot_values[slot_val] += 1
-        else: slot_values[slot_val] = 1
-    return slot_values
+    available = {}
+    for movie_id, movie in kb_results.items():
+      if slot in movie.keys():
+        chosen_val = movie[slot]
+        if chosen_val in available.keys():
+          available[chosen_val] += 1
+        else: available[chosen_val] = 1
+    return available
 
   def build_constraints(self, informs):
     constrain_keys = informs.keys()
@@ -181,7 +177,7 @@ class KBHelper(object):
   def search_by_constraint(self, constrain_keys, constraints, cache_keys=None):
     results = []
     # kb_results = copy.deepcopy(self.knowledge_base)
-    for movie_id, movie in self.knowledge_base.items():
+    for movie_id, movie in enumerate(self.knowledge_base):
       # kb_keys consists of slots with available info for a particular movie
       kb_keys = movie.keys()
 
@@ -216,11 +212,10 @@ class KBHelper(object):
     if len(cached_kb_slot_ret) > 0:
       return cached_kb_slot_ret[0]
 
-    for movie_id in self.knowledge_base.keys():
+    for movie in self.knowledge_base:
       all_slots_match = True
       for slot in inform_slots.keys():
         desired_value = inform_slots[slot]
-        movie = self.knowledge_base[movie_id]
         if slot == 'taxi' or desired_value == dialog_config.I_DO_NOT_CARE:
           continue
 
@@ -239,14 +234,14 @@ class KBHelper(object):
     return kb_results
 
 
-  def database_results_for_agent(self, current_slots):
+  def database_results(self, current_slots):
     """ A dictionary of the number of results matching each current constraint. The agent needs this to decide what to do next. """
 
     database_results ={} # { date:100, distanceconstraints:60, theater:30,  matching_all_constraints: 5}
     database_results = self.available_results_from_kb_for_slots(current_slots['inform_slots'])
     return database_results
 
-  def suggest_slot_values(self, request_slots, current_slots):
+  def suggest(self, request_slots, current_slots):
     """ Return the suggest slot values """
 
     avail_kb_results = self.available_results_from_kb(current_slots)

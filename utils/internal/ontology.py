@@ -12,6 +12,9 @@ class Ontology:
     self.values = values or {}
     self.num = num or {}
 
+    self.feasible_agent_actions = None
+    self.feasible_user_actions = None
+
   def __add__(self, another):
     new_acts = sorted(list(set(self.acts + another.acts)))
     new_slots = sorted(list(set(self.slots + another.slots)))
@@ -38,8 +41,13 @@ class Ontology:
 
     data = {}
     data['acts'] = ont['dialogue_acts']
-    data['slots'] = list(ont['slot_values'].keys())
-    data['values'] = ont['slot_values']
+
+    if 'slots' in ont.keys():
+      data['slots'] = ont['slots']
+      data['values'] = ont['values']
+    else:
+      data['slots'] = list(ont['slot_values'].keys())
+      data['values'] = ont['slot_values']
 
     if 'relations' in ont.keys():
       data['relations'] = ont['relations']

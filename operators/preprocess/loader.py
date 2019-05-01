@@ -4,6 +4,7 @@ import pickle as pkl
 import torch
 
 from vocab import Vocab
+from utils.external import dialog_constants
 from utils.internal.vocabulary import Vocabulary
 from utils.external.reader import text_to_dict, get_glove_name
 from objects.blocks import Dataset
@@ -20,16 +21,20 @@ class DataLoader(object):
     if args.pretrained:
       self.embeddings = json.load(self.path('embeddings.json'))
 
-    self.ontology = Ontology.from_path(self.data_dir)
+    self.ontology = self.augment_with_actions(Ontology.from_path(self.data_dir))
     if self.task == 'track_intent':
-      self.vocab = Vocab.from_dict(json.load(self.path('vocab.json')))
+      self.vocab = Vocab.from_dict(self.json_data('vocab'))
     elif self.task == 'manage_policy':
-      self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
+      self.kb = self.json_data('kb')
+      # self.kb = self.pickle_data('knowledge_base')
       self.vocab = Vocabulary(args, self.data_dir)
       self.ontology.slots = self.text_data('slot_set')  # force special slots
     elif self.task == 'end_to_end':
-      self.kb = pkl.load(self.path("knowledge_base.p", "rb"), encoding="latin1")
-      self.vocab = Vocabulary(args, self.data_dir)
+      self.kb = self.json_data('kb')
+      self.goals = self.json_data('goals')
+      self.vocab = Vocab.from_dict(self.json_data('vocab'))
+      self.old_ont = {'acts': self.text_data('act_set'),
+                      'slots': self.text_data('slot_set') }
 
     self.load_datasets()
 
@@ -89,6 +94,51 @@ class DataLoader(object):
         full_set[line.strip('\n').strip('\r')] = index
         index += 1
     return full_set
+
+  def augment_with_actions(self, ontology):
+    agent_actions = []
+    user_actions = []
+
+    agent_acts = ['greeting', 'confirm_question', 'confirm_answer', 'thanks', 'deny']
+    user_acts = ['thanks', 'deny', 'closing', 'confirm_answer']
+    # if self.task == "end_to_end":
+    #   agent_acts.append('clarify')
+
+    for act in agent_acts:
+      action = {'dialogue_act':act, 'inform_slots':{}, 'request_slots':{}}
+      agent_actions.append(action)
+    for act in user_acts:
+      action = {'dialogue_act':act, 'inform_slots':{}, 'request_slots':{}}
+      user_actions.append(action)
+
+    if 'request' in ontology.slots:
+      valid_slots = [x for x in ontology.slots if x not in ['act', 'request']]
+      for slot in valid_slots:
+        req_action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}}
+        agent_actions.append(req_action)
+        inf_action = {'dialogue_act': 'inform', 'inform_slots': {slot: "PLACEHOLDER"}, 'request_slots': {}}
+        agent_actions.append(inf_action)
+      agent_actions.append({'dialogue_act': 'inform', 'inform_slots': {'taskcomplete': 'PLACEHOLDER'}, 'request_slots': {}})
+    else:
+      for req_slot in dialog_constants.sys_request_slots:
+        action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
+        agent_actions.append(action)
+      for inf_slot in dialog_constants.sys_inform_slots:
+        action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
+        agent_actions.append(action)
+    ontology.feasible_agent_actions = agent_actions
+
+    for inf_slot in dialog_constants.sys_inform_slots_for_user:
+      action = {'dialogue_act': 'inform', 'inform_slots': {inf_slot: "PLACEHOLDER"}, 'request_slots': {}}
+      user_actions.append(action)
+    for req_slot in dialog_constants.sys_request_slots_for_user:
+      action = {'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {req_slot: "UNK"}}
+      user_actions.append(action)
+    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
+    user_actions.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {'ticket': 'UNK'}})
+    ontology.feasible_user_actions = user_actions
+
+    return ontology
 
 
   """

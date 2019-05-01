@@ -16,10 +16,11 @@ sys_inform_slots = ['moviename', 'theater', 'starttime', 'date', 'state', 'city'
 # sys_request_slots = ['moviename', 'theater', 'starttime', 'date', 'numberofpeople', 'genre', 'state', 'city', 'zip', 'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price', 'actor', 'description', 'numberofkids']
 # sys_inform_slots = ['moviename', 'theater', 'starttime', 'date', 'genre', 'state', 'city', 'zip', 'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price', 'actor', 'description', 'numberofkids', 'taskcomplete', 'ticket']
 #
-start_dia_acts = {
+starting_dialogue_acts = ['request']
+# start_dia_acts = {
     # 'greeting':[],
-    'request': ['moviename', 'starttime', 'theater', 'city', 'state', 'date', 'ticket', 'numberofpeople']
-}
+    # 'request': ['moviename', 'starttime', 'theater', 'city', 'state', 'date', 'ticket', 'numberofpeople']
+# }
 
 # sys_request_slots = ['moviename', 'theater', 'starttime', 'date', 'numberofpeople', 'genre', 'state', 'city', 'zip',
 #                      'critic_rating', 'mpaa_rating', 'distanceconstraints', 'video_format', 'theater_chain', 'price',
@@ -49,6 +50,7 @@ PER_TURN_REWARD = 0
 #  Special Slot Values
 ################################################################################
 I_DO_NOT_CARE = "I do not care"
+I_DO_NOT_KNOW = "I do not know"
 NO_VALUE_MATCH = "NO VALUE MATCHES!!!"
 TICKET_AVAILABLE = 'Ticket Available'
 
@@ -137,3 +139,12 @@ for slot in sys_request_slots_for_user:
     feasible_actions_users.append({'dialogue_act': 'request', 'inform_slots': {}, 'request_slots': {slot: "UNK"}})
 
 feasible_actions_users.append({'dialogue_act': 'inform', 'inform_slots': {}, 'request_slots': {}})
+
+lexicon = {}
+lexicon['act_mapper'] = {'greeting': 'open', 'deny': 'reject', 'confirm_question': 'inform',
+    'inform': 'skip', 'thanks': 'accept', 'welcome': 'close', 'closing': 'close',
+    'request': 'skip', 'confirm_answer': 'accept', 'not_sure': 'reject'}
+lexicon['slot_mapper'] = {}
+lexicon['val_mapper'] = { I_DO_NOT_CARE: 'any', I_DO_NOT_KNOW: 'any',
+    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+    'six': '6', 'seven': '7', 'eight': '8', 'nine': '9' }
