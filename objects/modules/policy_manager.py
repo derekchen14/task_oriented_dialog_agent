@@ -175,14 +175,12 @@ class NeuralPolicyManager(BasePolicyManager):
             if slot == inf_slot:
               if inf_val in val_mapper.keys():
                 inf_val = val_mapper[inf_val]
-              try:
-                partial_user_rep[0, vals.index(inf_val)] = 1.0
-              except(ValueError):
-                print(len(vals))
-                print("val", inf_val)
-                print("slot", inf_slot)
-                pdb.set_trace()
-                sys.exit()
+              partial_user_rep[0, vals.index(inf_val)] = 1.0
+              # except(ValueError):
+              #   print(len(vals))
+              #   print("val", inf_val)
+              #   print("slot", inf_slot)
+              #   pdb.set_trace()
 
         user_representations.append(partial_user_rep)
 

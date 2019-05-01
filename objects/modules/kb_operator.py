@@ -68,9 +68,8 @@ class KBHelper(object):
         else:
           filled_slots[slot] = inform_slots_to_be_filled[slot]
       else:
-        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH
-        #"NO VALUE MATCHES SNAFU!!!"
         filled_slots[slot] = self.find_alternate(slot, current_slots)
+        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH  this hurts performance
 
     return filled_slots
 

@@ -18,6 +18,7 @@ class GLAD(nn.Module):
     self.demb = args.embedding_size    # aka embedding dimension
     self.dhid = args.hidden_dim       # aka hidden state dimension
     dropout = {key: args.drop_prob for key in ["emb", "local", "global"]}
+    self.drop_rate = args.drop_prob
 
     self.vocab = vocab
     self.ontology = ontology
@@ -92,6 +93,6 @@ class GLAD(nn.Module):
     lens = [len(s) for s in seqs]
     max_len = max(lens)
     padded = torch.LongTensor([s + (max_len-l) * [pad] for s, l in zip(seqs, lens)])
-    return emb(padded.to(device)), lens
-    # out = F.dropout(emb(padded.to(device)), drop_rate)
-    # return out, lens
+    # return emb(padded.to(device)), lens
+    out = F.dropout(emb(padded.to(device)), self.drop_rate)
+    return out, lens

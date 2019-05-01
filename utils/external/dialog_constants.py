@@ -50,6 +50,7 @@ PER_TURN_REWARD = 0
 #  Special Slot Values
 ################################################################################
 I_DO_NOT_CARE = "I do not care"
+I_DO_NOT_KNOW = "I do not know"
 NO_VALUE_MATCH = "NO VALUE MATCHES!!!"
 TICKET_AVAILABLE = 'Ticket Available'
 
@@ -144,6 +145,6 @@ lexicon['act_mapper'] = {'greeting': 'open', 'deny': 'reject', 'confirm_question
     'inform': 'skip', 'thanks': 'accept', 'welcome': 'close', 'closing': 'close',
     'request': 'skip', 'confirm_answer': 'accept', 'not_sure': 'reject'}
 lexicon['slot_mapper'] = {}
-lexicon['val_mapper'] = { I_DO_NOT_CARE: 'any',
+lexicon['val_mapper'] = { I_DO_NOT_CARE: 'any', I_DO_NOT_KNOW: 'any',
     'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
     'six': '6', 'seven': '7', 'eight': '8', 'nine': '9' }
