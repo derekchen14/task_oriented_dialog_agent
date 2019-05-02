@@ -4,7 +4,7 @@ import random
 
 from torch import nn
 from collections import defaultdict
-import datasets.ddq.constants as dialog_config
+from utils.external import dialog_constants
 
 class KBHelper(object):
   """ An assistant to fill in values for the agent
@@ -32,7 +32,7 @@ class KBHelper(object):
           for each slot in inform_slots_to_be_filled
     """
     kb_results = self.available_results_from_kb(current_slots)
-    #if dialog_config.auto_suggest == 1:
+    #if dialog_constants.auto_suggest == 1:
     #    print 'Number of entries in KB satisfying current constraints: ',
     #    len(kb_results)
 
@@ -49,7 +49,7 @@ class KBHelper(object):
         continue
 
       if slot == 'ticket' or slot == 'reservation' or slot == 'ride' or slot == 'taskcomplete':
-        filled_slots[slot] = dialog_config.TICKET_AVAILABLE # if len(kb_results) > 0 else dialog_config.NO_VALUE_MATCH
+        filled_slots[slot] = dialog_constants.TICKET_AVAILABLE # if len(kb_results) > 0 else dialog_constants.NO_VALUE_MATCH
         continue
 
       if slot == 'closing': continue
@@ -69,7 +69,7 @@ class KBHelper(object):
           filled_slots[slot] = inform_slots_to_be_filled[slot]
       else:
         filled_slots[slot] = self.find_alternate(slot, current_slots)
-        # filled_slots[slot] = dialog_config.NO_VALUE_MATCH  this hurts performance
+        # filled_slots[slot] = dialog_constants.NO_VALUE_MATCH  this hurts performance
 
     return filled_slots
 
@@ -80,7 +80,7 @@ class KBHelper(object):
       for slot in inform_slots.keys():
         desired_value = inform_slots[slot]
         movie = self.knowledge_base[movie_id]
-        if slot == 'taxi' or desired_value == dialog_config.I_DO_NOT_CARE:
+        if slot == 'taxi' or desired_value == dialog_constants.I_DO_NOT_CARE:
           continue
 
         if slot in movie.keys():
@@ -108,7 +108,7 @@ class KBHelper(object):
     try:
       desired_value = golden_ticket[desired_slot]
     except:
-      desired_value = dialog_config.DONT_KNOW
+      desired_value = dialog_constants.I_DO_NOT_KNOW
 
     return desired_value
 
@@ -140,7 +140,7 @@ class KBHelper(object):
                        k != 'name' and \
                        k != 'taxi' and \
                        k != 'closing', constrain_keys)
-    dont_care = dialog_config.I_DO_NOT_CARE
+    dont_care = dialog_constants.I_DO_NOT_CARE
     return [k for k in constrain_keys if informs[k] != dont_care]
 
   def available_results_from_kb(self, current_slots):
@@ -162,7 +162,7 @@ class KBHelper(object):
     """
       for slot in current_slots['inform_slots'].keys():
           if slot == 'ticket' or slot == 'numberofpeople' or slot == 'taskcomplete' or slot == 'closing': continue
-          if current_slots['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE: continue
+          if current_slots['inform_slots'][slot] == dialog_constants.I_DO_NOT_CARE: continue
 
           if slot not in self.knowledge_base[movie_id].keys():
               if movie_id in kb_results.keys():
@@ -202,7 +202,6 @@ class KBHelper(object):
 
   def available_results_from_kb_for_slots(self, inform_slots):
     """ Return the count statistics for each constraint in inform_slots """
-
     kb_results = {key:0 for key in inform_slots.keys()}
     kb_results['matching_all_constraints'] = 0
 
@@ -216,7 +215,7 @@ class KBHelper(object):
       all_slots_match = True
       for slot in inform_slots.keys():
         desired_value = inform_slots[slot]
-        if slot == 'taxi' or desired_value == dialog_config.I_DO_NOT_CARE:
+        if slot == 'taxi' or desired_value == dialog_constants.I_DO_NOT_CARE:
           continue
 
         if slot in movie.keys():
@@ -237,9 +236,9 @@ class KBHelper(object):
   def database_results(self, current_slots):
     """ A dictionary of the number of results matching each current constraint. The agent needs this to decide what to do next. """
 
-    database_results ={} # { date:100, distanceconstraints:60, theater:30,  matching_all_constraints: 5}
-    database_results = self.available_results_from_kb_for_slots(current_slots['inform_slots'])
-    return database_results
+    kb_results ={} # { date:100, distanceconstraints:60, theater:30,  matching_all_constraints: 5}
+    kb_results = self.available_results_from_kb_for_slots(current_slots['inform_slots'])
+    return kb_results
 
   def suggest(self, request_slots, current_slots):
     """ Return the suggest slot values """

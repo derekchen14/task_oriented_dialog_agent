@@ -6,7 +6,7 @@ import pickle as pkl
 
 from torch import nn
 from objects.models.external import DeepDialogDecoder
-from datasets.ddq import constants as dialog_config
+from utils.external import dialog_constants
 from objects.blocks.base import BaseTextGenerator
 
 class RuleTextGenerator(BaseTextGenerator):
@@ -35,7 +35,7 @@ class RuleTextGenerator(BaseTextGenerator):
       slot_vals = slot_val_dict[slot]
       slot_placeholder = slot + "_PLACEHOLDER"
       if slot == 'result': continue
-      if slot_vals == dialog_config.NO_VALUE_MATCH: continue
+      if slot_vals == dialog_constants.NO_VALUE_MATCH: continue
       sentence = sentence.replace(slot_placeholder, slot_vals, 1)
 
     for slot in slot_dict.keys():
@@ -56,9 +56,9 @@ class RuleTextGenerator(BaseTextGenerator):
     is_complete = 'taskcomplete' in current_keys
     if is_complete: task_state = chosen_action['inform_slots']['taskcomplete']
 
-    if is_inform and is_complete and task_state != dialog_config.NO_VALUE_MATCH:
+    if is_inform and is_complete and task_state != dialog_constants.NO_VALUE_MATCH:
       for slot in current_keys:
-        does_not_care = chosen_action['inform_slots'][slot] == dialog_config.I_DO_NOT_CARE
+        does_not_care = chosen_action['inform_slots'][slot] == dialog_constants.I_DO_NOT_CARE
         if does_not_care: del chosen_action['inform_slots'][slot]
 
     # if the slots and values match the template, then fill that template
@@ -71,7 +71,7 @@ class RuleTextGenerator(BaseTextGenerator):
           sentence_filled = True
           break
 
-    if is_inform and is_complete and task_state == dialog_config.NO_VALUE_MATCH:
+    if is_inform and is_complete and task_state == dialog_constants.NO_VALUE_MATCH:
       if 'moviename' in chosen_action['inform_slots'].keys():
         sentence = "Oh sorry, there is no ticket available."
       if 'restaurantname' in chosen_action['inform_slots'].keys():
@@ -165,10 +165,10 @@ class RuleTextGenerator(BaseTextGenerator):
     counter = 0
     for slot in dia_act['inform_slots'].keys():
       slot_val = dia_act['inform_slots'][slot]
-      if slot_val == dialog_config.NO_VALUE_MATCH:
+      if slot_val == dialog_constants.NO_VALUE_MATCH:
         sentence = slot + " is not available!"
         break
-      elif slot_val == dialog_config.I_DO_NOT_CARE:
+      elif slot_val == dialog_constants.I_DO_NOT_CARE:
         counter += 1
         sentence = sentence.replace('$'+slot+'$', '', 1)
         continue
@@ -176,7 +176,7 @@ class RuleTextGenerator(BaseTextGenerator):
       sentence = sentence.replace('$'+slot+'$', slot_val, 1)
 
     if counter > 0 and counter == len(dia_act['inform_slots']):
-      sentence = dialog_config.I_DO_NOT_CARE
+      sentence = dialog_constants.I_DO_NOT_CARE
 
     return sentence
 
@@ -214,7 +214,7 @@ class RuleTextGenerator(BaseTextGenerator):
 
     acts = copy.deepcopy(model_params['act_dict'])
     slots = copy.deepcopy(model_params['slot_dict'])
-    model_params['params']['beam_size'] = 10 # dialog_config.nlg_beam_size
+    model_params['params']['beam_size'] = 10 # dialog_constants.nlg_beam_size
     parameters = copy.deepcopy(model_params['params'])
 
     return cls(rnn_model, dictionaries, acts, slots, parameters)

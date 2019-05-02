@@ -38,8 +38,13 @@ class PreProcessor(object):
       return num_actions, self.vocab.ulary_size()
     elif self.task == 'end_to_end':
       num_beliefs = sum([len(vals) for vals in self.ontology.values.values()])
-      ont = self.loader.old_ont
-      num_beliefs += len(ont['slots'])*3 + len(ont['acts'])
+      # where 8 is the number of possible inform slots for the frame-rep
+      act_len = len(self.ontology.old_acts)
+      slot_len = len(self.ontology.old_slots)
+      # slots is 10, -2 is removing act & request, 1 is adding taskcomplete
+      inform_len = len(self.ontology.slots) - 2 + 1
+      num_beliefs += (slot_len * 2) + act_len + inform_len
+      # num_beliefs += len(ont['slots'])*3 + len(ont['acts'])
       num_beliefs += self.max_turn + 5 + 1
       num_actions = len(self.ontology.feasible_agent_actions)
 

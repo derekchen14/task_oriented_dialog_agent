@@ -33,8 +33,8 @@ class DataLoader(object):
       self.kb = self.json_data('kb')
       self.goals = self.json_data('goals')
       self.vocab = Vocab.from_dict(self.json_data('vocab'))
-      self.old_ont = {'acts': self.text_data('act_set'),
-                      'slots': self.text_data('slot_set') }
+      self.ontology.old_acts = self.text_data('act_set')
+      self.ontology.old_slots = self.text_data('slot_set')
 
     self.load_datasets()
 
@@ -98,6 +98,11 @@ class DataLoader(object):
   def augment_with_actions(self, ontology):
     agent_actions = []
     user_actions = []
+
+    # force the order of slots so acts and requests can be deleted later
+    inform_set = [x for x in ontology.slots if x not in ['act', 'request']]
+    inform_set += ['taskcomplete']
+    ontology.inform_set = inform_set
 
     agent_acts = ['greeting', 'confirm_question', 'confirm_answer', 'thanks', 'deny']
     user_acts = ['thanks', 'deny', 'closing', 'confirm_answer']

@@ -27,9 +27,8 @@ class DialogState:
       6) semantic frame - a memory vector containing the aggregation
         of all prior and current user beliefs.  This is modeled with EntNet.
   """
-  def __init__(self, ontology, movie_kb):
+  def __init__(self, ontology, movie_kb, inform):
     self.movie_kb = movie_kb
-    self.initialize_episode()
     self.frame_vector = None
     self.history_dictionaries = None
     self.current_slots = None
@@ -42,6 +41,9 @@ class DialogState:
     self.slot_set = ontology.slots
     self.relation_set = ontology.relations
     self.value_set = ontology.values
+    # only useful when dealing with new ontology
+    self.inform_set = ontology.inform_set
+    self.initialize_episode()
 
   def initialize_episode(self):
     """ Initialize a new episode (dialog),
@@ -53,11 +55,10 @@ class DialogState:
 
     self.current_slots = {}
     self.current_slots['inform_slots'] = {}
+    self.current_slots['inform_scores'] = {s: 0 for s in self.inform_set}
     self.current_slots['request_slots'] = {}
     self.current_slots['proposed_slots'] = {}
     self.current_slots['agent_request_slots'] = {}
-    self.current_slots['act_slots'] = {}
-
 
   def get_state(self, actor):
     # Get the state representatons of the actor, either "agent" or "user"
@@ -105,8 +106,10 @@ class DialogState:
 
     #   Should execute regardless of which kind of agent produced action
     for slot in agent_action_values['inform_slots'].keys():
-      self.current_slots['proposed_slots'][slot] = agent_action_values['inform_slots'][slot]
-      self.current_slots['inform_slots'][slot] = agent_action_values['inform_slots'][slot] # add into inform_slots
+      agent_slot = agent_action_values['inform_slots'][slot]
+      self.current_slots['proposed_slots'][slot] = agent_slot
+      self.current_slots['inform_slots'][slot] = agent_slot
+
       if slot in self.current_slots['request_slots'].keys():
         del self.current_slots['request_slots'][slot]
 
@@ -119,63 +122,53 @@ class DialogState:
     self.frame_vector = np.vstack([self.frame_vector, current_agent_vector])
     self.turn_count += 1
 
-  def update_user_state(self, intents):
-    if 'act_slots' in intents.keys():
-      frame_entry = self.update_user_belief(intents)
+  def update_user_state(self, frame_entry):
+    # process as a belief if such data exists in the frame_entry
+    if 'belief' in frame_entry.keys():
+      self.update_user_belief(frame_entry['belief'])
     else:
-      frame_entry = self.update_user_intent(intents)
+      self.update_user_intent(frame_entry)
+
+    frame_entry['turn_count'] = self.turn_count
+    frame_entry['speaker'] = 'user'
+
+    self.frame_vector = np.vstack([self.frame_vector, np.zeros((1,self.action_dim))])
     self.history_dictionaries.append(copy.deepcopy(frame_entry))
     self.turn_count += 1
 
   def update_user_belief(self, beliefs):
     #   Update the state to reflect the newly predicted user belief
-    for slot in self.slot_set:
+    for slot in self.inform_set:
+      if slot == 'taskcomplete': continue
       # vc stands for a tuple of (Value, belief_sCore)
       collected = beliefs[f'{slot}_slots']
-      if len(collected) > 0 and slot not in ['act', 'request']:
-        val_sort = sorted(collected, key=lambda tup: tup[1], reverse=True)
-        self.current_slots['inform_slots'][slot] = val_sort[0][0]
-        # first [0] is to get the highest ranked value
-        # second [0] is to extract the "val" from (val, score) tuple
+      if len(collected) > 0:
+        # val_sort = sorted(collected, key=lambda tup: tup[1], reverse=True)
+        max_val, score = max(collected, key=lambda tup: tup[1])
+        # the [1] is to grab the score for the (val, score) tuple
+        if score > self.current_slots['inform_scores'][slot]:
+          self.current_slots['inform_slots'][slot] = max_val
+          self.current_slots['inform_scores'][slot] = score
         if slot in self.current_slots['request_slots'].keys():
           del self.current_slots['request_slots'][slot]
 
-    for req_slot, score in beliefs['request_slots'] :
+    for req_slot, score in beliefs['request_slots']:
       if req_slot not in self.current_slots['request_slots']:
         self.current_slots['request_slots'][req_slot] = "<unk>"
 
-    self.frame_vector = np.vstack([self.frame_vector, np.zeros((1,self.action_dim))])
-
-    frame_entry = beliefs.copy()
-    frame_entry['turn_count'] = self.turn_count
-    frame_entry['speaker'] = 'user'
-    frame_entry['type'] = 'belief'
-
-    return frame_entry
-
-
-  def update_user_intent(self, intent):
-    #   Update the state to reflect the newly predicted user intent
-    for slot in intent['inform_slots'].keys():
-      self.current_slots['inform_slots'][slot] = intent['inform_slots'][slot]
+  def update_user_intent(self, intents):
+    #   Update the state to reflect the newly predicted user intents
+    for slot in intents['inform_slots'].keys():
+      self.current_slots['inform_slots'][slot] = intents['inform_slots'][slot]
       # the information requested by the user has now been given
       if slot in self.current_slots['request_slots'].keys():
         del self.current_slots['request_slots'][slot]
 
     # these are requests made by the agent
     # the user is now responsible for finding an answer for this slot
-    for slot in intent['request_slots'].keys():
+    for slot in intents['request_slots'].keys():
       if slot not in self.current_slots['request_slots']:
         self.current_slots['request_slots'][slot] = "UNK"
-
-    self.frame_vector = np.vstack([self.frame_vector, np.zeros((1,self.action_dim))])
-
-    frame_entry = intent.copy()
-    frame_entry['turn_count'] = self.turn_count
-    frame_entry['speaker'] = 'user'
-    frame_entry['type'] = 'intent'
-
-    return frame_entry
 
 
   """

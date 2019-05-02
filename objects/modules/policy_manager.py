@@ -46,7 +46,7 @@ class NeuralPolicyManager(BasePolicyManager):
     self.max_turn = args.max_turn
     self.use_existing = args.use_existing
 
-  def configure_settings(self, device, world_sim, ontology, movie_dict, old_ont=None):
+  def configure_settings(self, device, world_sim, ontology, movie_dict):
     self.dqn = self.model
     sizes = self.model.input_size, self.model.hidden_size, self.model.output_size
     self.target_dqn = DQN(*sizes).to('cpu')
@@ -55,14 +55,13 @@ class NeuralPolicyManager(BasePolicyManager):
 
     self.act_set = {act: i for i, act in enumerate(ontology.acts)}
     self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
+    self.inform_set = {kind: k for k, kind in enumerate(ontology.inform_set)}
     self.value_set = ontology.values
 
-    if old_ont is not None:
-      self.old_acts = old_ont['acts']
-      self.old_slots = old_ont['slots']
-    else:
-      self.old_acts = self.act_set
-      self.old_slots = self.slot_set
+
+    if hasattr(ontology, 'old_slots'):
+      self.old_acts = ontology.old_acts
+      self.old_slots = ontology.old_slots
     self.act_cardinality = len(self.old_acts)
     self.slot_cardinality = len(self.old_slots)
 
@@ -150,89 +149,84 @@ class NeuralPolicyManager(BasePolicyManager):
     pdb.set_trace()
     return None
 
+  def convert_old_to_new_ont(self, user_action):
+    user_representations = []
+    act_mapper = dialog_constants.lexicon['act_mapper']
+    slot_mapper = dialog_constants.lexicon['slot_mapper']
+    val_mapper = dialog_constants.lexicon['val_mapper']
+
+    for slot in self.slot_set:
+      vals = self.value_set[slot]
+      partial_user_rep = np.zeros((1, len(vals) ))
+
+      if slot == 'act':
+        converted = act_mapper[user_action['dialogue_act']]
+        if converted != 'skip':
+          partial_user_rep[0, vals.index(converted)] = 1.0
+      elif slot == 'request':
+        for req_slot in user_action['request_slots'].keys():
+          if req_slot not in vals:
+            req_slot = 'other'
+          partial_user_rep[0, vals.index(req_slot)] = 1.0
+      else:    # slot is some type of inform
+        for inf_slot, inf_val in user_action['inform_slots'].items():
+          if slot == inf_slot:
+            if inf_val in val_mapper.keys():
+              inf_val = val_mapper[inf_val]
+            partial_user_rep[0, vals.index(inf_val)] = 1.0
+            # except(ValueError):
+            #   print(len(vals))
+            #   print("val", inf_val)
+            #   print("slot", inf_slot)
+            #   pdb.set_trace()
+
+      user_representations.append(partial_user_rep)
+
+    return user_representations
+
   def prepare_user_intent(self, user_action):
-    if self.args.task == 'end_to_end':
-      user_representations = []
-      act_mapper = dialog_constants.lexicon['act_mapper']
-      slot_mapper = dialog_constants.lexicon['slot_mapper']
-      val_mapper = dialog_constants.lexicon['val_mapper']
+    user_act_rep = np.zeros((1, self.act_cardinality))
+    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
 
-      for slot in self.slot_set:
-        vals = self.value_set[slot]
-        partial_user_rep = np.zeros((1, len(vals) ))
+    user_inform_rep = np.zeros((1, self.slot_cardinality))
+    for slot in user_action['inform_slots'].keys():
+      user_inform_rep[0, self.slot_set[slot]] = 1.0
 
-        if slot == 'act':
-          converted = act_mapper[user_action['dialogue_act']]
-          if converted != 'skip':
-            partial_user_rep[0, vals.index(converted)] = 1.0
-        elif slot == 'request':
-          for req_slot in user_action['request_slots'].keys():
-            if req_slot not in vals:
-              req_slot = 'other'
-            partial_user_rep[0, vals.index(req_slot)] = 1.0
-        else:    # slot is some type of inform
-          for inf_slot, inf_val in user_action['inform_slots'].items():
-            if slot == inf_slot:
-              if inf_val in val_mapper.keys():
-                inf_val = val_mapper[inf_val]
-              partial_user_rep[0, vals.index(inf_val)] = 1.0
-              # except(ValueError):
-              #   print(len(vals))
-              #   print("val", inf_val)
-              #   print("slot", inf_slot)
-              #   pdb.set_trace()
+    user_request_rep = np.zeros((1, self.slot_cardinality))
+    for slot in user_action['request_slots'].keys():
+      user_request_rep[0, self.slot_set[slot]] = 1.0
 
-        user_representations.append(partial_user_rep)
+    return [user_act_rep, user_inform_rep, user_request_rep]
 
-      return user_representations
+  def prepare_user_belief(self, user_action):
+    user_representations = []
 
-    else:   # for discrete user intents
-      user_act_rep = np.zeros((1, self.act_cardinality))
-      user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
+    for slot in self.slot_set:
+      vals = self.value_set[slot]
+      partial_user_rep = np.zeros((1, len(vals) ))
 
-      user_inform_rep = np.zeros((1, self.slot_cardinality))
-      for slot in user_action['inform_slots'].keys():
-        user_inform_rep[0, self.slot_set[slot]] = 1.0
+      for val, confidence_score in user_action[f'{slot}_slots']:
+        partial_user_rep[0, vals.index(val)] = confidence_score
+      user_representations.append(partial_user_rep)
 
-      user_request_rep = np.zeros((1, self.slot_cardinality))
-      for slot in user_action['request_slots'].keys():
-        user_request_rep[0, self.slot_set[slot]] = 1.0
+    return user_representations
 
-      return [user_act_rep, user_inform_rep, user_request_rep]
-
-
-  def prepare_user_rep(self, user_action, state_type):
-    if state_type == 'belief':     # for continuous user beliefs
-      user_representations = []
-
-      for slot in self.slot_set:
-        vals = self.value_set[slot]
-        partial_user_rep = np.zeros((1, len(vals) ))
-
-        for val, confidence_score in user_action[f'{slot}_slots'].items():
-          partial_user_rep[0, vals.index(val)] = confidence_score
-        user_representations.append(partial_user_rep)
-
-      return user_representations
-
-    elif state_type == 'intent':
-      return self.prepare_user_intent(user_action)
+  def prepare_user_rep(self, user_action):
+    if 'belief' in user_action.keys():     # for continuous user beliefs
+      return self.prepare_user_belief(user_action['belief'])
+    elif self.args.task == 'end_to_end':
+      return self.convert_old_to_new_ont(user_action)
     else:
-      raise(Exception('missing a user state type!'))
+      return self.prepare_user_intent(user_action)
 
-  def prepare_frame_rep(self, current, state_type):
-    if state_type == 'belief':
-      inform_slots = copy.deepcopy(self.slot_set)
-      del inform_slots['act']
-      del inform_slots['request']
-
-      frame_rep = np.zeros((1, len(inform_slots) ))  # (1, 8)
+  def prepare_frame_rep(self, current):
+    if self.args.task == "end_to_end":
+      frame_rep = np.zeros((1, len(self.inform_set) ))  # (1, 8)
       for inf_slot, inf_value in current['inform_slots'].items():
-        # if inf_value in self.value_set[slot]:
-        idx = self.value_set[slot].index(inf_value)
-        frame_rep[0, inform_slots[inf_slot]] = idx
-
-    elif state_type == 'intent':
+        confidence_score = current['inform_scores'][inf_slot]
+        # effectively performs max-pooling since current only contains top item
+        frame_rep[0, self.inform_set[inf_slot]] = confidence_score
+    else:
       frame_rep = np.zeros((1, self.slot_cardinality))
       for inf_slot in current['inform_slots']:
         frame_rep[0, self.old_slots[inf_slot]] = 1.0
@@ -253,8 +247,8 @@ class NeuralPolicyManager(BasePolicyManager):
 
     return agent_act_rep, agent_inform_rep, agent_request_rep
 
-  def prepare_turns_and_kb(self, turn_count, kb_results, state_type):
-    if state_type == 'belief' or self.args.task == 'end_to_end':
+  def prepare_turns_and_kb(self, turn_count, kb_results):
+    if self.args.task == 'end_to_end':
       turn_rep = np.zeros((1, self.max_turn + 5))
       turn_rep[0, turn_count] = 1.0
       turn_rep[0, -1] = turn_count
@@ -262,7 +256,7 @@ class NeuralPolicyManager(BasePolicyManager):
       kb_size = len(kb_results)
       kb_count = np.array([[kb_size]])
       return [turn_rep, kb_count]
-    elif state_type == 'intent':
+    else:
       # One-hot representation of the turn count
       turn_rep = np.zeros((1, 1))
       turn_onehot_rep = np.zeros((1, self.max_turn + 5))
@@ -282,26 +276,20 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def prepare_state_representation(self, state):
     """ Create the representation for each state """
-    state_type = state['user_action']['type']
     state_representation = []
-
     # Encode last user dialogue act, inform and request
-    user_rep = self.prepare_user_rep(state['user_action'], state_type)
+    user_rep = self.prepare_user_rep(state['user_action'])
     state_representation.extend(user_rep)
-    self.totals(state_representation)
     # Encode last agent dialogue act, inform and request
     agent_representations = self.prepare_agent_rep(state['agent_action'])
     state_representation.extend(agent_representations)
-    self.totals(state_representation)
     # Create bag of filled_in slots based on the frame
-    frame_rep = self.prepare_frame_rep(state['current_slots'], state_type)
+    frame_rep = self.prepare_frame_rep(state['current_slots'])
     state_representation.append(frame_rep)
-    self.totals(state_representation)
     # Get representations of the turn count and knowledge base
-    turn_kb_rep = self.prepare_turns_and_kb(state['turn_count'], state['kb_results_dict'], state_type)
+    turn_kb_rep = self.prepare_turns_and_kb(state['turn_count'], state['kb_results_dict'])
     state_representation.extend(turn_kb_rep)
-    yup = self.totals(state_representation)
-
+    # yup = self.totals(state_representation)
     return np.hstack(state_representation)
 
   def store_experience(self, current_state, action, reward, next_state, episode_over):

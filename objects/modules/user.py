@@ -640,13 +640,13 @@ class RuleSimulator(BaseUser):
 class NeuralSimulator(BaseUser):
   """ A rule-based user simulator for testing dialog policy """
 
-  def __init__(self, params, ontology, goal_set=None, old_ont=None):
+  def __init__(self, params, ontology, goal_set=None):
     super().__init__(params, ontology, goal_set)
 
     self.task = params.task
     if self.task == "end_to_end":
-      self.act_set = {act: i for i, act in enumerate(old_ont['acts'])}
-      self.slot_set = {slot: j for j, slot in enumerate(old_ont['slots'])}
+      self.act_set = ontology.old_acts
+      self.slot_set = ontology.old_slots
 
     self.act_cardinality = len(self.act_set.keys())
     self.slot_cardinality = len(self.slot_set.keys())
@@ -849,8 +849,11 @@ class NeuralSimulator(BaseUser):
 
   def action_index(self, act_slot_response):
     """ Return the index of action """
+
     del act_slot_response['turn_count']
     del act_slot_response['nl']
+    # del act_slot_response['speaker']
+    act_slot_response.pop('speaker', None)
 
     for i in act_slot_response['inform_slots'].keys():
       act_slot_response['inform_slots'][i] = 'PLACEHOLDER'

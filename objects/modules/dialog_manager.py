@@ -32,13 +32,14 @@ class DialogManager:
 
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
-    self.state_tracker = DialogState(ontology, movie_dictionary)
+    self.state_tracker = DialogState(ontology, movie_dictionary, sub_module.inform_set)
     self.reward = 0
     self.episode_over = False
 
     self.save_dir = sub_module.model.save_dir
     self.use_world_model = False
     self.running_user = self.user_sim
+    self.counter = 0
 
   def initialize_episode(self, user_type):
     """ Refresh state for new dialog """
@@ -66,6 +67,12 @@ class DialogManager:
     user_intent = self.running_user.take_first_turn()
     if user_type == 'rule':
       self.world_model.goal = self.user_sim.goal
+
+    if self.task == 'end_to_end' and self.use_world_model:
+      utterance = self.running_user.nlg_model.generate(user_intent, "usr")
+      user_belief = self.model.belief_tracker.classify_intent(utterance)
+      user_intent['belief'] = user_belief
+
     self.state_tracker.update_user_state(user_intent)
     self.print_function(user_intent, 'user')
 
@@ -85,9 +92,9 @@ class DialogManager:
       > sys_action keys: speaker, dialogue_act, inform_slots, request_slots, turn_count
       > user_intent keys: dialogue_act, inform_slots, request_slots
 
-    if self.task == 'end_to_end' and self.use_world_model:
-      user_belief = self.model.belief_tracker.classify_intent(user_intent, model_action)
-    #   Update state tracker with latest user action
+      {'dialogue_act': 'inform',
+      'inform_slots': {'moviename': 'risen'},
+      'request_slots': {}}
 
     """
     #   CURRENT STATE (s)
@@ -120,6 +127,13 @@ class DialogManager:
 
     #   Register user action with the state_tracker
     if self.episode_over != True:
+      # minimal change of adding belief as an extra portion
+      if self.task == 'end_to_end' and self.use_world_model:
+        utterance = self.running_user.nlg_model.generate(user_intent, 'usr')
+        # utterance is a string, not a list of tokens
+        user_belief = self.model.belief_tracker.classify_intent(utterance, model_action)
+        user_intent['belief'] = user_belief
+
       self.state_tracker.update_user_state(user_intent)
       self.print_function(user_intent, 'user')
 

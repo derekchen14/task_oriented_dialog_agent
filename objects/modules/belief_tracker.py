@@ -93,34 +93,30 @@ class NeuralBeliefTracker(BaseBeliefTracker):
       predictions += self.extract_predictions(scores)
     return predictions
 
-  def classify_intent(self, raw_intent, agent_action):
-    utterance = raw_intent['nl']
-    # try:
-    # except(KeyError):
-    #   print(raw_intent)
-    #   pdb.set_trace()
-    example = {'turn_id': 14, 'utterance': '', 'user_intent': {}, 'num': {},
+  def classify_intent(self, utterance, agent_action=None):
+    exp = {'turn_id': 14, 'utterance': '', 'user_intent': {}, 'num': {},
       'belief_state': {}, 'agent_actions': {}, 'agent_utterance': {}}
 
-    cleaned = [token.rstrip(',').rstrip('.') for token in utterance.split()]
-    example['utterance'] = cleaned
+    tokens = utterance.replace(':', ' ').split()
+    cleaned = [token.rstrip(',').rstrip('.') for token in tokens]
+    exp['utterance'] = ['<sos>'] + cleaned + ['<eos>']
 
-    cleaned.insert(0, '<sos>')
-    cleaned.append('<eos>')
-    example['num']['utterance'] = [self.w2i(word) for word in cleaned]
-    example['num']['agent_actions'] = self.scrub(agent_action)
+    exp['num']['utterance'] = [self.w2i(word) for word in exp['utterance']]
+    exp['num']['agent_actions'] = self.scrub(agent_action)
 
-    turn = Turn.from_dict(example)
+    turn = Turn.from_dict(exp)
     _, scores = self.model([turn])
     predictions = self.extract_beliefs(scores)
 
-    user_beliefs = raw_intent.copy()
+    user_beliefs = {'dialogue_act': 'inform'}
     assert len(self.model.ontology.slots) == 10
 
     for slot_type in self.model.ontology.slots:
       user_beliefs[f'{slot_type}_slots'] = []
-    for slot, value, score in pred:
+    for slot, value, score in predictions[0]:
       user_beliefs[f'{slot}_slots'].append((value,score))
+      if slot == 'request' and score > 0.5:
+        user_beliefs['dialogue_act'] = 'request'
 
     return user_beliefs
 
@@ -130,6 +126,11 @@ class NeuralBeliefTracker(BaseBeliefTracker):
     def vectorize(text):
       return [self.w2i(word) for word in text.split()]
     extracted = []
+
+    if agent_action is None:
+      text = f'<sos> <special2> = <special2> <eos>'
+      extracted.append(vectorize(text))
+      return extracted
 
     for slot, val in agent_action['slot_action']['inform_slots'].items():
       text = f'<sos> {slot} = {val} <eos>'
