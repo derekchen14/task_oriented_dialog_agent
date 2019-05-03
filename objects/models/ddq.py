@@ -248,8 +248,12 @@ class NLU(object):
     self.params = copy.deepcopy(model_params['params'])
     self.inverse_tag_dict = {self.tag_set[k]:k for k in self.tag_set.keys()}
 
-  def classify_intent(self, utterance):
-    """ generate the Dia-Act with NLU model """
+  def classify_intent(self, utterance, agent_action=None):
+    """ input utterance is a string and  agent action is a dict with
+        'slot_action' as key, the agent action is not used by this model.
+        User intent output is dialogue_act, inform_slots and request_slots
+    """
+
     if len(utterance) == 0: return None
 
     stripped = utterance.strip('.').strip('?').strip(',').strip('!')
@@ -270,8 +274,8 @@ class NLU(object):
     pred_words_indices = np.nanargmax(probs, axis=1)
     pred_tags = [self.inverse_tag_dict[index] for index in pred_words_indices]
 
-    dialogue_act = self.prepare_dialogue_act(pred_tags, stripped)
-    return dialogue_act
+    user_intent = self.prepare_dialogue_act(pred_tags, stripped)
+    return user_intent
 
   def embed_to_one_hot(self, utterance):
     """ Parse utterance into one-hot vector representations

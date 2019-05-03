@@ -94,6 +94,10 @@ class NeuralBeliefTracker(BaseBeliefTracker):
     return predictions
 
   def classify_intent(self, utterance, agent_action=None):
+    """ input utterance is a string and  agent action is a dict
+        with 'slot_action' as key.  For output, user_beliefs is
+        a dict with dialogue act, inform_slots and request slots
+    """
     exp = {'turn_id': 14, 'utterance': '', 'user_intent': {}, 'num': {},
       'belief_state': {}, 'agent_actions': {}, 'agent_utterance': {}}
 

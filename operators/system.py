@@ -40,7 +40,8 @@ class EndToEndSystem(object):
     self.evaluator = evaluator
     self.monitor = RewardMonitor(args.metrics, args.threshold)
 
-    bt_model = builder.get_model(processor, self.monitor, "glad")
+    nlu_type = 'nlu_model' if args.use_old_nlu else 'glad'
+    bt_model = builder.get_model(processor, self.monitor, nlu_type)
     pm_model = builder.get_model(processor, self.monitor, "ddq")
     tg_model = builder.get_model(processor, self.monitor, "nlg_model")
     self.dialogue_agent = builder.create_agent(bt_model, pm_model, tg_model)

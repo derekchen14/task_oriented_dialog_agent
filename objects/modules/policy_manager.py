@@ -53,25 +53,34 @@ class NeuralPolicyManager(BasePolicyManager):
     self.target_dqn.load_state_dict(self.dqn.state_dict())
     self.target_dqn.eval()
 
+    self.user_planning = world_sim
+    self.movie_dict = movie_dict
+    self.belief_tracker = world_sim.nlu_model
+    self.text_generator = world_sim.nlg_model
+
+    if self.args.task == 'end_to_end' and not self.args.use_old_nlu:
+      self.nlu_type = 'belief_tracker'
+    else:
+      self.nlu_type = 'other'
+
     self.act_set = {act: i for i, act in enumerate(ontology.acts)}
     self.slot_set = {slot: j for j, slot in enumerate(ontology.slots)}
-    self.inform_set = {kind: k for k, kind in enumerate(ontology.inform_set)}
-    self.value_set = ontology.values
 
+    if self.nlu_type == 'belief_tracker':
+      self.inform_set = {kind: k for k, kind in enumerate(ontology.inform_set)}
+      self.value_set = ontology.values
 
     if hasattr(ontology, 'old_slots'):
       self.old_acts = ontology.old_acts
       self.old_slots = ontology.old_slots
+    else:
+      self.old_acts = self.act_set
+      self.old_slots = self.slot_set
     self.act_cardinality = len(self.old_acts)
     self.slot_cardinality = len(self.old_slots)
 
     self.feasible_agent_actions = ontology.feasible_agent_actions
     self.num_actions = len(self.feasible_agent_actions)
-
-    self.user_planning = world_sim
-    self.movie_dict = movie_dict
-    self.belief_tracker = world_sim.nlu_model
-    self.text_generator = world_sim.nlg_model
 
     # this should be move into Learner, but not yet because NLU and NLG are messy
     self.init_optimizer(self.dqn.parameters())
@@ -186,15 +195,15 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def prepare_user_intent(self, user_action):
     user_act_rep = np.zeros((1, self.act_cardinality))
-    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
+    user_act_rep[0, self.old_acts[user_action['dialogue_act']]] = 1.0
 
     user_inform_rep = np.zeros((1, self.slot_cardinality))
     for slot in user_action['inform_slots'].keys():
-      user_inform_rep[0, self.slot_set[slot]] = 1.0
+      user_inform_rep[0, self.old_slots[slot]] = 1.0
 
     user_request_rep = np.zeros((1, self.slot_cardinality))
     for slot in user_action['request_slots'].keys():
-      user_request_rep[0, self.slot_set[slot]] = 1.0
+      user_request_rep[0, self.old_slots[slot]] = 1.0
 
     return [user_act_rep, user_inform_rep, user_request_rep]
 
@@ -214,13 +223,13 @@ class NeuralPolicyManager(BasePolicyManager):
   def prepare_user_rep(self, user_action):
     if 'belief' in user_action.keys():     # for continuous user beliefs
       return self.prepare_user_belief(user_action['belief'])
-    elif self.args.task == 'end_to_end':
+    elif self.nlu_type == 'belief_tracker':
       return self.convert_old_to_new_ont(user_action)
     else:
       return self.prepare_user_intent(user_action)
 
   def prepare_frame_rep(self, current):
-    if self.args.task == "end_to_end":
+    if self.nlu_type == 'belief_tracker':
       frame_rep = np.zeros((1, len(self.inform_set) ))  # (1, 8)
       for inf_slot, inf_value in current['inform_slots'].items():
         confidence_score = current['inform_scores'][inf_slot]
@@ -248,7 +257,7 @@ class NeuralPolicyManager(BasePolicyManager):
     return agent_act_rep, agent_inform_rep, agent_request_rep
 
   def prepare_turns_and_kb(self, turn_count, kb_results):
-    if self.args.task == 'end_to_end':
+    if self.nlu_type == 'belief_tracker':
       turn_rep = np.zeros((1, self.max_turn + 5))
       turn_rep[0, turn_count] = 1.0
       turn_rep[0, -1] = turn_count
@@ -367,63 +376,3 @@ class NeuralPolicyManager(BasePolicyManager):
 
   def reset_dqn_target(self):
     self.target_dqn.load_state_dict(self.dqn.state_dict())
-
-"""
-  # TODO: merge from DialogManager Later
-  def __init__(self, args, model, kb, ontology):
-    self.state = DialogueState(kb, ontology)
-    self.user = CommandLineUser(args, ontology) if args.user == "command" else UserSimulator(args, ontology)
-
-  def prepare_distributed_state(self, state):
-    if self.belief_state_type == 'discrete':
-      return self.prepare_discrete_state(state)
-    elif self.belief_state_type == 'distributed':
-      return self.prepare_distributed_state(state)
-
-
-    # Create the representation for each state
-    user_action = state['user_action']
-    frame = state['current_slots']
-    agent_last = state['agent_action']
-    kb_results_dict = state['kb_results_dict']
-
-    # Create one-hot of acts to represent the current user action
-    user_act_rep[0, self.act_set[user_action['dialogue_act']]] = 1.0
-    for slot in user_action['inform_slots'].keys():
-      user_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-    # Create bag of request slots representation from user action
-    for slot in user_action['request_slots'].keys():
-      user_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    # Create bag of filled_in slots based on the frame
-    frame_rep = np.zeros((1, self.slot_cardinality))
-    for slot in frame['inform_slots']:
-      frame_rep[0, self.slot_set[slot]] = 1.0
-
-    # Encode last agent dialogue act, inform and request
-    agent_act_rep = np.zeros((1, self.act_cardinality))
-    agent_inform_slots_rep = np.zeros((1, self.slot_cardinality))
-    agent_request_slots_rep = np.zeros((1, self.slot_cardinality))
-
-    if agent_last:
-      agent_act_rep[0, self.act_set[agent_last['dialogue_act']]] = 1.0
-      for slot in agent_last['inform_slots'].keys():
-        agent_inform_slots_rep[0, self.slot_set[slot]] = 1.0
-      for slot in agent_last['request_slots'].keys():
-        agent_request_slots_rep[0, self.slot_set[slot]] = 1.0
-
-    #  One-hot scalar representation of the turn count
-    turn_rep = np.zeros((1,1)) + state['turn_count'] / 10.
-
-    #   Representation of KB results (binary)
-    kb_binary_rep = np.zeros((1, self.slot_cardinality + 1))
-
-    final_representation = np.hstack(
-      [user_act_rep, user_inform_slots_rep, user_request_slots_rep, frame_rep,
-        agent_act_rep, agent_inform_slots_rep, agent_request_slots_rep,
-        turn_rep, kb_binary_rep])
-    return final_representation
-
-
-
-"""

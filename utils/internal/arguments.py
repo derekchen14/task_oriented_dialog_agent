@@ -11,6 +11,8 @@ def solicit_args():
   parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
               'basic', 'attention', 'transformer', 'ddq', 'bilstm', 'glad'],
               help='Choose the model type used',)
+  parser.add_argument('--use-old-nlu', default=False, action='store_true',
+              help='Use the old nlg model for the Belief Tracker module')
 
   parser.add_argument('--debug', default=False, action='store_true',
               help='whether or not to go into debug mode, which is faster')

@@ -10,6 +10,7 @@ class PreProcessor(object):
     self.vocab = loader.vocab
     self.ontology = loader.ontology
     self.max_turn = args.max_turn
+    self.use_old_nlu = args.use_old_nlu
 
     if self.task in ['manage_policy', 'track_intent', 'end_to_end']:
       pass
@@ -26,6 +27,13 @@ class PreProcessor(object):
     """ get the input size and output size to set model attributes"""
     if self.task == 'track_intent':
       return "self.vocab.ulary_size()", "self.vocab.label_size()"
+    elif self.use_old_nlu:
+      act_cardinality = 2 * len(self.loader.ontology.old_acts)
+      slot_cardinality = 7 * len(self.loader.ontology.old_slots)
+      other_count = 3 + self.max_turn + 5    # where does 5 come from?
+      num_intents = act_cardinality + slot_cardinality + other_count
+      num_actions = len(self.ontology.feasible_agent_actions)
+      return num_intents, num_actions    # (273, 30)
     elif self.task == 'manage_policy':
       act_cardinality = 2 * len(self.loader.ontology.acts)
       slot_cardinality = 7 * len(self.loader.ontology.slots)

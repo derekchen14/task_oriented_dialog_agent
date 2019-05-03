@@ -17,6 +17,7 @@ class Builder(object):
     self.model_type = args.model
     self.dhid = args.hidden_dim
     self.test_mode = args.test_mode
+    self.use_old_nlu = args.use_old_nlu
 
     self.loader = loader
     self.data_dir = loader.data_dir
@@ -61,7 +62,7 @@ class Builder(object):
     if scores_and_files:
       assert scores_and_files, 'no saves exist at {}'.format(directory)
       score, filepath = scores_and_files[0]
-    elif model.module_type == 'belief_tracker':
+    elif model.module_type == 'intent_tracker':
       model.load_nlu_model('nlu_1468447442')
       return model
     elif model.module_type == 'text_generator':
@@ -134,6 +135,11 @@ class Builder(object):
       model.load_natural_langauge_templates('nl_templates')
       model.module_type = 'text_generator'
       return model
+    elif model_type == 'nlu_model':
+      model = NLU(self.loader, 'results/end_to_end/ddq/movies/')
+      model.load_nlu_model('nlu_1468447442')
+      model.module_type = 'intent_tracker'
+      return model
 
     return model.to(device)
 
@@ -188,7 +194,11 @@ class Builder(object):
     world_sim = NeuralSimulator(self.args, ontology, goals)
     users = (user_sim, world_sim)
 
-    belief_tracker = NeuralBeliefTracker(self.args, bt_model)
+    if self.use_old_nlu:
+      belief_tracker = bt_model
+    else:
+      belief_tracker = NeuralBeliefTracker(self.args, bt_model)
+
     policy_manager = NeuralPolicyManager(self.args, pm_model)
     text_generator = NeuralTextGenerator(self.args, tg_model)
 

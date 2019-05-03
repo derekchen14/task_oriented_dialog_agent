@@ -20,6 +20,7 @@ class DialogManager:
     self.debug = args.debug
     self.verbose = args.verbose
     self.task = args.task
+    self.use_old_nlu = args.use_old_nlu
 
     if len(users) == 4:
       user_sim, world_sim, real_user, turk_user = users
@@ -32,7 +33,7 @@ class DialogManager:
 
     self.act_set = ontology.acts
     self.slot_set = ontology.slots
-    self.state_tracker = DialogState(ontology, movie_dictionary, sub_module.inform_set)
+    self.state_tracker = DialogState(ontology, movie_dictionary)
     self.reward = 0
     self.episode_over = False
 
@@ -71,7 +72,10 @@ class DialogManager:
     if self.task == 'end_to_end' and self.use_world_model:
       utterance = self.running_user.nlg_model.generate(user_intent, "usr")
       user_belief = self.model.belief_tracker.classify_intent(utterance)
-      user_intent['belief'] = user_belief
+      if self.use_old_nlu:
+        user_intent = user_belief
+      else:
+        user_intent['belief'] = user_belief
 
     self.state_tracker.update_user_state(user_intent)
     self.print_function(user_intent, 'user')
@@ -132,7 +136,10 @@ class DialogManager:
         utterance = self.running_user.nlg_model.generate(user_intent, 'usr')
         # utterance is a string, not a list of tokens
         user_belief = self.model.belief_tracker.classify_intent(utterance, model_action)
-        user_intent['belief'] = user_belief
+        if self.use_old_nlu:
+          user_intent = user_belief
+        else:
+          user_intent['belief'] = user_belief
 
       self.state_tracker.update_user_state(user_intent)
       self.print_function(user_intent, 'user')

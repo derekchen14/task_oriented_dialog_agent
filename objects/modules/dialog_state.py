@@ -27,7 +27,7 @@ class DialogState:
       6) semantic frame - a memory vector containing the aggregation
         of all prior and current user beliefs.  This is modeled with EntNet.
   """
-  def __init__(self, ontology, movie_kb, inform):
+  def __init__(self, ontology, movie_kb):
     self.movie_kb = movie_kb
     self.frame_vector = None
     self.history_dictionaries = None
