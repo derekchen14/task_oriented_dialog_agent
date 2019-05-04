@@ -22,14 +22,14 @@ class DataLoader(object):
       self.embeddings = json.load(self.path('embeddings.json'))
 
     self.ontology = self.augment_with_actions(Ontology.from_path(self.data_dir))
-    if self.task == 'track_intent':
+    if args.dataset == 'woz2':  # task == 'track_intent'
       self.vocab = Vocab.from_dict(self.json_data('vocab'))
-    elif self.task == 'manage_policy':
+    elif args.dataset.startswith('ddq'): # task == 'manage_policy'
       self.kb = self.json_data('kb')
       # self.kb = self.pickle_data('knowledge_base')
       self.vocab = Vocabulary(args, self.data_dir)
       self.ontology.slots = self.text_data('slot_set')  # force special slots
-    elif self.task == 'end_to_end':
+    elif args.dataset.startswith('e2e'): # self.task == 'end_to_end':
       self.kb = self.json_data('kb')
       self.goals = self.json_data('goals')
       self.vocab = Vocab.from_dict(self.json_data('vocab'))
