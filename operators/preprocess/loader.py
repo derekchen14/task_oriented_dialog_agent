@@ -36,7 +36,7 @@ class DataLoader(object):
       self.ontology.old_acts = self.text_data('act_set')
       self.ontology.old_slots = self.text_data('slot_set')
 
-    # self.load_datasets()
+    self.load_datasets()
 
   def path(self, filename, kind=None):
     if kind is None:

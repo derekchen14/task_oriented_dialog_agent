@@ -78,5 +78,5 @@ if __name__ == "__main__":
 
 
 
-# python evaluate_old_nlu.py --task track_intent --use-existing --test-mode \
-#   --epochs 1 --dataset e2e/movies --prefix rmsprop_ --module lstm --suffix _14 --seed 14
+# python evaluate_old_nlu.py --task track_intent  --seed 14 \
+#   --epochs 1 --dataset e2e/movies --prefix rmsprop_ --model lstm --suffix _14

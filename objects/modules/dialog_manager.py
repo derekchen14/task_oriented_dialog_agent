@@ -40,7 +40,8 @@ class DialogManager:
     self.save_dir = sub_module.model.save_dir
     self.use_world_model = False
     self.running_user = self.user_sim
-    self.counter = 0
+
+    self.holder = {'examples': [], 'counter': 0}
 
   def initialize_episode(self, user_type):
     """ Refresh state for new dialog """
@@ -133,13 +134,27 @@ class DialogManager:
     if self.episode_over != True:
       # minimal change of adding belief as an extra portion
       if self.task == 'end_to_end' and self.use_world_model:
+        datapoint = []
+        datapoint.append(user_intent.copy())
         utterance = self.running_user.nlg_model.generate(user_intent, 'usr')
+        datapoint.append(utterance)
         # utterance is a string, not a list of tokens
         user_belief = self.model.belief_tracker.classify_intent(utterance, model_action)
+        datapoint.append(user_belief)
         if self.use_old_nlu:
           user_intent = user_belief
         else:
           user_intent['belief'] = user_belief
+
+          self.holder['examples'].append(datapoint)
+          self.holder['counter'] += 1
+          if self.holder['counter'] > 100:
+            for utt, pred, actual in self.holder['examples']:
+              print(f"Original: {actual}")
+              print(utt)
+              print(f"Belief: {pred}")
+              print("-----------------")
+            sys.exit()
 
       self.state_tracker.update_user_state(user_intent)
       self.print_function(user_intent, 'user')

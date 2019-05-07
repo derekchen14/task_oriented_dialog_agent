@@ -120,7 +120,6 @@ def extract_intent(candidate):
     if len(slots) == 0:
       extracted.append(act)
     elif act == 'thanks' and slots == ['closing']:
-      print("used this")
       extracted.append(act)
     else:
       slots.insert(0, act)
@@ -137,10 +136,10 @@ if __name__ == "__main__":
 
   loader = DataLoader(args)
   model_path = args.prefix + args.model + args.suffix
-  module = NLU(loader, 'results/manage_policy/ddq/movies/')
-  module.load_nlu_model('nlu_1468447442')
-  # module = NLU(loader, 'results/track_intent/e2e/movies/')
-  # module.load_nlu_model(model_path)
+  # module = NLU(loader, 'results/manage_policy/ddq/movies/')
+  # module.load_nlu_model('nlu_1468447442')
+  module = NLU(loader, 'results/track_intent/e2e/movies/')
+  module.load_nlu_model(model_path)
 
   row_counter = 0
   data = []
@@ -172,15 +171,18 @@ if __name__ == "__main__":
       data.append((utterance, actual))
 
   shuffle(data)
-  end_idx = int(len(data) * 0.7)
-  train = data[:end_idx]
+  start_idx = int(len(data) * 0.7)
+  end_idx = int(len(data) * 0.9)
+  train = data[:start_idx]
+  val = data[start_idx:end_idx]
   # pkl.dump(train, open('temp_train.pkl', 'wb'))
   print("Finished generating data")
 
-  correct, monitor = 0, 0
   RMSprop = {weight_type: 0 for weight_type in module.model.update}
+
   for epoch in range(args.epochs):
-    for example in train:
+    j_total, j_correct, i_total, i_correct, r_total, r_correct = 0, 0, 0, 0, 0, 0
+    for example in val:
 
       utterance, actual = example
       stripped = utterance.strip('.').strip('?').strip(',').strip('!')
@@ -215,18 +217,40 @@ if __name__ == "__main__":
 
       preds_per_seq = np.nanargmax(preds, axis=1)
       pred_index = preds_per_seq[-1]
-      if actual[-1, pred_index] == 1:
-        correct += 1
-      monitor += 1
 
-      if monitor == 1000:
-        print(f"{epoch+1}) Got {correct} correct")
-        correct, monitor = 0, 0
+      actual_per_seq = np.nanargmax(actual, axis=1)
+      actual_index = actual_per_seq[-1]
+      tag_name = module.inverse_tag_dict[actual_index]
+      tags = tag_name.split('+')
+      dialogue_act = tags[0]
+      if actual[-1, pred_index] == 1:
+        if sum(actual[-1]) > 1:
+          j_correct += 1
+        if dialogue_act == 'inform':
+          i_correct += 1
+        elif dialogue_act == 'request':
+          r_correct += 1
+
+      if dialogue_act == 'inform':
+        i_total += 1
+      elif dialogue_act == 'request':
+        r_total += 1
+
+      j_total += 1
+
+      # if monitor == 1000:
+    j_ratio = (float(j_correct) / j_total) * 100
+    i_ratio = (float(i_correct) / i_total) * 100
+    r_ratio = (float(r_correct) / r_total) * 100
+    print("{}) Inform: {:.2f}%, Request: {:.2f}%, Joint Goal: {:.2f}".format(
+          epoch+1, i_ratio, r_ratio, j_ratio))
+    j_total, j_correct, i_total, i_correct, r_total, r_correct = 0, 0, 0, 0, 0, 0
 
   if args.save_model:
     save_dir = os.path.join("results", args.task, args.dataset, model_path)
     module.save_nlu_model(save_dir)
 
 # python train_old_nlu.py --task track_intent --epochs 5 --dataset e2e/movies \
-#   --prefix old_nlu_ --model lstm --suffix _14 --seed 14 --save-model \
-#   --learning-rate 0.00003
+#   --prefix old_nlu_ --model lstm --suffix _14 --seed 14 --learning-rate 0.00003  \
+#   --test-mode #  --save-model
+
