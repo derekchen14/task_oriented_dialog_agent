@@ -6,14 +6,14 @@ An DQN Agent modified for DDQ Agent
 '''
 
 import random, copy, json
-import pickle
+import pickle as pkl
 import numpy as np
 from collections import namedtuple
 
 from utils.external import dialog_constants
 from utils.external.dqn import *
 from objects.blocks.base import BasePolicyManager
-from objects.models.external import DeepDialogDecoder, lstm, biLSTM
+from objects.models.external import DeepDialogDecoder, LSTM_model, biLSTM
 
 import torch
 import torch.nn as nn
@@ -224,6 +224,21 @@ class NLU(object):
     self.loader = loader
     self.results_dir = results_dir
 
+  def save_nlu_model(self, save_dir):
+    """ save the trained NLU model """
+    model_params = {}
+    model_params['model'] = self.model.model # ???
+
+    model_params['word_dict'] = self.word_dict
+    model_params['slot_dict'] = self.slot_dict
+    model_params['act_dict'] = self.act_dict
+    model_params['tag_set'] = self.tag_set
+
+    model_params['params'] = self.params
+    model_params['params']['model'] = 'lstm'
+
+    pkl.dump(model_params, open(save_dir + '.pkl', 'wb'))
+
   def load_nlu_model(self, model_name):
     """ load the trained NLU model """
     model_params = self.loader.pickle_data(model_name, self.results_dir)
@@ -233,20 +248,34 @@ class NLU(object):
 
     if model_params['params']['model'] == 'lstm': # lstm_
       input_size = model_params['model']['WLSTM'].shape[0] - hidden_size - 1
-      rnnmodel = lstm(input_size, hidden_size, output_size)
+      rnnmodel = LSTM_model(input_size, hidden_size, output_size)
     elif model_params['params']['model'] == 'bi_lstm': # bi_lstm
       input_size = model_params['model']['WLSTM'].shape[0] - hidden_size - 1
       rnnmodel = biLSTM(input_size, hidden_size, output_size)
 
     rnnmodel.model = copy.deepcopy(model_params['model'])
+    self.finish_loading(rnnmodel, model_params)
 
+  def init_nlu_model(self, model_name):
+    """ create a new NLU model based on previous params"""
+    model_params = self.loader.pickle_data(model_name, self.results_dir)
+
+    hidden_size = model_params['model']['Wd'].shape[0]
+    output_size = model_params['model']['Wd'].shape[1]
+    input_size = model_params['model']['WLSTM'].shape[0] - hidden_size - 1
+
+    rnnmodel = LSTM_model(input_size, hidden_size, output_size)
+    self.finish_loading(rnnmodel, model_params)
+
+  def finish_loading(self, rnnmodel, model_params):
     self.model = rnnmodel
     self.word_dict = copy.deepcopy(model_params['word_dict'])
     self.slot_dict = copy.deepcopy(model_params['slot_dict'])
     self.act_dict = copy.deepcopy(model_params['act_dict'])
     self.tag_set = copy.deepcopy(model_params['tag_set'])
     self.params = copy.deepcopy(model_params['params'])
-    self.inverse_tag_dict = {self.tag_set[k]:k for k in self.tag_set.keys()}
+    # self.inverse_tag_dict = {self.tag_set[k]:k for k in self.tag_set.keys()}
+    self.inverse_tag_dict = {v: k for k, v in self.tag_set.items()}
 
   def classify_intent(self, utterance, agent_action=None):
     """ input utterance is a string and  agent action is a dict with
@@ -282,7 +311,7 @@ class NLU(object):
         returns a dict containing both the raw sequence
         and the vectorized sentence """
     bookends = 'BOS ' + utterance + ' EOS'
-    tokens = bookends.lower().split(' ')
+    tokens = bookends.lower().split()
 
     vecs = np.zeros((len(tokens), len(self.word_dict)))
     for w_index, w in enumerate(tokens):
@@ -374,9 +403,10 @@ class NLU(object):
         diaact['inform_slots']['taskcomplete'] = 'PLACEHOLDER'
 
       # rule for request
-      if len(diaact['request_slots'])>0: diaact['dialogue_act'] = 'request'
-
-      if len(diaact['request_slots'])==0 and diaact['dialogue_act'] == 'request': diaact['dialogue_act'] = 'inform'
+      if len(diaact['request_slots'])>0:
+        diaact['dialogue_act'] = 'request'
+      if len(diaact['request_slots'])==0 and diaact['dialogue_act'] == 'request':
+        diaact['dialogue_act'] = 'inform'
 
 
   def diaact_penny_string(self, dia_act):

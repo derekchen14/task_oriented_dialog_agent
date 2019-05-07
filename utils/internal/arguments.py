@@ -8,8 +8,7 @@ def solicit_args():
   parser.add_argument('-d', '--dataset', choices=['babi', 'woz2', 'dstc2',
               'e2e/movies', 'ddq/movies', 'e2e/restaurants'], default='woz2',
               help='Choose the data to train on, defines labels', )
-  parser.add_argument('-m', '--model', default='match', choices=['rulebased', \
-              'basic', 'attention', 'transformer', 'ddq', 'bilstm', 'glad'],
+  parser.add_argument('-m', '--model', default='ddq',
               help='Choose the model type used',)
   parser.add_argument('--use-old-nlu', default=False, action='store_true',
               help='Use the old nlg model for the Belief Tracker module')

@@ -211,7 +211,7 @@ class SeqToSeq:
         result = {'cost': total_cost, 'accuracy': accuracy}
         return result
 
-class lstm(SeqToSeq):
+class LSTM_model(SeqToSeq):
     def __init__(self, input_size, hidden_size, output_size):
         self.model = {}
         # Recurrent weights: take x_t, h_{t-1}, and bias unit, and produce the 3 gates and the input to cell signal
